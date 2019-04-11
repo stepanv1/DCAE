@@ -60,7 +60,7 @@ def table(labels):
     unique, counts = np.unique(labels, return_counts=True)
     print('%d %d', np.asarray((unique, counts)).T)
     return {'unique':unique, 'counts':counts}
-
+###########################
 desc=["Y89Di", "Cd112Di", "In115Di",  "Pr141Di", "Nd142Di", "Nd143Di", "Nd144Di", "Nd145Di" , "Nd146Di",  "Sm147Di" ,   "Nd148Di"   ,   "Sm149Di"    ,  "Nd150Di"   ,   "Eu151Di" ,  "Sm152Di"   ,   "Eu153Di"   ,   "Sm154Di"   ,   "Gd155Di"   ,   "Gd156Di"    ,    "Gd158Di" , "Tb159Di"   ,   "Gd160Di"  ,"Dy161Di"   ,   "Dy162Di"   ,   "Dy163Di"  ,    "Dy164Di"   ,  "Ho165Di" , "Er166Di" , "Er167Di",   "Er168Di"  , "Tm169Di"  ,   "Er170Di"   ,   "Yb171Di"   ,  "Yb172Di",   "Yb173Di"    ,  "Yb174Di"  ,    "Lu175Di"  ,   "Yb176Di"]
 
 markers = ["89Y-CD45" ,  "112Cd-CD45RA"   ,   "115In-CD8"   ,    "141Pr-CD137"  ,   "142Nd-CD57"  , "143Nd-HLA_DR"   ,  "144Nd-CCR5"  , "145Nd-CD45RO" ,
@@ -68,7 +68,7 @@ markers = ["89Y-CD45" ,  "112Cd-CD45RA"   ,   "115In-CD8"   ,    "141Pr-CD137"  
            "155Gd-PD1"  ,  "156Nd-CXCR3" ,      "158Gd-CD134"  ,   "159Tb-CCR7"   ,  "160Gd-Tbet"   , "161Dy-CTLA4"  ,   "162Dy-CD27"   ,  "163Dy-BTLA",
            "164Dy-CCR4"   , "165Ho-CD101"  ,  "166Er-EOMES"  ,  "167Er-GATA3"  ,  "168Er-CD40L" ,    "169Tm-CD25"   ,   "170Er-CD3" ,   "171Yb-CXCR5" ,    "172Yb-CD38",
            "173Yb-GrnzB"   ,   "174Yb-CD4", "175Lu-Perforin"  ,  "176Yb-CD127"]
-
+#########################
 
 def naive_power(m, n):
     m = np.asarray(m)
