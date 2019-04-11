@@ -19,7 +19,6 @@ epsilon_std = 0.01
 
 anneal_rate = 0.0003
 min_temperature = 0.5
-
 tau = K.variable(5.0, name="temperature")
 x = Input(batch_shape=(batch_size, data_dim))
 h = Dense(256, activation='relu')(Dense(512, activation='relu')(x))
