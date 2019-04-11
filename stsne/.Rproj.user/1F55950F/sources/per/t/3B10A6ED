@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1532633975590.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "8|65|10|0|\n",
+    "hash" : "3978048894",
+    "id" : "3B10A6ED",
+    "lastKnownWriteTime" : 1532634723,
+    "last_content_update" : 1532634723990,
+    "path" : "/mnt/f/Brinkman group/current/Stepan/homeBCP/vptree_tests/testVptree.R",
+    "project_path" : null,
+    "properties" : {
+        "cursorPosition" : "0,0",
+        "scrollLine" : "0",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

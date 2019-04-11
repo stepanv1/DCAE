@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1532634171096.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "2F03501A",
+    "lastKnownWriteTime" : 1532572293,
+    "last_content_update" : 1532572293,
+    "path" : "/mnt/f/Brinkman group/current/Stepan/RobinsonFlowComparisonALL/Rscripts/run_methods/OutlierArtsetLevin32Merge.R",
+    "project_path" : null,
+    "properties" : {
+        "cursorPosition" : "44,8",
+        "scrollLine" : "0"
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

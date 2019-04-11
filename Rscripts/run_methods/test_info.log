@@ -1,0 +1,37 @@
+Theoretical separation information data frame>>>>>>>>>>>
+
+cluster nearestClust nearestSep farthestClust farthestSep medianSep fileName
+1	14	-0.1	9	0.09	-0.051	test_1
+2	6	-0.1	4	0.067	-0.068	test_1
+3	13	-0.1	10	0.118	-0.017	test_1
+4	13	-0.1	3	0.1	0.018	test_1
+5	13	-0.1	9	0.097	-0.017	test_1
+6	13	-0.1	4	0.088	-0.024	test_1
+7	8	-0.1	9	0.061	-0.073	test_1
+8	7	-0.1	3	0.09	-0.004	test_1
+9	13	-0.1	11	0.115	0.046	test_1
+10	13	-0.1	3	0.118	-0.004	test_1
+11	15	-0.1	9	0.115	-0.014	test_1
+12	5	-0.1	4	0.019	-0.049	test_1
+13	6	-0.1	11	0.058	-0.093	test_1
+14	1	-0.1	4	0.084	-0.06	test_1
+15	11	-0.1	10	0.026	-0.051	test_1
+
+Empirical separation information data frame>>>>>>>>>>>
+
+cluster nearestClust nearestSep farthestClust farthestSep medianSep fileName
+1	14	-0.092	9	0.1	-0.055	test_1
+2	12	-0.096	4	0.072	-0.065	test_1
+3	13	-0.096	10	0.129	-0.008	test_1
+4	13	-0.092	14	0.107	0.025	test_1
+5	12	-0.106	9	0.095	-0.015	test_1
+6	2	-0.095	4	0.089	-0.017	test_1
+7	8	-0.088	9	0.08	-0.063	test_1
+8	2	-0.089	3	0.098	-0.005	test_1
+9	13	-0.086	11	0.113	0.048	test_1
+10	13	-0.1	3	0.129	0.001	test_1
+11	15	-0.107	9	0.113	-0.007	test_1
+12	5	-0.106	4	0.028	-0.049	test_1
+13	10	-0.1	11	0.076	-0.085	test_1
+14	1	-0.092	4	0.107	-0.056	test_1
+15	11	-0.107	10	0.026	-0.048	test_1
