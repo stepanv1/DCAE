@@ -224,13 +224,20 @@ def singleInput(i):
 #weighted distances computed in L1 metric
      weight_di = [sum((np.abs(features[i] - nei[k_i,]) / (1 + cut_nei))) for k_i in rk]
      return [nei, cut_nei, weight_di, i]
-
+'''
 inputs = range(nrow)
 from joblib import Parallel, delayed
 from pathos import multiprocessing
 num_cores = multiprocessing.cpu_count()
 #pool = multiprocessing.Pool(num_cores)
 results = Parallel(n_jobs=6, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
+'''
+outfile = '/home/grinek/Documents/deep/BIOIBFO25L/data/data/Nowicka2017manhattanFeatures.npz'
+#np.savez_compressed(outfile, results=results)
+import hickle as hkl
+#hkl.dump(results, '/home/grinek/Documents/deep/BIOIBFO25L/data/data/test.hkl', mode='w')
+#resultsTMP = np.load(outfile)
+
 for i in range(nrow):
  neibALL[i,] = results[i][0]
 for i in range(nrow):
@@ -238,7 +245,7 @@ for i in range(nrow):
 for i in range(nrow):
     weight_distALL[i,] = results[i][2]
 del results
-
+np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
 np.sum(cut_neibF!=0)
 #plt.hist(cut_neibF[cut_neibF!=0],50)
 
