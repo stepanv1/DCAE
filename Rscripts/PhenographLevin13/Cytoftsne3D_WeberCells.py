@@ -245,7 +245,9 @@ for i in range(nrow):
 for i in range(nrow):
     weight_distALL[i,] = results[i][2]
 del results
-np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
+#np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
+npzfile = np.load(outfile)
+weight_distALL=npzfile['weight_distALL'];cut_neibF=npzfile['cut_neibF'];neibALL=npzfile['neibALL']
 np.sum(cut_neibF!=0)
 #plt.hist(cut_neibF[cut_neibF!=0],50)
 
