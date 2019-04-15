@@ -162,7 +162,9 @@ source_dir = "/home/grinek/Documents/deep/BIOIBFO25L/data/data/"
 data0 = np.genfromtxt(source_dir + "d_matrix.txt"
 , names=None, dtype=float, skip_header=1)
 aFrame = data0[:,1:] 
-
+# set negative values to zero
+aFrame[aFrame < 0] = 0
+ 
 patient_table = np.genfromtxt(source_dir + "label_patient.txt", names=None, dtype='str', skip_header=1, delimiter=" ", usecols = (1, 2, 3))
 lbls=patient_table[:,0]
 
@@ -177,6 +179,12 @@ outfile = '/home/grinek/Documents/deep/BIOIBFO25L/data/data/Nowicka2017manhattan
 npzfile = np.load(outfile)
 lbls=npzfile['lbls'];Idx=npzfile['Idx'];aFrame=npzfile['aFrame'];
 Dist =npzfile['Dist']
+#transform labels into natural numbers
+from sklearn import preprocessing
+le = preprocessing.LabelEncoder()
+le.fit(lbls)
+lbls = le.transform(lbls)
+
 #lbls2=npzfile['lbls'];Idx2=npzfile['Idx'];aFrame2=npzfile['aFrame'];
 #cutoff2=npzfile['cutoff']; Dist2 =npzfile['Dist']
 cutoff=np.repeat(0.1,24)
@@ -277,12 +285,6 @@ perp((weight_distALL[:,0:k3]),       nrow,     original_dim,   weight_neibALL,  
 np.shape(weight_neibALL)
 plt.plot(weight_neibALL[10,])
 
-#get neighbors with top k weights and normalize
-#[aFrame, neibF, cut_neibF, weight_neibF]
-
-#get neighbors with top k weights and normalize and rearrange
-#[aFrame, neibF, cut_neibF, weight_neibF]
-
 topk = np.argsort(weight_neibALL, axis=1)[:,-k:]
 topk= np.apply_along_axis(np.flip, 1, topk,0)
 
@@ -292,16 +294,6 @@ weight_neibF=sklearn.preprocessing.normalize(weight_neibF, axis=1, norm='l1')
 plt.plot(weight_neibF[5,]);plt.show()
 
 
-#pert = np.zeros((nrow*(r+v), original_dim))
-#def Perturbation(i):
-#    sample=np.stack([np.random.choice(neibF[i,:,j],  r+v, p=weight_neibF[i,:]) for j in range(original_dim)],axis=-1)
-#    return sample
-#resSample = Parallel(n_jobs=12, verbose=0, backend="threading")(delayed(Perturbation, check_pickle=False)(i) for i in inputs)
-#data = np.vstack(resSample)
-#del resSample
-
-#IDXtr= np.tile(np.concatenate((np.repeat(True,r),np.repeat(False,v))),  nrow)
-#IDXval= np.tile(np.concatenate((np.repeat(False,r),np.repeat(True,v))),  nrow)
 
 #[aFrame, neibF, cut_neibF, weight_neibF]
 #training set
@@ -386,7 +378,7 @@ shuffle=True,
 callbacks=[CustomMetrics(),  tensorboard, earlyStopping])
 stop = timeit.default_timer()
 vae.save('WEBERCELLS3D.h5')
-
+vae.load('WEBERCELLS3D.h5')
 
 
 
@@ -416,7 +408,7 @@ x_test_vae = vae.predict([sourceTr, neibF_Tr, cut_neibF_Tr,   weight_neibF])
 len(x_test_vae)
 #np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_vaeMoeWeights.txt', x_test_vae)
 #x_test_vae=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_ae001Pert.txt.txt')
-x_test_enc = encoder.predict([sourceTr, neibF_Tr, cut_neibF_Tr, sigmaTsne, weight_neibF])
+x_test_enc = encoder.predict([sourceTr, neibF_Tr, cut_neibF_Tr,  weight_neibF])
 
 cl=4;bw=0.02
 fig1 = plt.figure();
