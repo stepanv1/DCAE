@@ -157,6 +157,10 @@ perp=k
 k3=k*3
 ID='Nowicka2017'
 '''
+data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
+https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
+'''
+'''
 source_dir = "/home/grinek/Documents/deep/BIOIBFO25L/data/data/"
 #file_list = glob.glob(source_dir + '/*.txt')
 data0 = np.genfromtxt(source_dir + "d_matrix.txt"
@@ -241,10 +245,6 @@ num_cores = multiprocessing.cpu_count()
 results = Parallel(n_jobs=6, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
 '''
 outfile = '/home/grinek/Documents/deep/BIOIBFO25L/data/data/Nowicka2017manhattanFeatures.npz'
-#np.savez_compressed(outfile, results=results)
-import hickle as hkl
-#hkl.dump(results, '/home/grinek/Documents/deep/BIOIBFO25L/data/data/test.hkl', mode='w')
-#resultsTMP = np.load(outfile)
 
 for i in range(nrow):
  neibALL[i,] = results[i][0]
@@ -377,7 +377,7 @@ epochs = epochs,
 shuffle=True,
 callbacks=[CustomMetrics(),  tensorboard, earlyStopping])
 stop = timeit.default_timer()
-vae.save('WEBERCELLS3D.h5')
+#vae.save('WEBERCELLS3D.h5')
 vae.load('WEBERCELLS3D.h5')
 
 
