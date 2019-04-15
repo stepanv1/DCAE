@@ -492,12 +492,12 @@ plot([Scatter3d(x=x,y=y,z=z,
         colorscale='Viridis',   # choose a colorscale
         opacity=0.5,
             ),
-                text=popnames,
+                text=patient_table[:,0],
                 hoverinfo = 'text')])
 
 
 
-cl=9
+cl=7
 plot([Scatter3d(x=x,y=y,z=z,
                 mode='markers',
         marker=dict(
@@ -506,7 +506,7 @@ plot([Scatter3d(x=x,y=y,z=z,
         colorscale='Viridis',   # choose a colorscale
         opacity=0.5,
             ),
-                text=popnames,
+                text=patient_table[:,0],
                 hoverinfo = 'text')])
 
 
@@ -520,7 +520,7 @@ plot([Scatter(x=x,y=y,
         colorscale='Viridis',   # choose a colorscale
         opacity=1,
             ),
-                text=popnames,
+                text=patient_table[:,0],
                 hoverinfo = 'text')])
 
 
