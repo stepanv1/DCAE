@@ -483,7 +483,7 @@ nrow=np.shape(x_test_enc)[0]
 x=x_test_enc[:,0]
 y=x_test_enc[:,1]
 z=x_test_enc[:,2]
-
+#analog of tsne plot fig15 from Nowizka 2015, also see fig21
 plot([Scatter3d(x=x,y=y,z=z,
                 mode='markers',
         marker=dict(
