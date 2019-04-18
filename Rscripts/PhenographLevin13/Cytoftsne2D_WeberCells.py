@@ -184,8 +184,8 @@ npzfile = np.load(outfile)
 lbls=npzfile['lbls'];Idx=npzfile['Idx'];aFrame=npzfile['aFrame'];
 Dist =npzfile['Dist']
 #transform labels into natural numbers
-patient_table = lbls
 from sklearn import preprocessing
+patient_table = lbls
 le = preprocessing.LabelEncoder()
 le.fit(lbls)
 lbls = le.transform(lbls)
@@ -195,7 +195,7 @@ lbls = le.transform(lbls)
 cutoff=np.repeat(0.1,24)
 batch_size = 10
 original_dim = 24
-latent_dim = 3
+latent_dim = 2
 intermediate_dim = 12
 nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
 epochs = 40
@@ -247,13 +247,13 @@ results = Parallel(n_jobs=6, verbose=0, backend="threading")(delayed(singleInput
 '''
 outfile = '/home/grinek/Documents/deep/BIOIBFO25L/data/data/Nowicka2017manhattanFeatures.npz'
 
-for i in range(nrow):
- neibALL[i,] = results[i][0]
-for i in range(nrow):
-    cut_neibF[i,] = results[i][1]
-for i in range(nrow):
+#for i in range(nrow):
+# neibALL[i,] = results[i][0]
+#for i in range(nrow):
+#    cut_neibF[i,] = results[i][1]
+#for i in range(nrow):
     weight_distALL[i,] = results[i][2]
-del results
+#del results
 #np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
 npzfile = np.load(outfile)
 weight_distALL=npzfile['weight_distALL'];cut_neibF=npzfile['cut_neibF'];neibALL=npzfile['neibALL']
@@ -378,8 +378,8 @@ epochs = epochs,
 shuffle=True,
 callbacks=[CustomMetrics(),  tensorboard, earlyStopping])
 stop = timeit.default_timer()
-#vae.save('WEBERCELLS3D.h5')
-vae.load('WEBERCELLS3D.h5')
+vae.save('WEBERCELLS2D.h5')
+vae.load('WEBERCELLS2D.h5')
 
 
 
@@ -469,11 +469,11 @@ print(np.mean( np.array([np.mean(np.array(connClean)[lbls==cl]) for cl in unique
 print(np.mean( np.array([np.mean(np.array(connClean2)[lbls==cl]) for cl in unique0] ) ))
 
 
-#plotly in 3d
+#plotly in 2d
 
 from plotly import __version__
 from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
-from plotly.graph_objs import Scatter3d, Figure, Layout, Scatter
+from plotly.graph_objs import Scatter, Figure, Layout
 
 #np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt', x_test_enc)
 #x_test_enc=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt')
@@ -483,9 +483,9 @@ nrow=np.shape(x_test_enc)[0]
 
 x=x_test_enc[:,0]
 y=x_test_enc[:,1]
-z=x_test_enc[:,2]
+#z=x_test_enc[:,2]
 #analog of tsne plot fig15 from Nowizka 2015, also see fig21
-plot([Scatter3d(x=x,y=y,z=z,
+plot([Scatter(x=x,y=y,
                 mode='markers',
         marker=dict(
         size=1,
@@ -499,16 +499,6 @@ plot([Scatter3d(x=x,y=y,z=z,
 
 
 cl=7
-plot([Scatter3d(x=x,y=y,z=z,
-                mode='markers',
-        marker=dict(
-        size=[2 if x==cl else 0.5 for x in lbls],
-        color = ['red' if x==cl else 'green' for x in lbls],                # set color to an array/list of desired values
-        colorscale='Viridis',   # choose a colorscale
-        opacity=0.5,
-            ),
-                text=patient_table[:,0],
-                hoverinfo = 'text')])
 
 
 x=x_test_enc[:,0]
@@ -521,501 +511,27 @@ plot([Scatter(x=x,y=y,
         colorscale='Viridis',   # choose a colorscale
         opacity=1,
             ),
-                text=patient_table[:,0],
+                text=patient_table,
                 hoverinfo = 'text')])
 
 
 
 #fig03 = plt.figure();
 #plt.plot(history.history['pen_zero']);
-print(vae.summary())
 
-# build a model to project inputs on the latent space
-#encoder = Model([x, neib, cut_neib], encoded2)
-encoder = Model([x, neib, cut_neib, weight_neib], encoded2)
-print(encoder.summary())
 
-# predict and extract latent variables
-
-#gen_pred = generatorNN(aFrame, aFrame, Idx, Dists, batch_size=batch_size,  k_=k, shuffle = False)
-x_test_vae = vae.predict([aFrame, neibF, cut_neibF, weight_neibF])
-len(x_test_vae)
-np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_ae001Pert.txt', x_test_vae)
-#x_test_vae=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_ae001Pert.txt.txt')
-x_test_enc = encoder.predict([aFrame, neibF, cut_neibF, weight_neibF])
-#len(x_test_enc)
-#3,8,13
-
-cl=4;bw=0.02
-fig1 = plt.figure();
-ax = sns.violinplot(data= x_test_vae[lbls==cl , :], bw =bw);
-plt.plot(cutoff)
-plt.show();
-#ax.set_xticklabels(rs[cl-1, ]);
-fig2 = plt.figure();
-plt.plot(cutoff)
-bx = sns.violinplot(data= aFrame[lbls==cl , :], bw =bw);
-plt.show();
-wghts=sum([np.sum(np.abs(x)) for x in ae.get_weights()])
-wghts
-#l1_penalty_ae=1.0e-5/wghts
-l1_penalty_ae=0
-'''this is our input placeholder'''
-x = Input(shape=(original_dim,))
-''' "encoded" is the encoded representation of the input'''
-encoded1 = Dense(intermediate_dim, activation='selu')(x)
-
-encoded2 = Dense(latent_dim, activation='selu')(encoded1)
-
-x_decoded3 = Dense(intermediate_dim, activation='selu')(encoded2)
-
-x_decoded4 = Dense(original_dim, activation='relu')(x_decoded3)
-ae = Model([x, neib, cut_neib, weight_neib], x_decoded4)
-#ae = Model([x, neib, cut_neib], x_decoded4)
-ae.summary()
-
-ae.set_weights(trained_weight)
-#ae.get_weights()
-
-''' this model maps an input to its reconstruction'''
-
-def mean_square_error_weighted(y_true, y_pred):
-    return K.mean(K.square(y_pred  - y_true/ (cut_neib + 1)), axis=-1)
-    #return K.mean(K.square((y_pred - y_true)/(cut_neib+1)) , axis=-1)
-
-def mean_square_error_weightedNN(y_true, y_pred):
-    dst = 1/k*original_dim *K.mean(K.square((neib / (tf.expand_dims(cut_neib, 1) + 1) - K.expand_dims(y_pred, 1)) ), axis=-1)
-    #dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1)) / (tf.expand_dims(cut_neib,1) + 1) ), axis=-1)
-    ww = weight_neib
-    return K.dot(dst, K.transpose(ww))
-
-def ae_loss(x, x_decoded_mean):
-    #msew = original_dim * losses.mean_squared_error(x, x_decoded_mean)
-    #msew = original_dim * mean_square_error_weighted(x, x_decoded_mean)
-    msewNN = mean_square_error_weightedNN(x, x_decoded_mean)
-    #penalty_zero = pen_zero(x_decoded_mean, cut_neib)
-    #return K.mean(msew)
-    #return K.mean(0.1*msewNN+msew)# +  0.001*penalty_zero)
-    return K.mean(msewNN)  # +  0.001*penalty_zero)
-
-val_loss = ae_loss
-mse=keras.losses.mean_squared_error
-
-learning_rate = 1e-3
-earlyStopping=keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0.000001, patience=3, verbose=0, mode='min')
-adam = Adam(lr=learning_rate, epsilon=0.001, decay = learning_rate / epochs)
-
-#ae.compile(optimizer=adam, loss=ae_loss)
-ae.compile(optimizer=adam, loss=ae_loss, metrics=[mean_square_error_weighted, mse])
-#ae.get_weights()
-
-
-
-
-checkpoint = ModelCheckpoint('.', monitor='ae_loss', verbose=1, save_best_only=True, mode='max')
-start = timeit.default_timer()
-#b_sizes = range(10,110,10); i=9
-#for i in range(10) :
-
-start = timeit.default_timer()
-history=ae.fit([sourceTr, neibF_Tr, cut_neibF_Tr, weight_neibF_Tr], targetTr,
-               validation_data=([sourceVal, neibF_Val, cut_neibF_Val, weight_neibF_Val], targetVal ),
-batch_size=batch_size,
-epochs = epochs,
-shuffle=True,
-callbacks=[CustomMetrics(), tensorboard, earlyStopping])
-stop = timeit.default_timer()
-ae.save('Wang0_modelnol1.h5')
-
-tr_weights = ae.get_weights()
-
-
-from keras.models import load_model
-#ae=load_model('Wang0_modell1.h5', custom_objects={'mean_square_error_weighted':mean_square_error_weighted, 'ae_loss':
-#  ae_loss, 'mean_square_error_weightedNN' : mean_square_error_weightedNN})
-#ae = load_model('Wang0_modell1.h5')
-
-print(stop - start)
-fig0 = plt.figure();
-plt.plot(history.history['loss']);
-fig01 = plt.figure();
-#plt.plot(history.history['mean_square_error_weightedNN']);
-fig02 = plt.figure();
-plt.plot(history.history['mean_square_error_weighted']);
-fig02_1 = plt.figure();
-plt.plot(history.history['val_loss']);
-
-#fig03 = plt.figure();
-#plt.plot(history.history['pen_zero']);
-print(ae.summary())
-
-# build a model to project inputs on the latent space
-#encoder = Model([x, neib, cut_neib], encoded2)
-encoder = Model([x, neib, cut_neib, weight_neib], encoded2)
-print(encoder.summary())
-
-# predict and extract latent variables
-
-#gen_pred = generatorNN(aFrame, aFrame, Idx, Dists, batch_size=batch_size,  k_=k, shuffle = False)
-x_test_vae = ae.predict([aFrame, neibF, cut_neibF, weight_neibF])
-len(x_test_vae)
-np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_ae001Pert.txt', x_test_vae)
-#x_test_vae=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_ae001Pert.txt.txt')
-x_test_enc = encoder.predict([aFrame, neibF, cut_neibF, weight_neibF])
-#len(x_test_enc)
-#3,8,13
-
-cl=4;bw=0.02
-fig1 = plt.figure();
-ax = sns.violinplot(data= x_test_vae[lbls==cl , :], bw =bw);
-plt.plot(cutoff)
-plt.show();
-#ax.set_xticklabels(rs[cl-1, ]);
-fig2 = plt.figure();
-plt.plot(cutoff)
-bx = sns.violinplot(data= aFrame[lbls==cl , :], bw =bw);
-plt.show();
-
-cl=1
-fig4= plt.figure();
-b0=sns.violinplot(data= x_test_vae[lbls==cl , :], bw =bw, color='skyblue');
-b0=sns.violinplot(data= aFrame[lbls==cl , :], bw =bw, color='black');
-#b0.set_xticklabels(rs[cl-1, ]);
-fig5= plt.figure();
-b0=sns.violinplot(data= x_test_vae[lbls==cl , :], bw =bw, color='skyblue');
-b0.set_xticklabels(np.round(cutoff,2));
-plt.show()
-
-unique0, counts0 = np.unique(lbls, return_counts=True)
-print('%d %d', np.asarray((unique0, counts0)).T)
-num_clus=len(counts0)
-
-from scipy import stats
-
-conn = [sum((stats.itemfreq(lbls[Idx[x,:k]])[:,1] / k)**2) for x in range(len(aFrame)) ]
-
-plt.figure();plt.hist(conn,50);plt.show()
-
-
-nb=find_neighbors(x_test_vae, k3, metric='manhattan', cores=12)
-
-
-connClean = [sum((stats.itemfreq(lbls[nb['idx'][x,:k]])[:,1] / k)**2) for x in range(len(aFrame)) ]
-plt.figure();plt.hist(connClean,50);plt.show()
-
-scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
-scaler.fit_transform(aFrame)
-nb2=find_neighbors(x_test_enc, k, metric='manhattan', cores=12)
-connClean2 = [sum((stats.itemfreq(lbls[nb2['idx'][x,:]])[:,1] / k)**2) for x in range(len(aFrame)) ]
-plt.figure();plt.hist(connClean2,50);plt.show()
-#print(np.mean(connNoNoise))
-
-for cl in unique0 :
-#print(np.mean(np.array(connNoNoise)[lbls==cl]))
-    print(cl)
-    print(np.mean(np.array(conn)[lbls==cl]))
-    print(np.mean(np.array(connClean)[lbls==cl]))
-    print(np.mean(np.array(connClean)[lbls==cl])-np.mean(np.array(conn)[lbls==cl]))
-    print(np.mean(np.array(connClean2)[lbls == cl]) - np.mean(np.array(conn)[lbls == cl ]))
-
-print(np.mean( np.array([np.mean(np.array(conn)[lbls==cl]) for cl in unique0] ) ))
-print(np.mean( np.array([np.mean(np.array(connClean)[lbls==cl]) for cl in unique0] ) ))
-print(np.mean( np.array([np.mean(np.array(connClean2)[lbls==cl]) for cl in unique0] ) ))
-
-
-
-#second run
-for iii in range(10):
-    print('run number: ', iii)
-    IdxF_old=IdxF
-    #del nb2
-    IdxF = nb['idx']
-    del nb
-    diffNeib= IdxF - IdxF_old
-    print('number of first neighbors didn\'t change:', sum(diffNeib[:,0]==0) )
-
-    features=aFrame
-
-    nrow = np.shape(features)[0]
-    b=0
-    neibALL = np.zeros((nrow, k3, original_dim))
-    cnz = np.zeros((original_dim))
-    cut_neibF = np.zeros((nrow, original_dim))
-    weight_distALL = np.zeros((nrow, k3))
-    weight_neibALL = np.zeros((nrow, k3))
-    rk=range(k3)
-
-    sigmaBer = np.sqrt(cutoff*(1-cutoff))
-
-    inputs = range(nrow)
-    from joblib import Parallel, delayed
-    from pathos import multiprocessing
-    num_cores = multiprocessing.cpu_count()
-    #pool = multiprocessing.Pool(num_cores, maxtasksperchild=1000)
-    results = Parallel(n_jobs=12, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
-    for i in range(nrow):
-     neibALL[i,] = results[i][0]
-    for i in range(nrow):
-        cut_neibF[i,] = results[i][1]
-    for i in range(nrow):
-        weight_distALL[i,] = results[i][2]
-    del results
-
-    #compute weights
-
-    perp((weight_distALL[:,0:k3]),   nrow,     38,   weight_neibALL,          k,          k*3,        12)
-    #(          double* dist,           int N,    int D,  double* P,     double perplexity, int K, int num_threads)
-    np.shape(weight_neibALL)
-    #plt.plot(weight_neibALL[5,])
-
-    #get neighbors with top k weights and normalize
-    #[aFrame, neibF, cut_neibF, weight_neibF]
-
-    topk = np.argsort(weight_neibALL, axis=1)[:,-k:]
-    topk= np.apply_along_axis(np.flip, 1, topk,0)
-
-    weight_neibF=np.array([ weight_neibALL[i, topk[i]] for i in range(len(topk))])
-    neibF=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
-    weight_neibF=sklearn.preprocessing.normalize(weight_neibF, axis=1, norm='l1')
-    #plt.plot(weight_neibF[200,]);plt.show()
-
-
-    pert = np.zeros((nrow*(r+v), original_dim))
-    resSample = Parallel(n_jobs=12, verbose=0, backend="threading")(delayed(Perturbation, check_pickle=False)(i) for i in inputs)
-    data = np.vstack(resSample)
-    del resSample
-
-    IDXtr= np.tile(np.concatenate((np.repeat(True,r),np.repeat(False,v))),  nrow)
-    IDXval= np.tile(np.concatenate((np.repeat(False,r),np.repeat(True,v))),  nrow)
-
-    #[aFrame, neibF, cut_neibF, weight_neibF]
-    #training set
-    targetTr = np.repeat(aFrame, r, axis=0)
-    targetTr = np.vstack((aFrame, targetTr))
-    neibF_Tr = np.repeat(neibF, r, axis =0)
-    neibF_Tr = np.vstack((neibF, neibF_Tr))
-    cut_neibF_Tr = np.repeat(cut_neibF, r, axis =0)
-    cut_neibF_Tr = np.vstack((cut_neibF, cut_neibF_Tr))
-    weight_neibF_Tr = np.repeat(weight_neibF, r, axis =0)
-    weight_neibF_Tr = np.vstack((weight_neibF, weight_neibF_Tr))
-    sourceTr = np.vstack((aFrame, data[IDXtr, ]))
-    #validation set
-    targetVal = np.repeat(aFrame, v, axis=0)
-    neibF_Val = np.repeat(neibF, v, axis =0)
-    cut_neibF_Val = np.repeat(cut_neibF, v, axis =0)
-    weight_neibF_Val = np.repeat(weight_neibF, v, axis =0)
-    sourceVal = data[IDXval, ]
-    #[sourceTr, neibF_Tr, cut_neibF_Tr, weight_neibF_Tr], targetTr
-    #[sourceVal, neibF_Val, cut_neibF_Val, weight_neibF_Val], targetVal
-
-    #regulariztion, not feed forward
-
-    '''this is our input placeholder'''
-    x = Input(shape=(original_dim,))
-    ''' "encoded" is the encoded representation of the input'''
-    encoded1 = Dense(intermediate_dim, activation='selu')(x)
-
-    encoded2 = Dense(latent_dim, activation='selu')(encoded1)
-
-    x_decoded3 = Dense(intermediate_dim, activation='selu')(encoded2)
-
-    x_decoded4 = Dense(original_dim, activation='relu')(x_decoded3)
-    ae = Model([x, neib, cut_neib, weight_neib], x_decoded4)
-    # ae = Model([x, neib, cut_neib], x_decoded4)
-    ae.summary()
-
-    ae.set_weights(trained_weight)
-
-
-    #ae.get_weights()
-
-    ''' this model maps an input to its reconstruction'''
-
-
-    learning_rate = 1e-3
-    earlyStopping=keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0.000001, patience=3, verbose=0, mode='min')
-    adam = Adam(lr=learning_rate, epsilon=0.001, decay = learning_rate / epochs)
-
-    #ae.compile(optimizer=adam, loss=ae_loss)
-    ae.compile(optimizer=adam, loss=ae_loss, metrics=[mean_square_error_weighted, mse])
-    #ae.get_weights()
-
-    #checkpoint = ModelCheckpoint('.', monitor='ae_loss', verbose=1, save_best_only=True, mode='max')
-    start = timeit.default_timer()
-    #b_sizes = range(10,110,10); i=9
-    #for i in range(10) :
-
-    start = timeit.default_timer()
-    history = ae.fit([sourceTr, neibF_Tr, cut_neibF_Tr, weight_neibF_Tr], targetTr,
-                     validation_data=([sourceVal, neibF_Val, cut_neibF_Val, weight_neibF_Val], targetVal),
-                     batch_size=batch_size,
-                     epochs=epochs,
-                     shuffle=True,
-                     callbacks=[CustomMetrics(), tensorboard, earlyStopping])
-
-    stop = timeit.default_timer()
-    ae.save('Wang0_modelPert2ndrun.h5')
-    #tr_weights = ae.get_weights()
-    from keras.models import load_model
-    #ae=load_model('Wang0_modelPert2ndrun.h5', custom_objects={'mean_square_error_weighted':mean_square_error_weighted, 'ae_loss':
-    #    ae_loss, 'mean_square_error_weightedNN' : mean_square_error_weightedNN})
-    #ae = load_model('Wang0_modelPert2ndrun.h5')
-    print(stop - start)
-    '''
-    fig0 = plt.figure();
-    plt.plot(history.history['loss']);
-    fig01 = plt.figure();
-    plt.plot(history.history['mean_square_error_weightedNN']);
-    fig02 = plt.figure();
-    plt.plot(history.history['mean_square_error_weighted']);
-    fig02_1 = plt.figure();
-    plt.plot(history.history['val_loss']);
-    plt.show()
-    #fig03 = plt.figure();
-    #plt.plot(history.history['pen_zero']);
-    print(ae.summary())
-    '''
-    # build a model to project inputs on the latent space
-    #encoder = Model([x, neib, cut_neib], encoded2)
-
-    #print(encoder.summary())
-
-    # predict and extract latent variables
-
-    #gen_pred = generatorNN(aFrame, aFrame, Idx, Dists, batch_size=batch_size,  k_=k, shuffle = False)
-    x_test_vae = ae.predict([aFrame, neibF, cut_neibF, weight_neibF])
-    len(x_test_vae)
-    np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_ae001Pert2ndrun.txt', x_test_vae)
-    #x_test_vae=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_ae001Pert2ndrun.txt')
-    '''
-    x_test_enc = encoder.predict([aFrame, neibF, cut_neibF, weight_neibF])
-    #len(x_test_enc)
-    #3,8,13
-    cl=13;bw=0.02
-    fig1 = plt.figure();
-    ax = sns.violinplot(data= x_test_vae[lbls==cl , :], bw =bw);
-    plt.show();
-    #ax.set_xticklabels(rs[cl-1, ]);
-    fig2 = plt.figure();
-    bx = sns.violinplot(data= aFrame[lbls==cl , :], bw =bw);
-    plt.show();
-    
-    cl=1
-    fig4= plt.figure();
-    b0=sns.violinplot(data= x_test_vae[lbls==cl , :], bw =bw, color='skyblue');
-    b0=sns.violinplot(data= aFrame[lbls==cl , :], bw =bw, color='black');
-    #b0.set_xticklabels(rs[cl-1, ]);
-    fig5= plt.figure();
-    b0=sns.violinplot(data= x_test_vae[lbls==cl , :], bw =bw, color='skyblue');
-    b0.set_xticklabels(np.round(cutoff,2));
-    plt.show()
-    
-    unique0, counts0 = np.unique(lbls, return_counts=True)
-    print('%d %d', np.asarray((unique0, counts0)).T)
-    num_clus=len(counts0)
-    
-    from scipy import stats
-    
-    #conn = [sum((stats.itemfreq(lbls[Idx[x,:k]])[:,1] / k)**2) for x in range(len(aFrame)) ]
-    plt.figure();plt.hist(conn,50);plt.show()
-    '''
-
-    nb=find_neighbors(x_test_vae, k3, metric='manhattan', cores=12)
-
-connClean = [sum((stats.itemfreq(lbls[nb['idx'][x,:k]])[:,1] / k)**2) for x in range(len(aFrame)) ]
-plt.figure();plt.hist(connClean,50);plt.show()
-
-encoder = Model([x, neib, cut_neib, weight_neib], encoded2)
-x_test_enc = encoder.predict([aFrame, neibF, cut_neibF, weight_neibF])
-encoder2 = Model([x, neib, cut_neib, weight_neib], x_decoded3)
-x_test_enc2 = encoder2.predict([aFrame, neibF, cut_neibF, weight_neibF])
-scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
-scaler.fit_transform(aFrame)
-nb2=find_neighbors(x_test_enc, k, metric='manhattan', cores=12)
-connClean2 = [sum((stats.itemfreq(lbls[nb2['idx'][x,:]])[:,1] / k)**2) for x in range(len(aFrame)) ]
-plt.figure();plt.hist(connClean2,50);plt.show()
-nb3=find_neighbors(x_test_enc2, k, metric='manhattan', cores=12)
-connClean3 = [sum((stats.itemfreq(lbls[nb3['idx'][x,:]])[:,1] / k)**2) for x in range(len(aFrame)) ]
-plt.figure();plt.hist(connClean3,50);plt.show()
-#print(np.mean(connNoNoise))
-
-for cl in unique0 :
-#print(np.mean(np.array(connNoNoise)[lbls==cl]))
-    print(cl)
-    print(np.mean(np.array(conn)[lbls==cl]))
-    print(np.mean(np.array(connClean)[lbls==cl]))
-    print(np.mean(np.array(connClean)[lbls==cl])-np.mean(np.array(conn)[lbls==cl]))
-    print(np.mean(np.array(connClean2)[lbls == cl]) - np.mean(np.array(conn)[lbls == cl ]))
-    print(np.mean(np.array(connClean3)[lbls == cl]) - np.mean(np.array(conn)[lbls == cl ]))
-
-print(np.mean( np.array([np.mean(np.array(conn)[lbls==cl]) for cl in unique0] ) ))
-print(np.mean( np.array([np.mean(np.array(connClean)[lbls==cl]) for cl in unique0] ) ))
-print(np.mean( np.array([np.mean(np.array(connClean2)[lbls==cl]) for cl in unique0] ) ))
-print(np.mean( np.array([np.mean(np.array(connClean3)[lbls==cl]) for cl in unique0] ) ))
-
-
-
-
-
-#visualize in 3d
-from plotly import __version__
-from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
-from plotly.graph_objs import Scatter3d, Figure, Layout
-
-#np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt', x_test_enc)
-x_test_enc=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt')
-
-nrow=np.shape(x_test_enc)[0]
-subsIdx=np.random.choice(nrow,  500000)
-
-x=x_test_enc[:,0][subsIdx,]
-y=x_test_enc[:,1][subsIdx,]
-z=x_test_enc[:,2][subsIdx,]
-
-
-
-cl=9
-
-col_dict={'FL':'red', 'PrLN':'blue', 'rLN':'green'}
-
-plot([Scatter3d(x=x,y=y,z=z,
-                mode='markers',
-        marker=dict(
-        size=0.5,
-        color = np.vectorize(col_dict.get)(lbls)[subsIdx],                # set color to an array/list of desired values
-        colorscale='Viridis',   # choose a colorscale
-        opacity=0.9,
-            ),
-                text=lbls[subsIdx],
-                hoverinfo = 'text')])
-plt.figure()
-plt.scatter(x=x,y=y, alpha=0.1, s=0.1, c = np.vectorize(col_dict.get)(lbls))
-plt.show()
-
-
-
-cl=9
-plot([Scatter3d(x=x,y=y,z=z,
-                mode='markers',
-        marker=dict(
-        size=[2 if x==cl else 0.5 for x in lbls],
-        color = ['red' if x==cl else 'green' for x in lbls],                # set color to an array/list of desired values
-        colorscale='Viridis',   # choose a colorscale
-        opacity=0.5,
-            ),
-                text=popnames,
-                hoverinfo = 'text')])
 
 
 from MulticoreTSNE import MulticoreTSNE as TSNE
 
-tsne = TSNE(n_jobs=12,  n_iter=5000, metric='manhattan')
+tsne = TSNE(n_jobs=6,  n_iter=5000, metric='manhattan')
 Y0 = tsne.fit_transform(aFrame)
-tsne = TSNE(n_jobs=12,  n_iter=5000)
-Y1 = tsne.fit_transform(x_test_vae, metric='manhattan')
-tsne = TSNE(n_jobs=12,  n_iter=5000)
-Y2 = tsne.fit_transform(x_test_enc, metric='manhattan')
-np.savez('otsnePertnewlbls.npzMulti', Y0=Y0, Y1=Y1)
+np.savez('tsneWeber2d', Y0=Y0)
+
+from matplotlib.pyplot import cm
+#color=cm.tab20c(np.linspace(0,1,16))
+color =  cm.tab20( (4./3*np.arange(24*3/4)).astype(int) )
+color=np.random.permutation(color)
 
 
 fig, ax = plt.subplots()
