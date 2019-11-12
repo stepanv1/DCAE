@@ -51,6 +51,23 @@ from keras import regularizers
 from keras.callbacks import TensorBoard
 #from GetBest import GetBest
 
+
+
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+  try:
+    # Currently, memory growth needs to be the same across GPUs
+    for gpu in gpus:
+      tf.config.experimental.set_memory_growth(gpu, True)
+    logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+    print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+  except RuntimeError as e:
+    # Memory growth must be set before GPUs have been initialized
+    print(e)
+
+
+
+
 tensorboard = TensorBoard(log_dir='./logs',  histogram_freq=0,
                           write_graph=True, write_images=True)
 
@@ -160,8 +177,8 @@ ID='Nowicka2017'
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
 '''
-'''
-source_dir = "/home/grinek/Documents/deep/BIOIBFO25L/data/data/"
+
+source_dir = "/home/grines02/PycharmProjects/BIOIBFO25L/data/data/"
 #file_list = glob.glob(source_dir + '/*.txt')
 data0 = np.genfromtxt(source_dir + "d_matrix.txt"
 , names=None, dtype=float, skip_header=1)
@@ -173,13 +190,16 @@ patient_table = np.genfromtxt(source_dir + "label_patient.txt", names=None, dtyp
 lbls=patient_table[:,0]
 
 len(lbls)
+'''
 scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
 scaler.fit_transform(aFrame)
-nb=find_neighbors(aFrame, k3, metric='manhattan', cores=6)
+nb=find_neighbors(aFrame, k3, metric='manhattan', cores=12)
 Idx = nb['idx']; Dist = nb['dist']
 '''
-outfile = '/home/grinek/Documents/deep/BIOIBFO25L/data/data/Nowicka2017manhattan.npz'
-#np.savez(outfile, Idx=Idx, aFrame=aFrame, lbls=lbls,  Dist=Dist)
+outfile = '/home/grines02/PycharmProjects/BIOIBFO25L/data/data/Nowicka2017manhattan.npz'
+'''
+np.savez(outfile, Idx=Idx, aFrame=aFrame, lbls=lbls,  Dist=Dist)
+'''
 npzfile = np.load(outfile)
 lbls=npzfile['lbls'];Idx=npzfile['Idx'];aFrame=npzfile['aFrame'];
 Dist =npzfile['Dist']
@@ -219,7 +239,9 @@ weight_distALL = np.zeros((nrow, k3))
 weight_neibALL = np.zeros((nrow, k3))
 rk=range(k3)
 
+
 print('compute training sources and targets...')
+'''
 from scipy.stats import binom
 sigmaBer = np.sqrt(cutoff*(1-cutoff)/k)
 #precompute pmf for all cutoffs at given k
@@ -237,24 +259,25 @@ def singleInput(i):
 #weighted distances computed in L1 metric
      weight_di = [sum((np.abs(features[i] - nei[k_i,]) / (1 + cut_nei))) for k_i in rk]
      return [nei, cut_nei, weight_di, i]
-'''
+
 inputs = range(nrow)
 from joblib import Parallel, delayed
 from pathos import multiprocessing
 num_cores = multiprocessing.cpu_count()
 #pool = multiprocessing.Pool(num_cores)
-results = Parallel(n_jobs=6, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
+results = Parallel(n_jobs=12, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
 '''
-outfile = '/home/grinek/Documents/deep/BIOIBFO25L/data/data/Nowicka2017manhattanFeatures.npz'
-
-#for i in range(nrow):
-# neibALL[i,] = results[i][0]
-#for i in range(nrow):
-#    cut_neibF[i,] = results[i][1]
-#for i in range(nrow):
+outfile = '/home/grines02/PycharmProjects/BIOIBFO25L/data/data/Nowicka2017manhattanFeatures.npz'
+'''
+for i in range(nrow):
+ neibALL[i,] = results[i][0]
+for i in range(nrow):
+    cut_neibF[i,] = results[i][1]
+for i in range(nrow):
     weight_distALL[i,] = results[i][2]
-#del results
-#np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
+del results
+np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
+'''
 npzfile = np.load(outfile)
 weight_distALL=npzfile['weight_distALL'];cut_neibF=npzfile['cut_neibF'];neibALL=npzfile['neibALL']
 np.sum(cut_neibF!=0)
@@ -271,7 +294,7 @@ from numpy.ctypeslib import ndpointer
 #_ctypes.dlclose(lib._handle )
 #del perp
 
-lib = ctypes.cdll.LoadLibrary("/home/grinek/bin/Clibs/perpLIB_A.so")
+lib = ctypes.cdll.LoadLibrary("/home/grines02/PycharmProjects/BIOIBFO25L/Rscripts/bin/perp.so")
 perp = lib.Perplexity
 perp.restype = None
 perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
@@ -281,7 +304,7 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 
 #razobratsya s nulem (index of 0-nearest neightbr )!!!!
 #here si the fifference with equlid -no sqrt
-perp((weight_distALL[:,0:k3]),       nrow,     original_dim,   weight_neibALL,          k,          k*3,        6)
+perp((weight_distALL[:,0:k3]),       nrow,     original_dim,   weight_neibALL,          k,          k*3,        12)
       #(          double* dist,      int N,    int D,            double* P,     double perplexity, int K, int num_threads)
 np.shape(weight_neibALL)
 plt.plot(weight_neibALL[10,])
@@ -443,7 +466,7 @@ conn = [sum((stats.itemfreq(lbls[Idx[x,:k]])[:,1] / k)**2) for x in range(len(aF
 plt.figure();plt.hist(conn,50);plt.show()
 
 
-nb=find_neighbors(x_test_vae, k3, metric='manhattan', cores=6)
+nb=find_neighbors(x_test_vae, k3, metric='manhattan', cores=12)
 
 
 connClean = [sum((stats.itemfreq(lbls[nb['idx'][x,:k]])[:,6] / k)**2) for x in range(len(aFrame)) ]
