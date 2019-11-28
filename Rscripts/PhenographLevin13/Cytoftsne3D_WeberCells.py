@@ -199,7 +199,7 @@ original_dim = 24
 latent_dim = 3
 intermediate_dim = 12
 nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
-epochs = 40
+epochs = 400
 epsilon_std = 1.0
 U=10#energy barier
 szr=0#number of replicas in training data set
@@ -272,7 +272,7 @@ from numpy.ctypeslib import ndpointer
 #_ctypes.dlclose(lib._handle )
 #del perp
 
-lib = ctypes.cdll.LoadLibrary("/home/grines02/Clibs/perp.so")
+lib = ctypes.cdll.LoadLibrary("/home/grines02/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
 perp = lib.Perplexity
 perp.restype = None
 perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
@@ -379,7 +379,7 @@ epochs = epochs,
 shuffle=True,
 callbacks=[CustomMetrics(),  tensorboard, earlyStopping])
 stop = timeit.default_timer()
-#vae.save('WEBERCELLS3D.h5')
+#vae.save('WEBERCELLS3D400.h5')
 vae.load('WEBERCELLS3D.h5')
 
 
