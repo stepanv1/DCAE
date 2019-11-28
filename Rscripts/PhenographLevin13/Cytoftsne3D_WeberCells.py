@@ -444,7 +444,7 @@ conn = [sum((stats.itemfreq(lbls[Idx[x,:k]])[:,1] / k)**2) for x in range(len(aF
 plt.figure();plt.hist(conn,50);plt.show()
 
 
-nb=find_neighbors(x_test_vae, k3, metric='manhattan', cores=6)
+nb=find_neighbors(x_test_vae, k3, metric='manhattan', cores=12)
 
 
 connClean = [sum((stats.itemfreq(lbls[nb['idx'][x,:k]])[:,6] / k)**2) for x in range(len(aFrame)) ]
@@ -452,7 +452,7 @@ plt.figure();plt.hist(connClean,50);plt.show()
 
 scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
 scaler.fit_transform(aFrame)
-nb2=find_neighbors(x_test_enc, k, metric='manhattan', cores=6)
+nb2=find_neighbors(x_test_enc, k, metric='manhattan', cores=12)
 connClean2 = [sum((stats.itemfreq(lbls[nb2['idx'][x,:]])[:,1] / k)**2) for x in range(len(aFrame)) ]
 plt.figure();plt.hist(connClean2,50);plt.show()
 #print(np.mean(connNoNoise))
@@ -499,7 +499,7 @@ plot([Scatter3d(x=x,y=y,z=z,
 
 
 
-cl=7
+cl=2
 plot([Scatter3d(x=x,y=y,z=z,
                 mode='markers',
         marker=dict(
