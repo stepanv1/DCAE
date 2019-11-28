@@ -1,0 +1,5 @@
+{
+    "version": "0.1.0",
+    "command": "g++",
+    "args": ["-fopenmp", "-Wall", "-shared", "-o", "perp8.so", "-fPIC","perp3.cpp" ]
+}

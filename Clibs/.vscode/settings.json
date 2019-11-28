@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "cstdio": "cpp",
+        "cmath": "cpp"
+    },
+    "python.pythonPath": "/home/sgrinek/anaconda3/envs/tensorflow2/bin/python"
+}
