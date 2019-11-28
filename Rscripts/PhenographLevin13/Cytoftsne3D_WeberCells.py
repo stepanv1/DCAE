@@ -160,8 +160,9 @@ ID='Nowicka2017'
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
 '''
+source_dir = "/home/grines02/PycharmProjects/BIOIBFO25L/data/data/"
 '''
-source_dir = "/home/grinek/Documents/deep/BIOIBFO25L/data/data/"
+
 #file_list = glob.glob(source_dir + '/*.txt')
 data0 = np.genfromtxt(source_dir + "d_matrix.txt"
 , names=None, dtype=float, skip_header=1)
@@ -175,10 +176,10 @@ lbls=patient_table[:,0]
 len(lbls)
 scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
 scaler.fit_transform(aFrame)
-nb=find_neighbors(aFrame, k3, metric='manhattan', cores=6)
+nb=find_neighbors(aFrame, k3, metric='manhattan', cores=12)
 Idx = nb['idx']; Dist = nb['dist']
 '''
-outfile = '/home/grinek/Documents/deep/BIOIBFO25L/data/data/Nowicka2017manhattan.npz'
+outfile = source_dir + '/Nowicka2017manhattan.npz'
 #np.savez(outfile, Idx=Idx, aFrame=aFrame, lbls=lbls,  Dist=Dist)
 npzfile = np.load(outfile)
 lbls=npzfile['lbls'];Idx=npzfile['Idx'];aFrame=npzfile['aFrame'];
@@ -243,9 +244,9 @@ from joblib import Parallel, delayed
 from pathos import multiprocessing
 num_cores = multiprocessing.cpu_count()
 #pool = multiprocessing.Pool(num_cores)
-results = Parallel(n_jobs=6, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
+results = Parallel(n_jobs=num_cores, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
 '''
-outfile = '/home/grinek/Documents/deep/BIOIBFO25L/data/data/Nowicka2017manhattanFeatures.npz'
+outfile = source_dir  + '/Nowicka2017manhattanFeatures.npz'
 
 for i in range(nrow):
  neibALL[i,] = results[i][0]
@@ -271,7 +272,7 @@ from numpy.ctypeslib import ndpointer
 #_ctypes.dlclose(lib._handle )
 #del perp
 
-lib = ctypes.cdll.LoadLibrary("/home/grinek/bin/Clibs/perpLIB_A.so")
+lib = ctypes.cdll.LoadLibrary("/home/grines02/Clibs/perp.so")
 perp = lib.Perplexity
 perp.restype = None
 perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
@@ -281,7 +282,7 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 
 #razobratsya s nulem (index of 0-nearest neightbr )!!!!
 #here si the fifference with equlid -no sqrt
-perp((weight_distALL[:,0:k3]),       nrow,     original_dim,   weight_neibALL,          k,          k*3,        6)
+perp((weight_distALL[:,0:k3]),       nrow,     original_dim,   weight_neibALL,          k,          k*3,        12)
       #(          double* dist,      int N,    int D,            double* P,     double perplexity, int K, int num_threads)
 np.shape(weight_neibALL)
 plt.plot(weight_neibALL[10,])
