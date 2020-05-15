@@ -36,10 +36,10 @@ using namespace std;
 // _col_P
 // _val_P
 // perplexity - perplexity
-// void TSNE<treeT, dist_fn>::computeGaussianPerplexity(double* X, int N, int D, int** _row_P, int** _col_P, double** _val_P, double perplexity, int K, int verbose) {
+// void TSNE<treeT, dist_fn>::computeGaussianPerplexity(double* X, int N, int D, int** _row_P, int** _col_P, double** _val_P, double perplexity, int K, double Sigma, int verbose) {
 
 extern "C"{ 
-void Perplexity( double* dist,  int N, int D,   double* P, double perplexity,  int K, int num_threads) {
+void Perplexity( double* dist,  int N, int D,   double* P, double perplexity,  int K, double* Sigma, int num_threads) {
 
     if(perplexity > K) printf("Perplexity should be lower than K!\n");
 
@@ -47,6 +47,7 @@ void Perplexity( double* dist,  int N, int D,   double* P, double perplexity,  i
     unsigned int* row_P = (unsigned int*)    malloc((N + 1) * sizeof(unsigned int));
     //double* val_P = (double*) calloc(N * K, sizeof(double));
     double* cur_P = (double*) malloc(K * sizeof(double));
+    double *distances = (double*) malloc(K * sizeof(double));
     if(cur_P == NULL) { printf("Memory allocation failed!\n"); exit(1); }
     row_P[0] = 0;
     for(int n = 0; n < N; n++) row_P[n + 1] = row_P[n] + (unsigned int) K;
@@ -58,16 +59,19 @@ void Perplexity( double* dist,  int N, int D,   double* P, double perplexity,  i
 
         if(n % 10000 == 0) printf(" - point %d of %d\n", n, N);
 
-        // Find nearest neighbors
-        //int *indices = (ind+n);
-        double *distances = (dist);
+        // get the nearest neighbors distances
+
+        for(unsigned int m = 0; m < K; m++) {
+            //col_P[row_P[n] + m] = (unsigned int) indices[m + 1].index();
+            distances[m] = dist[row_P[n] + m];
+        };
 
         // Initialize some variables for binary search
         bool found = false;
         double beta = 1.0;
         double min_beta = -DBL_MAX;
         double max_beta =  DBL_MAX;
-        double tol = 1e-5;
+        double tol = 1e-10;
 
         // Iterate until we found a good perplexity
         int iter = 0; double sum_P;
@@ -87,6 +91,7 @@ void Perplexity( double* dist,  int N, int D,   double* P, double perplexity,  i
             double Hdiff = H - log(perplexity);
             if(Hdiff < tol && -Hdiff < tol) {
                 found = true;
+                printf("found at %d  iter \n", iter);
             }
             else {
                 if(Hdiff > 0) {
@@ -116,7 +121,7 @@ void Perplexity( double* dist,  int N, int D,   double* P, double perplexity,  i
             P[row_P[n] + m] = cur_P[m];
         }
 
-        //Sigma[n] = 0.5/beta;
+        Sigma[n] = 0.5/beta;
     }
 
     // Clean up memory

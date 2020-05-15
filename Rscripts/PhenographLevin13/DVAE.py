@@ -328,7 +328,8 @@ learning_rate = 1e-4
 #earlyStopping=CustomEarlyStopping(criterion=0.0001, patience=3, verbose=1)
 adam = Adam(lr=learning_rate, epsilon=0.001, decay = learning_rate )
 
-ae.compile(optimizer=adam, loss=ae_loss, metrics=[mean_square_error_weightedNN,mean_square_error_weighted, gumbel_loss, bce], )
+ae.compile(optimizer=adam, loss=ae_loss, metrics=[mean_square_error_weightedNN,mean_square_error_weighted,
+                                                  gumbel_loss, bce], )
 #ae.get_weights()
 
 checkpoint = ModelCheckpoint('.', monitor='ae_loss', verbose=1, save_best_only=True, mode='max')

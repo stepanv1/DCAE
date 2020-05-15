@@ -173,13 +173,17 @@ aFrame[aFrame < 0] = 0
 patient_table = np.genfromtxt(source_dir + "label_patient.txt", names=None, dtype='str', skip_header=1, delimiter=" ", usecols = (1, 2, 3))
 lbls=patient_table[:,0]
 
+ 
 len(lbls)
 scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
 scaler.fit_transform(aFrame)
-nb=find_neighbors(aFrame, k3, metric='manhattan', cores=12)
+nb=find_neighbors(aFrame, k3, metric='euclidean', cores=12)
 Idx = nb['idx']; Dist = nb['dist']
 '''
-outfile = source_dir + '/Nowicka2017manhattan.npz'
+data0 = np.genfromtxt(source_dir + "d_matrix.txt"
+, names=None, dtype=float, skip_header=1)
+clust = np.genfromtxt(source_dir + "label_patient.txt", names=None, dtype='str', skip_header=1, delimiter=" ", usecols = (1, 2, 3))[:, 0]
+outfile = source_dir + '/Nowicka2017euclid.npz'
 #np.savez(outfile, Idx=Idx, aFrame=aFrame, lbls=lbls,  Dist=Dist)
 npzfile = np.load(outfile)
 lbls=npzfile['lbls'];Idx=npzfile['Idx'];aFrame=npzfile['aFrame'];
@@ -194,7 +198,7 @@ lbls = le.transform(lbls)
 #lbls2=npzfile['lbls'];Idx2=npzfile['Idx'];aFrame2=npzfile['aFrame'];
 #cutoff2=npzfile['cutoff']; Dist2 =npzfile['Dist']
 cutoff=np.repeat(0.1,24)
-batch_size = 10
+batch_size = 100
 original_dim = 24
 latent_dim = 3
 intermediate_dim = 12
@@ -235,8 +239,8 @@ def singleInput(i):
      #cut_nei= np.array([0 if (cnz[j] >= cutoff[j] or cutoff[j]>0.5) else
      #                   (U/(cutoff[j]**2)) * ( (cutoff[j] - cnz[j]) / sigmaBer[j] )**2 for j in range(original_dim)])
      cut_nei = np.array([U *  pmf[j,:][cnz[j]] for j in range(original_dim)])
-#weighted distances computed in L1 metric
-     weight_di = [sum((np.abs(features[i] - nei[k_i,]) / (1 + cut_nei))) for k_i in rk]
+#weighted distances computed in L2 metric
+     weight_di = [np.sqrt(sum((np.square(features[i] - nei[k_i,]) / (1 + cut_nei)))) for k_i in rk]
      return [nei, cut_nei, weight_di, i]
 '''
 inputs = range(nrow)
@@ -246,8 +250,8 @@ num_cores = multiprocessing.cpu_count()
 #pool = multiprocessing.Pool(num_cores)
 results = Parallel(n_jobs=num_cores, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
 '''
-outfile = source_dir  + '/Nowicka2017manhattanFeatures.npz'
 
+'''
 for i in range(nrow):
  neibALL[i,] = results[i][0]
 for i in range(nrow):
@@ -255,6 +259,8 @@ for i in range(nrow):
 for i in range(nrow):
     weight_distALL[i,] = results[i][2]
 del results
+'''
+outfile = source_dir  + '/Nowicka2017euclidFeatures.npz'
 #np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
 npzfile = np.load(outfile)
 weight_distALL=npzfile['weight_distALL'];cut_neibF=npzfile['cut_neibF'];neibALL=npzfile['neibALL']
@@ -271,6 +277,7 @@ from numpy.ctypeslib import ndpointer
 #import _ctypes
 #_ctypes.dlclose(lib._handle )
 #del perp
+#del lib
 
 lib = ctypes.cdll.LoadLibrary("/home/grines02/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
 perp = lib.Perplexity
@@ -278,14 +285,25 @@ perp.restype = None
 perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
                 ctypes.c_size_t, ctypes.c_size_t,
                 ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
-                ctypes.c_double,  ctypes.c_size_t,ctypes.c_size_t]
+                ctypes.c_double,  ctypes.c_size_t,  ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), ctypes.c_size_t]
 
-#razobratsya s nulem (index of 0-nearest neightbr )!!!!
 #here si the fifference with equlid -no sqrt
-perp((weight_distALL[:,0:k3]),       nrow,     original_dim,   weight_neibALL,          k,          k*3,        12)
-      #(          double* dist,      int N,    int D,            double* P,     double perplexity, int K, int num_threads)
+Sigma = np.zeros(nrow, dtype=float)
+weight_distALL = weight_distALL[:,0:k3]
+weight_neibALL = weight_neibALL[:,0:k3]
+perp(np.ascontiguousarray(weight_distALL),       nrow,     original_dim,   np.ascontiguousarray(weight_neibALL),          k,        k*3,    Sigma,    12)
+      #(          double* dist,      int N,    int D,            double* P,     double perplexity, int K,          int num_threads)
+import _ctypes
+_ctypes.dlclose(lib._handle)
+
+plt.scatter(x=np.mean(weight_distALL[:,0:k], axis=1), y = np.sqrt(Sigma), alpha=0.5)
+
 np.shape(weight_neibALL)
+plt.hist(Sigma, bins = 50)
+np.var(Sigma)
 plt.plot(weight_neibALL[10,])
+
+
 
 topk = np.argsort(weight_neibALL, axis=1)[:,-k:]
 topk= np.apply_along_axis(np.flip, 1, topk,0)
@@ -306,7 +324,7 @@ cut_neibF_Tr = cut_neibF
 weight_neibF_Tr = weight_neibF
 sourceTr = aFrame
 
-#SigmaTsq = Input(shape = (1,))
+SigmaTsq = Input(shape = (1,))
 neib = Input(shape = (k, original_dim, ))
 cut_neib = Input(shape = (original_dim,))
 #var_dims = Input(shape = (original_dim,))
@@ -332,24 +350,34 @@ decoder_mean = Dense(original_dim, activation='relu')
 h_decoded = decoder_h(z)
 x_decoded_mean = decoder_mean(h_decoded)
 
-
+normSigma = nrow/sum(1/Sigma)
 def mean_square_error_NN(y_true, y_pred):
     #dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1)) / (tf.expand_dims(cut_neib,1) + 1)), axis=-1)
     dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1))) , axis=-1)
-    weightedN = K.dot(dst, K.transpose(weight_neib))
+    weightedN = k * original_dim * K.dot(dst, K.transpose(weight_neib)) # not really a mean square error after wwe done this
     #return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
+    #return  tf.multiply(weightedN, 0.5*normSigma * (1/SigmaTsq) )
     return  tf.multiply(weightedN, 0.5 )
 
+#def mean_square_error_NN(y_true, y_pred):
+#    #dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1)) / (tf.expand_dims(cut_neib,1) + 1)), axis=-1)
+#    dst = tf.multiply(K.transpose(1/SigmaTsq), K.mean(K.square(neib - K.expand_dims(y_pred, 1)), axis=-1))
+#    #weightedN = K.dot(dst, K.transpose(weight_neib))
+#    weightedN = K.dot(dst, K.transpose(weight_neib))
+#    #return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
+#    return  tf.multiply(weightedN, 0.5 )
+
+
 def kl_loss(x, x_decoded_mean):
-    return - 0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
+    return  -0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
 
 def vae_loss(x, x_decoded_mean):
-    msew = k*original_dim * mean_square_error_NN(x, x_decoded_mean)
+    msew = mean_square_error_NN(x, x_decoded_mean)
     #pen_zero = K.sum(K.square(x*cut_neib), axis=-1)
-    return K.mean(msew + kl_loss(x, x_decoded_mean))
-
+    return K.mean(msew + 1*kl_loss(x, x_decoded_mean))
+    #return K.mean(msew)
 #y = CustomVariationalLayer()([x, x_decoded_mean])
-vae = Model([x, neib, cut_neib,  weight_neib], x_decoded_mean)
+vae = Model([x, neib, cut_neib, SigmaTsq, weight_neib], x_decoded_mean)
 vae.summary()
 
 #vae.set_weights(trained_weight)
@@ -362,7 +390,7 @@ vae.summary()
 
 
 learning_rate = 1e-3
-earlyStopping=keras.callbacks.EarlyStopping(monitor='loss', min_delta=0.000001, patience=3, verbose=0, mode='min')
+earlyStopping=keras.callbacks.EarlyStopping(monitor='loss', min_delta=0.0000001, patience=3, verbose=0, mode='min', restore_best_weights = True)
 adam = Adam(lr=learning_rate, epsilon=0.001, decay = learning_rate / epochs)
 
 #ae.compile(optimizer=adam, loss=ae_loss)
@@ -373,13 +401,16 @@ checkpoint = ModelCheckpoint('.', monitor='loss', verbose=1, save_best_only=True
 #logger = DBLogger(comment="An example run")
 
 start = timeit.default_timer()
-history=vae.fit([sourceTr, neibF_Tr, cut_neibF_Tr,  weight_neibF], targetTr,
+
+# here to set weights ti uniform , by default they are perplexity weighted
+#weight_neibF = np.full((nrow, k), 1/k)
+history=vae.fit([sourceTr, neibF_Tr, cut_neibF_Tr, Sigma, weight_neibF], targetTr,
 batch_size=batch_size,
 epochs = epochs,
 shuffle=True,
 callbacks=[CustomMetrics(),  tensorboard, earlyStopping])
 stop = timeit.default_timer()
-#vae.save('WEBERCELLS3D400.h5')
+#vae.save('WEBERCELLS3D32lambdaPerpCorr0.01h5')
 vae.load('WEBERCELLS3D.h5')
 
 
@@ -398,19 +429,21 @@ plt.plot(history.history['kl_loss'][10:]);
 
 fig02 = plt.figure();
 plt.plot(history.history['mean_square_error_NN']);
+fig03 = plt.figure();
+plt.plot(history.history['loss']);
 
 #encoder = Model([x, neib, cut_neib], encoded2)
-encoder = Model([x, neib, cut_neib,  weight_neib], z_mean)
+encoder = Model([x, neib, cut_neib, weight_neib], z_mean)
 print(encoder.summary())
 
 # predict and extract latent variables
 
 #gen_pred = generatorNN(aFrame, aFrame, Idx, Dists, batch_size=batch_size,  k_=k, shuffle = False)
-x_test_vae = vae.predict([sourceTr, neibF_Tr, cut_neibF_Tr,   weight_neibF])
+x_test_vae = vae.predict([sourceTr, neibF_Tr, cut_neibF_Tr, Sigma,  weight_neibF])
 len(x_test_vae)
 #np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_vaeMoeWeights.txt', x_test_vae)
 #x_test_vae=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_ae001Pert.txt.txt')
-x_test_enc = encoder.predict([sourceTr, neibF_Tr, cut_neibF_Tr,  weight_neibF])
+x_test_enc = encoder.predict([sourceTr, neibF_Tr, cut_neibF_Tr, weight_neibF])
 
 cl=4;bw=0.02
 fig1 = plt.figure();
@@ -430,7 +463,7 @@ b0=sns.violinplot(data= aFrame[lbls==cl , :], bw =bw, color='black');
 #b0.set_xticklabels(rs[cl-1, ]);
 fig5= plt.figure();
 b0=sns.violinplot(data= x_test_vae[lbls==cl , :], bw =bw, color='skyblue');
-b0.set_xticklabels(np.round(cutoff,2));
+#b0.set_xticklabels(np.round(cutoff,2));
 plt.show()
 
 unique0, counts0 = np.unique(lbls, return_counts=True)
@@ -490,12 +523,33 @@ plot([Scatter3d(x=x,y=y,z=z,
                 mode='markers',
         marker=dict(
         size=1,
-        color = lbls/5,                # set color to an array/list of desired values
+        color = lbls,                # set color to an array/list of desired values
         colorscale='Viridis',   # choose a colorscale
         opacity=0.5,
             ),
-                text=patient_table,
+                text=clust,
                 hoverinfo = 'text')])
+
+
+#umap graph to compare
+
+import umap
+standard_embedding = umap.UMAP(n_neighbors=30, n_components=3).fit_transform(aFrame)
+x=standard_embedding[:,0]
+y=standard_embedding[:,1]
+z=standard_embedding[:,2]
+#analog of tsne plot fig15 from Nowizka 2015, also see fig21
+plot([Scatter3d(x=x,y=y,z=z,
+                mode='markers',
+        marker=dict(
+        size=1,
+        color = lbls,                # set color to an array/list of desired values
+        colorscale='Viridis',   # choose a colorscale
+        opacity=0.5,
+            ),
+                text=clust,
+                hoverinfo = 'text')])
+
 
 
 
