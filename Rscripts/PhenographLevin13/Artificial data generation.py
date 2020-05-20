@@ -8,10 +8,10 @@
 # c) straitforward analysis with knn neighbours instead second noise
 import tensorflow as tf
 from sklearn.neighbors import NearestNeighbors
-from keras.layers import Input, Dense
-from keras.models import Model
+from tensorflow.keras.layers import Input, Dense
+from tensorflow.keras.models import Model
 from keras.datasets import mnist
-from keras import backend as K
+from tensorflow.keras import backend as K
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
@@ -261,7 +261,7 @@ X_train, X_test,  Y_train, Y_test, lbls_train, lbls_test = train_test_split(x_tr
 print(x_train.shape)
 print(y_train.shape)
 # Train autoencoder
-my_epochs = 500
+my_epochs = 5000
 history_DAE= autoencoderDAE.fit(X_train, Y_train, epochs=my_epochs, batch_size=256, shuffle=True, validation_data=(X_test, Y_test),
                 verbose=2, workers =  multiprocessing.cpu_count(), use_multiprocessing  = True )
 fig0 = plt.figure();
