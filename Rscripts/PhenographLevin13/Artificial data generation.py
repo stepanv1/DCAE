@@ -7,6 +7,8 @@
 # b) Theoretical formula from paper with two noise sources (second data set with second noise is created)
 # c) straitforward analysis with knn neighbours instead second noise
 import tensorflow as tf
+
+print(tf.__version__)
 from sklearn.neighbors import NearestNeighbors
 from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.models import Model
@@ -46,23 +48,28 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 
 # two subspace clusters centers
 original_dim = 30
+cl1_center = np.zeros(original_dim)
+cl2_center = np.concatenate((np.ones(20),  np.zeros(10)), axis=0 )
+ncl1 =ncl2=100000
 '''
+cl1_center = np.zeros(original_dim)
+cl2_center = np.concatenate((np.ones(20),  np.zeros(10)), axis=0 )
+ncl1 =ncl2=100000
 lbls = np.concatenate((np.zeros(ncl1), np.ones(ncl2)), axis=0)
 
 cl1 = cl1_center +  np.concatenate([np.zeros((ncl1,20)),  np.random.uniform(low=-1, high=1, size=(ncl1,10))], axis=1 )
 cl2 = cl2_center +  np.concatenate([np.random.uniform(low=-1, high=1, size=(ncl2,10)),  np.zeros((ncl2,20))], axis=1 )
-#nonisy or not:
+sns.violinplot(data= cl1, bw = 0.1);sns.violinplot(data= cl2, bw = 0.1);
+#noisy or not:
 noise_sig1 =  np.concatenate((np.zeros(20),  np.ones(10)), axis=0 )
 noise_sig2 = np.concatenate((np.ones(10), np.zeros(20)), axis=0 )
-
+noise_scale =1
 # add noise to orthogonal dimensions
 cl1_noisy = cl1 + np.concatenate([np.random.normal(loc=0, scale = noise_scale, size=(ncl1,20)), np.zeros((ncl1,10))], axis=1 )
 cl2_noisy = cl2 + np.concatenate([ np.zeros((ncl2, 10)), np.random.normal(loc=0, scale = noise_scale, size=(ncl2,20))], axis=1 )
+sns.violinplot(data= cl1_noisy, bw = 0.1);sns.violinplot(data= cl2_noisy, bw = 0.1);
 
-cl1_noisy = cl1 + np.concatenate([np.random.normal(loc=0, scale = noise_scale, size=(ncl1,20)), np.zeros((ncl1,10))], axis=1 )
-cl2_noisy = cl2 + np.concatenate([ np.zeros((ncl2, 10)), np.random.normal(loc=0, scale = noise_scale, size=(ncl2,20))], axis=1 )
-
-# create noisy neighbours, 10 per each initial point,  neighbours live in parallel dims
+# create noisy neighbours, 30 per each initial point,  neighbours live in parallel dims
 # and add orthogonal noise
 def Perturbation(i, cl, noise_sig, nn):
     ncol = np.shape(cl)[1]
@@ -218,7 +225,7 @@ cl1 = (cl1+5)/5; cl2 = (cl2+5)/5;
 cl1_noisy = (cl1_noisy+5)/5; cl2_noisy=(cl2_noisy+5)/5;
 noisy_clus = (noisy_clus+5)/5;
 '''
-sns.violinplot(data= cl2_noisy, bw = 0.1);
+#sns.violinplot(data= cl2_noisy, bw = 0.1);
 # some globals
 act= 'selu'
 ####################################################################
@@ -261,12 +268,12 @@ X_train, X_test,  Y_train, Y_test, lbls_train, lbls_test = train_test_split(x_tr
 print(x_train.shape)
 print(y_train.shape)
 # Train autoencoder
-my_epochs = 5000
+my_epochs = 500
 history_DAE= autoencoderDAE.fit(X_train, Y_train, epochs=my_epochs, batch_size=256, shuffle=True, validation_data=(X_test, Y_test),
                 verbose=2, workers =  multiprocessing.cpu_count(), use_multiprocessing  = True )
 fig0 = plt.figure();
-plt.plot(history_DAE.history['loss'][10:])
-plt.plot(history_DAE.history['val_loss'][10:])
+plt.plot(history_DAE.history['loss'][100:])
+plt.plot(history_DAE.history['val_loss'][100:])
 plt.title('Model loss')
 plt.ylabel('Loss')
 plt.xlabel('Epoch')
@@ -290,13 +297,22 @@ plt.savefig(os.getcwd() + '/plots/' + model_name  +  '_bulbs.png')
 
 # now plot decoded bulbs co-dimensions in input and output data:
 #input:
-cl=1;bw=0.02
-fig01 = plt.figure();
-ax = sns.violinplot(data= Y_test[lbls_test==cl , :], bw = bw);
-plt.show();
-fig1 = plt.figure();
+cl=0;bw=0.02
+fig = plt.figure()
+sns.violinplot(data= Y_test[lbls_test==cl , :], bw = bw);
+plt.savefig(os.getcwd() + '/plots/' + 'cluster1_nonoise.png')
+fig = plt.figure()
 ax = sns.violinplot(data= X_test[lbls_test==cl , :], bw = bw);
-plt.show();
+plt.savefig(os.getcwd() + '/plots/' + 'cluster1_noise.png')
+cl=1;bw=0.02
+fig = plt.figure()
+sns.violinplot(data= Y_test[lbls_test==cl , :], bw = bw);
+plt.savefig(os.getcwd() + '/plots/' + 'cluster2_nonoise.png')
+fig = plt.figure()
+ax = sns.violinplot(data= X_test[lbls_test==cl , :], bw = bw);
+plt.savefig(os.getcwd() + '/plots/' + 'cluster2_noise.png')
+
+
 #output:
 fig2 = plt.figure();
 bx = sns.violinplot(data= decoded_bulbs[lbls_test==cl , :], bw = bw);
