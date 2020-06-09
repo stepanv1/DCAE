@@ -314,8 +314,11 @@ plt.savefig(os.getcwd() + '/plots/' + 'cluster2_noise.png')
 
 
 #output:
-fig2 = plt.figure();
-bx = sns.violinplot(data= decoded_bulbs[lbls_test==cl , :], bw = bw);
+figcl0 = plt.figure();
+bx = sns.violinplot(data= decoded_bulbs[lbls_test==0 , :], bw = bw);
+plt.show();
+figcl1 = plt.figure();
+bx = sns.violinplot(data= decoded_bulbs[lbls_test==1 , :], bw = bw);
 plt.show();
 
 ##############################################################################################################
@@ -395,9 +398,15 @@ fig1 = plt.figure();
 ax = sns.violinplot(data= X_test[lbls_test==cl , :], bw = bw);
 plt.show();
 #output:
-fig2 = plt.figure();
-bx = sns.violinplot(data= decoded_bulbs[lbls_test==cl , :], bw = bw);
+figcl0 = plt.figure();
+bx = sns.violinplot(data= decoded_bulbs[lbls_test==0 , :], bw = bw);
 plt.show();
+figcl1 = plt.figure();
+bx = sns.violinplot(data= decoded_bulbs[lbls_test==1 , :], bw = bw);
+plt.show();
+
+
+
 #############################################################################################
 #############################################################################################
 # c) analysis with knn neighbours instead second noise
@@ -491,9 +500,13 @@ fig1 = plt.figure();
 ax = sns.violinplot(data= X_test[lbls_test==cl , :], bw = bw);
 plt.show();
 #output:
-fig2 = plt.figure();
-bx = sns.violinplot(data= decoded_bulbs[lbls_test==cl , :], bw = bw);
+figcl0 = plt.figure();
+bx = sns.violinplot(data= decoded_bulbs[lbls_test==0 , :], bw = bw);
 plt.show();
+figcl1 = plt.figure();
+bx = sns.violinplot(data= decoded_bulbs[lbls_test==1 , :], bw = bw);
+plt.show();
+
 #############################################################################################
 #########################################################################
 # d) Compare with vanilla autoencoder without nn on noisy data
@@ -567,8 +580,11 @@ fig1 = plt.figure();
 ax = sns.violinplot(data= X_test[lbls_test==cl , :], bw = bw);
 plt.show();
 #output:
-fig2 = plt.figure();
-bx = sns.violinplot(data= decoded_bulbs[lbls_test==cl , :], bw = bw);
+figcl0 = plt.figure();
+bx = sns.violinplot(data= decoded_bulbs[lbls_test==0 , :], bw = bw);
+plt.show();
+figcl1 = plt.figure();
+bx = sns.violinplot(data= decoded_bulbs[lbls_test==1 , :], bw = bw);
 plt.show();
 
 #############################################################################################
@@ -623,7 +639,7 @@ ae_nnsigma.summary()
 ae_nnsigma.compile(optimizer='adadelta', loss=ae_loss, metrics=[mean_square_error_NN])
 from keras.callbacks import ModelCheckpoint
 checkpoint = ModelCheckpoint('./models/model_knn_ae{epoch:08d}.h5', period=100)
-history_nnsigma= ae_nnsigma.fit([X_train, neib_train, weight_train], X_train, epochs=50, batch_size=256,
+history_nnsigma= ae_nnsigma.fit([X_train, neib_train, weight_train], X_train, epochs=1000, batch_size=256,
                       shuffle=True,
                       validation_data=([X_test, neib_test, weight_test], X_test),
                 verbose=2, workers =  multiprocessing.cpu_count(), use_multiprocessing  = True,
@@ -668,9 +684,13 @@ fig1 = plt.figure();
 ax = sns.violinplot(data= X_test[lbls_test==cl , :], bw = bw);
 plt.show();
 #output:
-fig2 = plt.figure();
-bx = sns.violinplot(data= decoded_bulbs[lbls_test==cl , :], bw = bw);
+figcl0 = plt.figure();
+bx = sns.violinplot(data= decoded_bulbs[lbls_test==0 , :], bw = bw);
 plt.show();
+figcl1 = plt.figure();
+bx = sns.violinplot(data= decoded_bulbs[lbls_test==1 , :], bw = bw);
+plt.show();
+
 ###########################
 # visualize training process
 # load models exrtract encoder and decoder, visualise..
@@ -797,8 +817,11 @@ fig1 = plt.figure();
 ax = sns.violinplot(data= X_test[lbls_test==cl , :], bw = bw);
 plt.show();
 #output:
-fig2 = plt.figure();
-bx = sns.violinplot(data= decoded_bulbs[lbls_test==cl , :], bw = bw);
+figcl0 = plt.figure();
+bx = sns.violinplot(data= decoded_bulbs[lbls_test==0 , :], bw = bw);
+plt.show();
+figcl1 = plt.figure();
+bx = sns.violinplot(data= decoded_bulbs[lbls_test==1 , :], bw = bw);
 plt.show();
 
 ###########################################################
