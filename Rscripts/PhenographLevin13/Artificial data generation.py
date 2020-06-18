@@ -1,4 +1,4 @@
-# script generate 2 sibdimensional clusters
+# script generates 2 sibdimensional clusters
 # of 5 and 10 dims in 30 dimensional space
 # within each cluster distribution is uniform
 # we then add Gaussian noise in complemetary dimensions
@@ -6,13 +6,12 @@
 # a) Vanilla DAE
 # b) Theoretical formula from paper with two noise sources (second data set with second noise is created)
 # c) straitforward analysis with knn neighbours instead second noise
-import tensorflow as tf
 
-print(tf.__version__)
+
+import tensorflow as tf
 from sklearn.neighbors import NearestNeighbors
 from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.models import Model
-from keras.datasets import mnist
 from tensorflow.keras import backend as K
 import numpy as np
 import matplotlib.pyplot as plt
@@ -24,6 +23,7 @@ import ctypes
 import sklearn
 import seaborn as sns
 import os
+import h5py
 
 from sklearn.preprocessing import MinMaxScaler
 from joblib import Parallel, delayed
@@ -35,13 +35,15 @@ def table(labels):
     print('%d %d', np.asarray((unique, counts)).T)
     return {'unique': unique, 'counts': counts}
 
-lib = ctypes.cdll.LoadLibrary("/home/grines02/PycharmProjects/BIOIBFO25L/Rscripts/bin/perp.so")
+lib = ctypes.cdll.LoadLibrary("./Clibs/perp.so")
 perp = lib.Perplexity
 perp.restype = None
 perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
                 ctypes.c_size_t, ctypes.c_size_t,
                 ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
-                ctypes.c_double,  ctypes.c_size_t,ctypes.c_size_t]
+                ctypes.c_double,  ctypes.c_size_t,
+                ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), #Sigma
+                ctypes.c_size_t]
 
 
 
@@ -54,7 +56,7 @@ ncl1 =ncl2=100000
 '''
 cl1_center = np.zeros(original_dim)
 cl2_center = np.concatenate((np.ones(20),  np.zeros(10)), axis=0 )
-ncl1 =ncl2=100000
+
 lbls = np.concatenate((np.zeros(ncl1), np.ones(ncl2)), axis=0)
 
 cl1 = cl1_center +  np.concatenate([np.zeros((ncl1,20)),  np.random.uniform(low=-1, high=1, size=(ncl1,10))], axis=1 )
@@ -78,14 +80,14 @@ def Perturbation(i, cl, noise_sig, nn):
             noise_sig * np.random.normal(loc=0, scale = noise_scale, size=(nn,30))
     return sample
 nn=30
-resSample1 = Parallel(n_jobs=12, verbose=0, backend="threading")(delayed(Perturbation,
+resSample1 = Parallel(n_jobs=48, verbose=0, backend="threading")(delayed(Perturbation,
                 check_pickle=False)(i, cl1, noise_sig1, nn) for i in range(np.shape(cl1_noisy)[0]))
 #cl1_noisy_nn = np.vstack(resSample1)
 cl1_noisy_nn = np.zeros((ncl1, nn, 30))
 for i in range(ncl1):
     cl1_noisy_nn[i,:,:] = resSample1[i]
 
-resSample2 = Parallel(n_jobs=12, verbose=0, backend="threading")(delayed(Perturbation,
+resSample2 = Parallel(n_jobs=48, verbose=0, backend="threading")(delayed(Perturbation,
                 check_pickle=False)(i, cl2, noise_sig2, nn) for i in range(np.shape(cl2_noisy)[0]))
 cl2_noisy_nn = np.zeros((ncl2, nn, 30))
 for i in range(ncl2):
@@ -103,34 +105,16 @@ noisy_clus = np.concatenate(np.vstack((cl1_noisy_nn[:, np.random.choice(cl1_nois
                             cl2_noisy_nn[:, np.random.choice(cl2_noisy_nn.shape[1], 1, replace=False), :] )), axis=0)
 # visualise with umap
 
-import umap
-standard_embedding = umap.UMAP(n_neighbors=30, n_components=2).fit_transform(noisy_clus)
-x = standard_embedding[:, 0]
-y = standard_embedding[:, 1]
-# analog of tsne plot fig15 from Nowizka 2015, also see fig21
-from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
-from plotly.graph_objs import Scatter3d, Figure, Layout, Scatter
-plot([Scatter(x=x, y=y,
-                mode='markers',
-                marker=dict(
-                    size=1,
-                    color=lbls,  # set color to an array/list of desired values
-                    colorscale='Viridis',  # choose a colorscale
-                    opacity=0.5,
-                ),
-                text=lbls,
-                hoverinfo='text')])
-
 # find orthogonal distances
 # zero's in noise_sig are noisy dims
 def ort_dist(i, noise_sig, cl, cl_center):
     dist= np.sum(np.square((cl[i,:] - cl_center) * (noise_sig-1)))
     return dist
-resSample1 = Parallel(n_jobs=12, verbose=0, backend="threading")(delayed(ort_dist,
+resSample1 = Parallel(n_jobs=48, verbose=0, backend="threading")(delayed(ort_dist,
                 check_pickle=False)(i, noise_sig1, noisy_clus[lbls==0,:], cl1_center)
                                                                  for i in range(np.shape(noisy_clus[lbls==0,:])[0]))
 cl1_ort_dist = np.array(resSample1)
-resSample2 = Parallel(n_jobs=12, verbose=0, backend="threading")(delayed(ort_dist,
+resSample2 = Parallel(n_jobs=48, verbose=0, backend="threading")(delayed(ort_dist,
                 check_pickle=False)(i, noise_sig2, noisy_clus[lbls==1,:], cl2_center)
                                                                  for i in range(np.shape(noisy_clus[lbls==1,:])[0]))
 cl2_ort_dist = np.array(resSample2)
@@ -138,7 +122,7 @@ cl2_ort_dist = np.array(resSample2)
 
 nrow=noisy_clus.shape[0]
 # find nearest neighbours
-nb=find_neighbors(noisy_clus, nn, metric='manhattan', cores=12)
+nb=find_neighbors(noisy_clus, nn, metric='manhattan', cores=48)
 Idx = nb['idx']; Dist = nb['dist']
 
 
@@ -162,19 +146,20 @@ from joblib import Parallel, delayed
 from pathos import multiprocessing
 num_cores = multiprocessing.cpu_count()
 #pool = multiprocessing.Pool(num_cores)
-results = Parallel(n_jobs=12, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
+results = Parallel(n_jobs=48, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
 neibALL = np.zeros((nrow, nn, original_dim))
 Distances = np.zeros((nrow, nn))
 neib_weight = np.zeros((nrow, nn))
+Sigma = np.zeros(nrow, dtype=float)
 for i in range(nrow):
     neibALL[i,] = results[i][0]
 for i in range(nrow):
     Distances[i,] = results[i][1]
 #Compute perpelexities
-perp((Distances[:,0:nn]),       nrow,     original_dim,   neib_weight,          nn,          nn,        12)
+perp((Distances[:,0:nn]),       nrow,     original_dim,   neib_weight,          nn,          nn,   Sigma,    48)
       #(     double* dist,      int N,    int D,       double* P,     double perplexity,    int K, int num_threads)
 np.shape(neib_weight)
-plt.plot(neib_weight[10,])
+plt.plot(neib_weight[1,])
 #sort and normalise weights
 topk = np.argsort(neib_weight, axis=1)[:,-nn:]
 topk= np.apply_along_axis(np.flip, 1, topk,0)
@@ -182,14 +167,14 @@ neib_weight=np.array([ neib_weight[i, topk[i]] for i in range(len(topk))])
 neib_weight=sklearn.preprocessing.normalize(neib_weight, axis=1, norm='l1')
 neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
 
-plt.plot(neib_weight[5,]);plt.show()
+plt.plot(neib_weight[1,:]);plt.show()
 
 outfile = './data/ArtBulbz.npz'
 np.savez(outfile, Idx=Idx, cl1=cl1, cl2=cl2, noisy_clus=noisy_clus,
          lbls=lbls,  Dist=Dist, cl1_noisy_nn =cl1_noisy_nn,
          cl2_noisy_nn=cl2_noisy_nn, cl1_noisy =cl1_noisy,
          cl2_noisy=cl2_noisy,cl1_ort_dist=cl2_ort_dist, cl2_ort_dist=cl2_ort_dist,
-         neibALL=neibALL, neib_weight= neib_weight)
+         neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma)
 
 import dill                            
 filepath = 'session_ArtdataGeneration.pkl'
@@ -210,6 +195,8 @@ cl1_ort_dist=npzfile['cl2_ort_dist'];
 cl2_ort_dist=npzfile['cl2_ort_dist'];
 neibALL=npzfile['neibALL']
 neib_weight= npzfile['neib_weight']
+Sigma = npzfile['Sigma']
+
 
 '''
 # scale data
@@ -228,10 +215,16 @@ noisy_clus = (noisy_clus+5)/5;
 #sns.violinplot(data= cl2_noisy, bw = 0.1);
 # some globals
 act= 'selu'
+config =tf.ConfigProto(device_count = {'GPU': 0, 'CPU':28},
+      intra_op_parallelism_threads=50,
+      inter_op_parallelism_threads=50,
+                       allow_soft_placement=True)
+sess = tf.Session(config=config)
+K.set_session(sess)
 ####################################################################
 ############################### run vanilla DAE ####################
-
 nn=30
+
 # (a) Deep denoising Autoencoder
 model_name = 'DAE'
 # this is the size of our encoded representations
@@ -270,7 +263,7 @@ print(y_train.shape)
 # Train autoencoder
 my_epochs = 500
 history_DAE= autoencoderDAE.fit(X_train, Y_train, epochs=my_epochs, batch_size=256, shuffle=True, validation_data=(X_test, Y_test),
-                verbose=2, workers =  multiprocessing.cpu_count(), use_multiprocessing  = True )
+                verbose=2)
 fig0 = plt.figure();
 plt.plot(history_DAE.history['loss'][100:])
 plt.plot(history_DAE.history['val_loss'][100:])
@@ -343,10 +336,11 @@ decoder_mean = Dense(original_dim, activation='linear')
 h_decoded = decoder_h(z)
 x_decoded_mean = decoder_mean(h_decoded)
 
-
+#@tf.function
+Kones = K.ones((nn,original_dim))
 def mean_square_error_NN(y_true, y_pred):
     dst = K.mean(K.square((k_neib - K.expand_dims(y_pred, 1))) , axis=-1)
-    weightedN = K.dot(dst, K.ones((nn,original_dim)))
+    weightedN = K.dot(dst, Kones)
     #return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
     return  tf.multiply(weightedN, 0.5 )
 
@@ -363,10 +357,12 @@ aeNNtrue.compile(optimizer='adadelta', loss=ae_loss, metrics=[mean_square_error_
 (x_train, neib) = (np.vstack((cl1_noisy, cl2_noisy)), np.vstack((cl1_noisy_nn, cl2_noisy_nn)) )
 X_train, X_test,  neib_train, neib_test, lbls_train, lbls_test = train_test_split(x_train, neib, lbls, test_size=0.33, random_state=42)
 
+
 history_DAEnnTrue= aeNNtrue.fit([X_train, neib_train], X_train, epochs=800, batch_size=256,
                       shuffle=True,
                       validation_data=([X_test, neib_test], X_test),
-                verbose=2, workers =  multiprocessing.cpu_count(), use_multiprocessing  = True )
+                verbose=2)
+
 plt.plot(history_DAEnnTrue.history['loss'][600:])
 plt.plot(history_DAEnnTrue.history['val_loss'][600:])
 plt.title('Model loss')
@@ -440,9 +436,10 @@ h_decoded = decoder_h(h_decoded2)
 x_decoded_mean = decoder_mean(h_decoded)
 
 
+Kones = K.ones((nn,original_dim))
 def mean_square_error_NN(y_true, y_pred):
     dst = K.mean(K.square((k_neib - K.expand_dims(y_pred, 1))) , axis=-1)
-    weightedN = K.dot(dst, K.ones((nn,original_dim)))
+    weightedN = K.dot(dst, Kones)
     #return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
     return  tf.multiply(weightedN, 0.5 )
 
@@ -456,10 +453,10 @@ ae_nn.summary()
 
 ae_nn.compile(optimizer='adadelta', loss=ae_loss, metrics=[mean_square_error_NN])
 
-history_DAEnn= ae_nn.fit([X_train, neib_train], X_train, epochs=1000, batch_size=256,
+history_DAEnn= ae_nn.fit([X_train, neib_train], X_train, epochs=10000, batch_size=256,
                       shuffle=True,
                       validation_data=([X_test, neib_test], X_test),
-                verbose=2, workers =  multiprocessing.cpu_count(), use_multiprocessing  = True )
+                verbose=2)
 plt.plot(history_DAEnn.history['loss'][00:])
 plt.plot(history_DAEnn.history['val_loss'][00:])
 plt.title('Model loss')
@@ -541,7 +538,7 @@ autoencoder.compile(optimizer='adadelta', loss='mean_squared_error')
 # Train autoencoder
 my_epochs = 1000
 history_AE= autoencoder.fit(X_train, X_train, epochs=my_epochs, batch_size=256, shuffle=True, validation_data=(X_test, X_test),
-                verbose=2, workers =  multiprocessing.cpu_count(), use_multiprocessing  = True )
+                verbose=2)
 fig0 = plt.figure();
 plt.plot(history_AE.history['loss'][100:])
 plt.plot(history_AE.history['val_loss'][100:])
@@ -622,9 +619,10 @@ h_decoded = decoder_h(z)
 x_decoded_mean = decoder_mean(h_decoded)
 
 
+Kones = K.ones((nn,original_dim))
 def mean_square_error_NN(y_true, y_pred):
     dst = K.mean(K.square((k_neib - K.expand_dims(y_pred, 1))) , axis=-1)
-    weightedN = K.dot(dst, K.transpose(weight_neib))
+    weightedN = K.dot(dst, Kones)
     #return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
     return  tf.multiply(weightedN, 0.5 )
 
@@ -637,13 +635,12 @@ ae_nnsigma = Model([x, k_neib,  weight_neib], x_decoded_mean)
 ae_nnsigma.summary()
 
 ae_nnsigma.compile(optimizer='adadelta', loss=ae_loss, metrics=[mean_square_error_NN])
-from keras.callbacks import ModelCheckpoint
-checkpoint = ModelCheckpoint('./models/model_knn_ae{epoch:08d}.h5', period=100)
-history_nnsigma= ae_nnsigma.fit([X_train, neib_train, weight_train], X_train, epochs=1000, batch_size=256,
+from tensorflow.keras.callbacks import ModelCheckpoint
+checkpoint = ModelCheckpoint('./models/model_knn_ae{epoch:08d}.h5', period=2)
+history_nnsigma= ae_nnsigma.fit([X_train, neib_train, weight_train], X_train, epochs=3000, batch_size=256,
                       shuffle=True,
                       validation_data=([X_test, neib_test, weight_test], X_test),
-                verbose=2, workers =  multiprocessing.cpu_count(), use_multiprocessing  = True,
-                         callbacks=[checkpoint])
+                verbose=2)#, callbacks=[checkpoint])
 plt.plot(history_nnsigma.history['loss'][00:])
 plt.plot(history_nnsigma.history['val_loss'][00:])
 plt.title('Model loss')
@@ -664,13 +661,13 @@ plt.scatter(encoded_bulbs[:,0], encoded_bulbs[:,1], c = lbls_test, s = 0.1)
 plt.title(model_name)
 plt.show()
 
-figDist = plt.figure();
-plt.scatter(encoded_bulbs[:,0], encoded_bulbs[:,1], c = ort_test, s=0.1,
-            cmap='viridis')
-plt.colorbar()
-plt.title(model_name)
-plt.show()
-plt.savefig(os.getcwd() + '/plots/' + model_name  +  'ort_dist_bulbs.png')
+#figDist = plt.figure();
+#plt.scatter(encoded_bulbs[:,0], encoded_bulbs[:,1], c = ort_test, s=0.1,
+#            cmap='viridis')#
+#plt.colorbar()
+#plt.title(model_name)
+#plt.show()
+#plt.savefig(os.getcwd() + '/plots/' + model_name  +  'ort_dist_bulbs.png')
 
 
 figSave0 = plt.figure()
@@ -696,7 +693,7 @@ plt.show();
 # load models exrtract encoder and decoder, visualise..
 #model_number  = range(100, 3100, 100)
 model_number  = [100, 200, 300, 500, 1000, 3000]
-from keras import models
+from tensorflow.keras import models
 for i in model_number:
     model_i = './models/model_knn_ae' + str(i).zfill(8) + '.h5'
     ae_i= models.load_model(model_i,  custom_objects={'ae_loss':ae_loss,
@@ -760,9 +757,10 @@ h_decoded = decoder_h(z)
 x_decoded_mean = decoder_mean(h_decoded)
 
 
+Kones = K.ones((original_dim, nn+1))
 def mean_square_error_NN(y_true, y_pred):
-    dst = K.mean(K.square((k_neibP - K.expand_dims(y_pred, 1))) , axis=-1)
-    weightedN = K.dot(dst, K.ones((k,original_dim)))
+    dst = K.mean(K.square((k_neib - K.expand_dims(y_pred, 1))) , axis=-1)
+    weightedN = K.dot(dst, Kones)
     #return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
     return  tf.multiply(weightedN, 0.5 )
 
@@ -779,7 +777,7 @@ ae_nnP.compile(optimizer='adadelta', loss=ae_loss, metrics=[mean_square_error_NN
 history_DAEnnP= ae_nnP.fit([X_train, neib_trainP], X_train, epochs=500, batch_size=256,
                       shuffle=True,
                       validation_data=([X_test, neib_testP], X_test),
-                verbose=2, workers =  multiprocessing.cpu_count(), use_multiprocessing  = True )
+                verbose=2)
 plt.plot(history_DAEnnP.history['loss'][00:])
 plt.plot(history_DAEnnP.history['val_loss'][00:])
 plt.title('Model loss')
@@ -823,6 +821,7 @@ plt.show();
 figcl1 = plt.figure();
 bx = sns.violinplot(data= decoded_bulbs[lbls_test==1 , :], bw = bw);
 plt.show();
+
 
 ###########################################################
 # g) add regularization by VAE
@@ -870,7 +869,46 @@ def mean_square_error_NN(y_true, y_pred):
     dst = K.mean(K.square((k_neib - K.expand_dims(y_pred, 1))) , axis=-1)
     weightedN = K.dot(dst, K.ones((nn,original_dim)))
     #return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
-    return  tf.multiply(weightedN, 0.5 )
+    return  weightedN * 0.5
+
+
+def compute_kernel(x, y):
+    x_size = K.shape(x)[0]
+    y_size = K.shape(y)[0]
+    dim = K.shape(x)[1]
+    tiled_x = K.tile(K.reshape(x, [x_size, 1, dim]), [1, y_size, 1])
+    tiled_y = K.tile(K.reshape(y, [1, y_size, dim]), [x_size, 1, 1])
+    return K.exp(-K.mean(K.square(tiled_x - tiled_y), axis=2) / K.cast(dim, 'float32'))
+
+def compute_mmd(x, y):
+    x_kernel = compute_kernel(x, x)
+    y_kernel = compute_kernel(y, y)
+    xy_kernel = compute_kernel(x, y)
+    return K.mean(x_kernel) + K.mean(y_kernel) - 2 * K.mean(xy_kernel)
+
+def custom_loss(train_z, train_xr, train_x):
+    """
+    Critical loss builder
+		:param train_z: latent code
+		:param train_xr: reconstructed data
+		:param train_x: training data, the input data
+		:return: new loss
+		"""
+    'So, we first get the mmd loss'
+    'First, sample from random noise'
+    batch_size = K.shape(z_mean)[0]
+    latent_dim = K.int_shape(z_mean)[1]
+    true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0., stddev=1.)
+    'calculate mmd loss'
+    loss_mmd = compute_mmd(true_samples, z_mean)
+
+    'Then, also get the reconstructed loss'
+    #loss_nll = K.mean(K.square(train_xr - train_x))
+
+    'Add them together, then you can get the final loss'
+    loss =loss_mmd
+    return loss
+
 
 def custom_loss(x, x_decoded_mean, z_mean):
     msew = mean_square_error_NN(x, x_decoded_mean)
@@ -897,7 +935,7 @@ ae_nnMMD.compile(optimizer='adam', loss=loss, metrics=[mean_square_error_NN,  cu
 history_DAEnnMMD= ae_nnMMD.fit([X_train, neib_train], X_train, epochs=5,
                       shuffle=True,
                       validation_data=([X_test, neib_test], X_test),
-                verbose=2, workers =  multiprocessing.cpu_count(), use_multiprocessing  = True )
+                verbose=2)
 plt.plot(history_DAEnnMMD.history['loss'][00:])
 plt.plot(history_DAEnnMMD.history['val_loss'][00:])
 plt.title('Model loss')

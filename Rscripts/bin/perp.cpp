@@ -39,7 +39,7 @@ using namespace std;
 // void TSNE<treeT, dist_fn>::computeGaussianPerplexity(double* X, int N, int D, int** _row_P, int** _col_P, double** _val_P, double perplexity, int K, int verbose) {
 
 extern "C"{ 
-void Perplexity( double* dist,  int N, int D,   double* P, double perplexity,  int K, int num_threads) {
+void Perplexity( double* dist,  int N, int D,   double* P, double perplexity,  int K, double *Sigma, int num_threads) {
 
     if(perplexity > K) printf("Perplexity should be lower than K!\n");
 
@@ -116,7 +116,7 @@ void Perplexity( double* dist,  int N, int D,   double* P, double perplexity,  i
             P[row_P[n] + m] = cur_P[m];
         }
 
-        //Sigma[n] = 0.5/beta;
+        Sigma[n] = 0.5/beta;
     }
 
     // Clean up memory

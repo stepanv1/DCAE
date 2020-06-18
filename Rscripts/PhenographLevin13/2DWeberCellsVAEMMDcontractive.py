@@ -246,7 +246,7 @@ ID = 'Nowicka2017'
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
 '''
-source_dir = "/home/grines02/PycharmProjects/BIOIBFO25L/data/data/"
+source_dir = '/media/FCS_local/Stepan'
 '''
 
 #file_list = glob.glob(source_dir + '/*.txt')
