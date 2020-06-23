@@ -15,34 +15,73 @@ import h5py
 from sklearn.preprocessing import MinMaxScaler
 from joblib import Parallel, delayed
 from pathos import multiprocessing
+
 num_cores = multiprocessing.cpu_count()
 pool = multiprocessing.Pool(num_cores)
+
+
 def table(labels):
     unique, counts = np.unique(labels, return_counts=True)
     print('%d %d', np.asarray((unique, counts)).T)
     return {'unique': unique, 'counts': counts}
 
+
 lib = ctypes.cdll.LoadLibrary("./Clibs/perp.so")
 perp = lib.Perplexity
 perp.restype = None
 perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
-                ctypes.c_size_t, ctypes.c_size_t,
-                ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
-                ctypes.c_double,  ctypes.c_size_t,
-                ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), #Sigma
-                ctypes.c_size_t]
+                 ctypes.c_size_t, ctypes.c_size_t,
+                 ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
+                 ctypes.c_double, ctypes.c_size_t,
+                 ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),  # Sigma
+                 ctypes.c_size_t]
 
-import mdcgenpy
-n_cl=10
+from mdcgenpy import clusters
+from mdcgenpy.clusters import distributions
 
-python -m pip install pip==9.0.3
+unif_d = clusters.distributions.get_dist_function('uniform')
+n_cl = 2
+dims = 30
+# generate signatures, 'ones' are denoting 'meaninful dimensions', 'zeroes' - noise
+sig1 = np.concatenate((np.zeros(25), np.ones(5)), axis=0)
+sig2 = np.concatenate((np.ones(5), np.zeros(25)), axis=0)
+sig3 = np.concatenate((np.zeros(10), np.ones(5), np.zeros(15)), axis=0)
+sig4 = np.concatenate((np.zeros(15), np.ones(5), np.zeros(10)), axis=0)
+sig5 = np.concatenate((np.zeros(20), np.ones(5), np.zeros(5)), axis=0)
+sig6 = np.concatenate((np.zeros(5), np.ones(5), np.zeros(20)), axis=0)
 
+cl1_center = np.zeros(dims)
+cl2_center = np.concatenate((np.ones(20), np.zeros(10)), axis=0)
+
+# generate functions for input of data-generating function
+ncl1 = ncl2 = 1
+
+
+def cl1(shape, param):
+    return cl1_center + np.concatenate([np.zeros((shape, 20)), np.random.uniform(low=-param, high=param, size=(shape, 10))],
+                                       axis=1)
+
+
+def cl2(shape, param):
+    return cl2_center + np.concatenate([np.random.uniform(low=-param, high=param, size=(shape, 10)), np.zeros((ncl2, 20))],
+                                       axis=1)
+
+
+distributions_list = [cl1, cl2]
+compactness_factor_list = [1, 1]
+cluster_gen = clusters.ClusterGenerator(pseed=10, n_samples=2000, n_feats=dims, k=n_cl, min_samples=100,
+                                        possible_distributions=None, distributions=distributions_list, mv=True,
+                                        corr=0.0, compactness_factor=compactness_factor_list, alpha_n=1, scale=None,
+                                        outliers=0, rotate=False, add_noise=0, n_noise=None,
+                                        ki_coeff=3.0)
+# Get tuple with a numpy array with samples and another with labels
+data, labels = cluster_gen.generate_data()
 
 # two subspace clusters centers
 original_dim = 30
 cl1_center = np.zeros(original_dim)
-cl2_center = np.concatenate((np.ones(20),  np.zeros(10)), axis=0 )
-ncl1 =ncl2=100000
+cl2_center = np.concatenate((np.ones(20), np.zeros(10)), axis=0)
+ncl1 = ncl2 = 100000
 '''
 cl1_center = np.zeros(original_dim)
 cl2_center = np.concatenate((np.ones(20),  np.zeros(10)), axis=0 )
@@ -176,13 +215,18 @@ dill.load_session(filepath)
 outfile = './data/ArtBulbz.npz'
 npzfile = np.load(outfile)
 lbls = npzfile['lbls'];
-Idx=npzfile['Idx']; cl1=npzfile['cl1']; cl2=npzfile['cl2']; noisy_clus=npzfile['noisy_clus'];
-lbls=npzfile['lbls'];  Dist=npzfile['Dist']; cl1_noisy_nn =npzfile['cl1_noisy_nn'];
-cl2_noisy_nn=npzfile['cl2_noisy_nn'];
-cl1_noisy =npzfile['cl1_noisy'];
-cl2_noisy=npzfile['cl2_noisy'];
-cl1_ort_dist=npzfile['cl2_ort_dist'];
-cl2_ort_dist=npzfile['cl2_ort_dist'];
-neibALL=npzfile['neibALL']
-neib_weight= npzfile['neib_weight']
+Idx = npzfile['Idx'];
+cl1 = npzfile['cl1'];
+cl2 = npzfile['cl2'];
+noisy_clus = npzfile['noisy_clus'];
+lbls = npzfile['lbls'];
+Dist = npzfile['Dist'];
+cl1_noisy_nn = npzfile['cl1_noisy_nn'];
+cl2_noisy_nn = npzfile['cl2_noisy_nn'];
+cl1_noisy = npzfile['cl1_noisy'];
+cl2_noisy = npzfile['cl2_noisy'];
+cl1_ort_dist = npzfile['cl2_ort_dist'];
+cl2_ort_dist = npzfile['cl2_ort_dist'];
+neibALL = npzfile['neibALL']
+neib_weight = npzfile['neib_weight']
 Sigma = npzfile['Sigma']
