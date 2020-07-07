@@ -1,4 +1,5 @@
-'''This script to visualise cytoff data using deep autoencoder with neighbourhood denoising and
+'''
+This script to visualise cytoff data using deep autoencoder with neighbourhood denoising and
 contracting knnCAE
 TODO ?? pretraining
 Now with entropic weighting of neibourhoods

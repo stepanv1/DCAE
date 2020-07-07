@@ -246,7 +246,7 @@ ID = 'Nowicka2017'
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
 '''
-source_dir = '/media/FCS_local/Stepan'
+source_dir = '/media/FCS_local/Stepan/data/WeberLabels/'
 '''
 
 #file_list = glob.glob(source_dir + '/*.txt')
@@ -261,36 +261,53 @@ lbls=patient_table[:,0]
 
 
 len(lbls)
-scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
-scaler.fit_transform(aFrame)
-nb=find_neighbors(aFrame, k3, metric='euclidean', cores=12)
+#scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
+#scaler.fit_transform(aFrame)
+nb=find_neighbors(aFrame, k3, metric='euclidean', cores=48)
 Idx = nb['idx']; Dist = nb['dist']
-'''
+
 patient_table = np.genfromtxt(source_dir + "label_patient.txt", names=None, dtype='str', skip_header=1, delimiter=" ", usecols = (1, 2, 3))
 IDX = np.random.choice(patient_table.shape[0], patient_table.shape[0], replace=False)
-patient_table = patient_table[IDX,:]
-data0 = np.genfromtxt(source_dir + "d_matrix.txt"
-                      , names=None, dtype=float, skip_header=1)
-clust = np.genfromtxt(source_dir + "label_patient.txt", names=None, dtype='str', skip_header=1, delimiter=" ",
-                      usecols=(1, 2, 3))[:, 0]
-clust = clust[IDX]
+#patient_table = patient_table[IDX,:]
+aFrame= aFrame[IDX,:]
+lbls = lbls[IDX]
+Dist = Dist[IDX]
+Idx = Idx[IDX]
 outfile = source_dir + '/Nowicka2017euclid.npz'
-# np.savez(outfile, Idx=Idx, aFrame=aFrame, lbls=lbls,  Dist=Dist)
+np.savez(outfile, Idx=Idx, aFrame=aFrame, lbls=lbls,  Dist=Dist)
+'''
+outfile = source_dir + '/Nowicka2017euclid.npz'
+
 npzfile = np.load(outfile)
 lbls = npzfile['lbls'];
-lbls = lbls[IDX]
 Idx = npzfile['Idx'];
-Idx = Idx[IDX,:]
 aFrame = npzfile['aFrame'];
-aFrame = aFrame[IDX,:]
 Dist = npzfile['Dist']
-Dist =  Dist[IDX,:]
+
+#plot marker distributions
+
 # transform labels into natural numbers
 from sklearn import preprocessing
 
 le = preprocessing.LabelEncoder()
 le.fit(lbls)
 lbls = le.transform(lbls)
+table(lbls)
+
+bw=0.2
+cols = 8
+rows = 1
+plt.figure()
+gs = plt.GridSpec(rows, cols)
+for cl in range(0, 8):
+    bw=0.2
+    i = cl
+    plt.subplot(gs[0,i])
+    plt.title(cl)
+    sns.violinplot(data= aFrame[lbls==cl , :], bw = bw);
+    plt.tight_layout(pad=0.1)
+plt.show();
+
 
 # lbls2=npzfile['lbls'];Idx2=npzfile['Idx'];aFrame2=npzfile['aFrame'];
 # cutoff2=npzfile['cutoff']; Dist2 =npzfile['Dist']

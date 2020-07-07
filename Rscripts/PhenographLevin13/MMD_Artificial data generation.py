@@ -299,7 +299,7 @@ ae_nnMMD.summary()
 ae_nnMMD.compile(optimizer='adam', loss=custom_loss, metrics=[mean_square_error_NN, custom_loss])
 
 
-history_DAEnnMMD= ae_nnMMD.fit([X_train, neib_train], X_train, epochs=1000,
+history_DAEnnMMD= ae_nnMMD.fit([X_train, neib_train], X_train, epochs=000,
                       shuffle=True,
                       validation_data=([X_test, neib_test], X_test),
                 verbose=1, batch_size=256)
