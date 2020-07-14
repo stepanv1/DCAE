@@ -10,7 +10,9 @@ Jillian Rosenberg1 and Jun Huang1,2
 
 import keras
 import tensorflow as tf
+import multiprocessing
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 import glob
@@ -222,6 +224,27 @@ class AnnealingCallback(Callback):
 #    neighbors = knn_cuda(k_, np.float32(data), *ca, metric=metric, verbosity=1, device=0)
 #    return {'dist':0, 'idx': np.int32(neighbors)}
 
+num_cores = multiprocessing.cpu_count()
+pool = multiprocessing.Pool(num_cores)
+def table(labels):
+    unique, counts = np.unique(labels, return_counts=True)
+    print('%d %d', np.asarray((unique, counts)).T)
+    return {'unique': unique, 'counts': counts}
+
+import ctypes
+from numpy.ctypeslib import ndpointer
+
+lib = ctypes.cdll.LoadLibrary("./Clibs/perp.so")
+perp = lib.Perplexity
+perp.restype = None
+perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
+                ctypes.c_size_t, ctypes.c_size_t,
+                ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
+                ctypes.c_double,  ctypes.c_size_t,
+                ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), #Sigma
+                ctypes.c_size_t]
+
+
 from sklearn.neighbors import NearestNeighbors
 from joblib import Parallel, delayed
 from pathos import multiprocessing
@@ -258,6 +281,11 @@ aFrame[aFrame < 0] = 0
 
 patient_table = np.genfromtxt(source_dir + "label_patient.txt", names=None, dtype='str', skip_header=1, delimiter=" ", usecols = (1, 2, 3))
 lbls=patient_table[:,0]
+IDX = np.random.choice(patient_table.shape[0], patient_table.shape[0], replace=False)
+#patient_table = patient_table[IDX,:]
+aFrame= aFrame[IDX,:]
+lbls = lbls[IDX]
+
 
 
 len(lbls)
@@ -266,13 +294,61 @@ len(lbls)
 nb=find_neighbors(aFrame, k3, metric='euclidean', cores=48)
 Idx = nb['idx']; Dist = nb['dist']
 
-patient_table = np.genfromtxt(source_dir + "label_patient.txt", names=None, dtype='str', skip_header=1, delimiter=" ", usecols = (1, 2, 3))
-IDX = np.random.choice(patient_table.shape[0], patient_table.shape[0], replace=False)
-#patient_table = patient_table[IDX,:]
-aFrame= aFrame[IDX,:]
-lbls = lbls[IDX]
-Dist = Dist[IDX]
-Idx = Idx[IDX]
+
+#Dist = Dist[IDX]
+#Idx = Idx[IDX]
+
+nrow=Idx.shape[0]
+# find nearest neighbours
+def singleInput(i):
+    nei = noisy_clus[Idx[i, :], :]
+    return [nei, i]
+
+# find nearest neighbours
+nn=30
+
+rk=range(k3)
+def singleInput(i):
+     nei =  aFrame[Idx[i,:],:]
+     di = [np.sqrt(sum(np.square(aFrame[i] - nei[k_i,]))) for k_i in rk]
+     return [nei, di, i]
+
+nrow = len(lbls)
+inputs = range(nrow)
+from joblib import Parallel, delayed
+from pathos import multiprocessing
+num_cores = 48
+#pool = multiprocessing.Pool(num_cores)
+results = Parallel(n_jobs=48, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
+neibALL = np.zeros((nrow, k3, original_dim))
+Distances = np.zeros((nrow, k3))
+neib_weight = np.zeros((nrow, k3))
+Sigma = np.zeros(nrow, dtype=float)
+for i in range(nrow):
+    neibALL[i,] = results[i][0]
+for i in range(nrow):
+    Distances[i,] = results[i][1]
+#Compute perpelexities
+nn=30
+perp((Distances[:,0:k3]),       nrow,     original_dim,   neib_weight,          nn,          k3,   Sigma,    48)
+      #(     double* dist,      int N,    int D,       double* P,     double perplexity,    int K, int num_threads)
+np.shape(neib_weight)
+plt.plot(neib_weight[1,])
+#sort and normalise weights
+topk = np.argsort(neib_weight, axis=1)[:,-nn:]
+topk= np.apply_along_axis(np.flip, 1, topk,0)
+neib_weight=np.array([ neib_weight[i, topk[i]] for i in range(len(topk))])
+neib_weight=sklearn.preprocessing.normalize(neib_weight, axis=1, norm='l1')
+neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
+
+plt.plot(neib_weight[1,:]);plt.show()
+
+outfile = source_dir + '/Nowicka2017euclid.npz'
+np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
+         neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma)
+
+
+
 outfile = source_dir + '/Nowicka2017euclid.npz'
 np.savez(outfile, Idx=Idx, aFrame=aFrame, lbls=lbls,  Dist=Dist)
 '''
@@ -283,6 +359,38 @@ lbls = npzfile['lbls'];
 Idx = npzfile['Idx'];
 aFrame = npzfile['aFrame'];
 Dist = npzfile['Dist']
+
+from sklearn.decomposition import PCA
+principalComponents  = PCA(n_components = 2).fit_transform(aFrame)
+principalDf = pd.DataFrame(data = principalComponents
+             , columns = ['principal component 1', 'principal component 2'])
+finalDf = pd.concat([principalDf, pd.DataFrame(data=lbls, columns=['lbls'])], axis = 1)
+sns.pairplot(x_vars = ['principal component 1'], y_vars=['principal component 2'], data=finalDf, hue="lbls", size=5)
+
+import umap
+#TODO: compare distances and sigma-weightred distances with local graph weights, especially
+# in how they preserve cluster state (i.e weights of the edges inside the same cluster are less)
+# https://umap-learn.readthedocs.io/en/latest/api.html
+fss , _ ,_ = umap.umap_.fuzzy_simplicial_set(aFrame, n_neighbors=90, random_state=1,
+                            metric = 'euclidean', metric_kwds={},
+                            knn_indices=Idx[:,0:90], knn_dists=Dist[:,0:90],
+            angular=False, set_op_mix_ratio=1.0, local_connectivity=1.0, apply_set_operations=True, verbose=True)
+#TODO try nearest neighbour comp using umap functions
+#umap.umap_.nearest_neighbors(X, n_neighbors, metric, metric_kwds, angular, random_state, low_memory=False, use_pynndescent=True, verbose=False)
+# crete a metric to demonstrate cluster preservation by the nearest neighbour
+# create a matrices containing indices and weights
+fss_lil =  fss.tolil()
+fss_rows = fss_lil.rows
+fss_vals = fss_lil.data
+max_len  = len(max(fss_rows, key=len))
+# sort indices and weigths by value of weights
+from operator import itemgetter
+val_sort = row_sort = [];
+for i in range(len(fss_vals)):
+    res = [list(x) for x in zip(*sorted(zip(fss_vals[i], fss_rows[i]), key=itemgetter(0), reverse=True))]
+    val_sort.append(res[0])
+    row_sort.append(res[1])
+# take top 30 elemetes to create index and value matrices
 
 #plot marker distributions
 
@@ -307,6 +415,39 @@ for cl in range(0, 8):
     sns.violinplot(data= aFrame[lbls==cl , :], bw = bw);
     plt.tight_layout(pad=0.1)
 plt.show();
+
+#correlation plot
+bw=0.2
+cols = 3
+rows = 3
+plt.figure()
+gs = plt.GridSpec(rows, cols)
+for cl in range(0, 8):
+    bw=0.2
+    i = cl//rows
+    j = cl - i*cols
+    plt.subplot(gs[i, j])
+    plt.title(cl)
+    dt=aFrame[lbls==cl , :]
+    df = pd.DataFrame(dt)
+    corr = df.corr()
+    df.corr().unstack().sort_values().drop_duplicates().tail()
+    ax = sns.heatmap(
+        corr,
+        vmin=-1, vmax=1, center=0,
+        cmap=sns.diverging_palette(20, 220, n=200),
+        square=True
+    )
+    ax.set_xticklabels(
+        ax.get_xticklabels(),
+        rotation=45,
+        horizontalalignment='right'
+    );
+    plt.tight_layout(pad=0.1)
+plt.show();
+
+
+
 
 
 # lbls2=npzfile['lbls'];Idx2=npzfile['Idx'];aFrame2=npzfile['aFrame'];

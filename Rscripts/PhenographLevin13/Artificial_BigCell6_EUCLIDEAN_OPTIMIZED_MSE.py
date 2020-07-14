@@ -73,8 +73,6 @@ Idx = nb['idx']; Dist = nb['dist']
 
 nrow=Idx.shape[0]
 # find nearest neighbours
-
-
 def singleInput(i):
     nei = noisy_clus[Idx[i, :], :]
     return [nei, i]
