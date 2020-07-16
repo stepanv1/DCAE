@@ -349,8 +349,8 @@ np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
 
 
 
-outfile = source_dir + '/Nowicka2017euclid.npz'
-np.savez(outfile, Idx=Idx, aFrame=aFrame, lbls=lbls,  Dist=Dist)
+#outfile = source_dir + '/Nowicka2017euclid.npz'
+#np.savez(outfile, Idx=Idx, aFrame=aFrame, lbls=lbls,  Dist=Dist)
 '''
 outfile = source_dir + '/Nowicka2017euclid.npz'
 
@@ -359,6 +359,9 @@ lbls = npzfile['lbls'];
 Idx = npzfile['Idx'];
 aFrame = npzfile['aFrame'];
 Dist = npzfile['Dist']
+neibALL = npzfile['neibALL']
+neib_weight = npzfile['neib_weight']
+Sigma = npzfile['Sigma']
 
 from sklearn.decomposition import PCA
 principalComponents  = PCA(n_components = 2).fit_transform(aFrame)
@@ -465,10 +468,10 @@ plt.show();
 # lbls2=npzfile['lbls'];Idx2=npzfile['Idx'];aFrame2=npzfile['aFrame'];
 # cutoff2=npzfile['cutoff']; Dist2 =npzfile['Dist']
 cutoff = np.repeat(0.1, 24)
-batch_size = 200
+batch_size = 256
 original_dim = 24
 latent_dim = 2
-intermediate_dim = 120
+intermediate_dim = 12
 nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
 
 #annealing schedule
@@ -536,71 +539,14 @@ for i in range(nrow):
     weight_distALL[i,] = results[i][2]
 del results
 '''
-outfile = source_dir + 'Nowicka2017euclidFeatures.npz'
-# np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
-npzfile = np.load(outfile)
-weight_distALL = npzfile['weight_distALL'];
-weight_distALL = weight_distALL[IDX,:]
-cut_neibF = npzfile['cut_neibF'];
-cut_neibF = cut_neibF[IDX,:]
-neibALL = npzfile['neibALL']
-neibALL  = neibALL [IDX,:]
-np.sum(cut_neibF != 0)
 # plt.hist(cut_neibF[cut_neibF!=0],50)
-
-
-print('compute perplexity based weights')
-# compute weights
-import ctypes
-from numpy.ctypeslib import ndpointer
-
-# del lib
-# del perp
-# import _ctypes
-# _ctypes.dlclose(lib._handle )
-# del perp
-# del lib
-
-lib = ctypes.cdll.LoadLibrary("/home/grines02/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
-perp = lib.Perplexity
-perp.restype = None
-perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
-                 ctypes.c_size_t, ctypes.c_size_t,
-                 ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
-                 ctypes.c_double, ctypes.c_size_t, ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), ctypes.c_size_t]
-
-# here si the fifference with equlid -no sqrt
-Sigma = np.zeros(nrow, dtype=float)
-Dist = Dist[:, 0:k3]
-weight_neibALL = weight_neibALL[:, 0:k3]
-perp(np.ascontiguousarray(Dist), nrow, original_dim, np.ascontiguousarray(weight_neibALL), k, k * 3, Sigma,
-     12)
-# (          double* dist,      int N,    int D,            double* P,     double perplexity, int K,          int num_threads)
-#import _ctypes
-#_ctypes.dlclose(lib._handle)
-
-plt.scatter(x=np.mean(weight_distALL[:, 0:k], axis=1), y=np.sqrt(Sigma), alpha=0.5)
-
-np.shape(weight_neibALL)
-plt.hist(Sigma, bins=50)
-np.var(Sigma)
-plt.plot(weight_neibALL[10,])
-
-topk = np.argsort(weight_neibALL, axis=1)[:, -k:]
-topk = np.apply_along_axis(np.flip, 1, topk, 0)
-
-weight_neibF = np.array([weight_neibALL[i, topk[i]] for i in range(len(topk))])
-neibF = np.array([neibALL[i, topk[i, :], :] for i in range(len(topk))])
-weight_neibF = sklearn.preprocessing.normalize(weight_neibF, axis=1, norm='l1')
-plt.plot(weight_neibF[5,]);
-plt.show()
 
 # [aFrame, neibF, cut_neibF, weight_neibF]
 # training set
 # targetTr = np.repeat(aFrame, r, axis=0)
 targetTr = aFrame
-neibF_Tr = neibF
-weight_neibF_Tr = weight_neibF
+neibF_Tr = neibALL
+weight_neibF_Tr = neib_weight
 sourceTr = aFrame
 
 # Model-------------------------------------------------------------------------
@@ -632,20 +578,6 @@ autoencoder = Model(inputs=[x, neib, SigmaTsq, weight_neib], outputs=x_decoded_m
 # Loss and optimizer ------------------------------------------------------
 
 
-def compute_kernel(x,y):
-    x_size = tf.shape(x)[0]
-    y_size = tf.shape(y)[0]
-    dim = tf.shape(x)[1]
-    tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, y_size, 1]))
-    tiled_y = tf.tile(tf.reshape(y, tf.stack([1, y_size, dim])), tf.stack([x_size, 1, 1]))
-    return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
-
-
-def compute_mmd(x, y):   # [batch_size, z_dim] [batch_size, z_dim]
-    x_kernel = compute_kernel(x, x)
-    y_kernel = compute_kernel(y, y)
-    xy_kernel = compute_kernel(x, y)
-    return tf.reduce_mean(x_kernel) + tf.reduce_mean(y_kernel) - 2 * tf.reduce_mean(xy_kernel)
 
 normSigma = nrow / sum(1 / Sigma)
 weight_neibF = np.full((nrow, k), 1/k)
