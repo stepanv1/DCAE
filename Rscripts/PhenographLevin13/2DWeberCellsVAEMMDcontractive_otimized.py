@@ -576,19 +576,9 @@ x_decoded_mean = decoder_mean(h_decoded)
 autoencoder = Model(inputs=[x, neib, SigmaTsq, weight_neib], outputs=x_decoded_mean)
 
 # Loss and optimizer ------------------------------------------------------
-
-
-
+# Stopped here
 normSigma = nrow / sum(1 / Sigma)
-weight_neibF = np.full((nrow, k), 1/k)
-def mean_square_error_NN(y_true, y_pred):
-    # dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1)) / (tf.expand_dims(cut_neib,1) + 1)), axis=-1)
-    dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1))), axis=-1)
-    weightedN = k * original_dim * K.dot(dst,
-                                         K.transpose(weight_neib))  # not really a mean square error after we done this
-    # return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
-    return  tf.multiply(weightedN, 0.5 * normSigma * (1/SigmaTsq) )
-    #return tf.multiply(weightedN, 0.5)
+#weight_neibF = np.full((nrow, k), 1/k)
 
 lam=1e-4
 def contractive():
@@ -599,40 +589,65 @@ def contractive():
         return 1/normSigma * (SigmaTsq) * lam * K.sum(dh ** 2 * K.sum(W ** 2, axis=1), axis=1)
         #return lam * K.sum(dh ** 2 * K.sum(W ** 2, axis=1), axis=1)
 
+# adding MMD
+#analytical estimate of MMD from https://arxiv.org/pdf/1901.03227.pdf
+# When CodeNorm is not used , set adaptive = True
+def smmd(z_mean, scale =1./8., adaptive = True):
+    nf = tf.cast( tf.shape(z_mean)[0], "float32")
+    latent_dim = tf.cast( tf.shape(z_mean)[1] , "float32")
+
+    norms2 = tf.reduce_sum(tf.square( z_mean ), axis =1, keepdims = True )
+    dotprods = tf.matmul(z_mean , z_mean , transpose_b = True )
+    dists2 = norms2 + tf.transpose( norms2 ) - 2. * dotprods
+    if adaptive :
+        mean_norms2 = tf.reduce_mean( norms2 )
+        gamma2 = tf.stop_gradient( scale * mean_norms2 )
+    else :
+        gamma2 = scale * latent_dim
+
+    variance = ( gamma2 /(2.+ gamma2 ) )**latent_dim + \
+                ( gamma2 /(4.+ gamma2 ) )**( latent_dim /2.) - \
+                2.*( gamma2**2./((1.+ gamma2 )*(3.+ gamma2 ) ) )**( latent_dim /2.)
+    variance = 2. * variance /( nf *( nf -1.) )
+    variance_normalization = ( variance )**( -1./2.)
+
+    Ekzz = ( tf.reduce_sum( tf.exp( - dists2 /(2.* gamma2 ) ) ) - nf ) /(( nf * nf - nf ) )
+    Ekzn = ( gamma2 /(1.+ gamma2 ) ) **( latent_dim /2.) *\
+        tf.reduce_mean ( tf.exp( - norms2 /(2.*(1.+ gamma2 ) ) ) )
+    Eknn = ( gamma2 /(2.+ gamma2 ) ) **( latent_dim /2.)
+
+    return variance_normalization *( Ekzz - 2.* Ekzn + Eknn )
+
+
 def custom_loss(x, x_decoded_mean, z_mean):
-    msew = mean_square_error_NN(x, x_decoded_mean)
+    msew = keras.losses.mean_squared_error(x_decoded_mean)
     #print('msew done', K.eval(msew))
     #mmd loss
-    #loss_nll = K.mean(K.square(train_xr - x))
-    #batch_size = batch_size #K.shape(train_z)[0]
-    batch_size = K.shape(z_mean)[0]
-    latent_dim = K.int_shape(z_mean)[1]
-    #print('batch_size')
-    #latent_dim = latent_dim
-    true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0., stddev=1.)
-    loss_mmd = compute_mmd(true_samples, z_mean)
-    #print(K.shape(loss_mmd))
+    loss_mmd = smmd(z_mean, scale = 1./8. , adaptive = False )
     #return msew +  1 * contractive()
-    return msew + loss_mmd + 1*contractive()
+    return msew + 0.001*loss_mmd + 1*contractive()
 
 loss = custom_loss(x, x_decoded_mean, z_mean)
 autoencoder.add_loss(loss)
-autoencoder.compile(optimizer='adam', metrics=[mean_square_error_NN, contractive,  custom_loss])
+autoencoder.compile(optimizer='adam', metrics=[contractive,  custom_loss])
 print(autoencoder.summary())
 print(encoder.summary())
 #print(decoder.summary())
 
-
+# compute mean weighted target x_mean = sum_j(w^j x_j), j - is neighbour number
+w_mean_target = np.average(neibALL, axis=0, weights=neib_weight)
 
 #callbacks = [EarlyStoppingByLossVal( monitor='loss', value=0.01, verbose=0
 
 earlyStopping=EarlyStoppingByValLoss( monitor='val_loss', min_delta=0.0001, verbose=1, patience=10, restore_best_weights=True)
 #earlyStopping=keras.callbacks.EarlyStopping(monitor='val_loss')
 epochs = 500
+sample_weight = 1 / Sigma
 history = autoencoder.fit([targetTr[2000:172600,:], neibF_Tr[2000:172600,:],  Sigma[2000:172600], weight_neibF[2000:172600,:]],
                 epochs=epochs, batch_size=batch_size,
                 validation_data=([targetTr[0:2000,:], neibF_Tr[0:2000,:],  Sigma[0:2000], weight_neibF[0:2000,:]], None) , #shuffle=True,
-                callbacks=[CustomMetrics(), earlyStopping])#, validation_data=([targetTr, neibF_Tr,  Sigma, weight_neibF], None))
+                callbacks=[CustomMetrics(), earlyStopping],
+                           sample_weight=sample_weight)#, validation_data=([targetTr, neibF_Tr,  Sigma, weight_neibF], None))
 z = encoder.predict([aFrame, neibF,  Sigma, weight_neibF])
 
 #encoder.save_weights('encoder_weightsWEBERCELLS_2D_MMD_CONTRACTIVEk30_2000epochs_LAM_0.0001.h5')
@@ -927,4 +942,21 @@ print(np.mean(np.array([np.mean(np.array(connClean)[lbls == cl]) for cl in uniqu
 print(np.mean(np.array([np.mean(np.array(connClean2)[lbls == cl]) for cl in unique0])))
 
 # plotly in 3d
+
+#umap plot
+
+import umap
+import numba
+# see how denoising looks
+numba.set_num_threads(48)
+
+reducer = umap.UMAP(n_neighbors=30)
+embeddingTr = reducer.fit_transform(aFrame)
+fig0 = plt.figure();
+plt.scatter(embeddingTr[:,0], embeddingTr[:,1], c = lbls, s=0.1)
+plt.title('Nowizka UMAP')
+plt.show()
+
+
+
 
