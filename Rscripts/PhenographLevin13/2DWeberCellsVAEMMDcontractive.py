@@ -8,7 +8,7 @@ CD8+ T Cells and NK Cells: Parallel and Complementary Soldiers of Immunotherapy
 Jillian Rosenberg1 and Jun Huang1,2
 '''
 
-import keras
+#import keras
 import tensorflow as tf
 import multiprocessing
 import numpy as np
@@ -16,20 +16,18 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 import glob
-from keras.layers import Input, Dense, Lambda, Layer, Dropout, BatchNormalization
-from keras.layers.noise import AlphaDropout
-from keras.utils import np_utils
-from keras.models import Model
-from keras import backend as K
-from keras import metrics
+from tensorflow.keras.layers import Input, Dense, Lambda, Layer, Dropout, BatchNormalization
+#from tensorflow.keras.utils import np_utils
+#import np_utils
+from tensorflow.keras import Model
+from tensorflow.keras import backend as K
+from tensorflow.keras import metrics
 import random
 # from keras.utils import multi_gpu_model
 import timeit
-from keras.optimizers import SGD
-from keras.optimizers import Adagrad
-from keras.optimizers import Adadelta
-from keras.optimizers import Adam
-from keras.constraints import maxnorm
+from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.optimizers import Adam
+#from tensorflow.keras.constraints import maxnorm
 # import readline
 # mport rpy2
 # from rpy2.robjects.packages import importr
@@ -45,15 +43,15 @@ from sklearn.preprocessing import MinMaxScaler
 # flask run
 import seaborn as sns
 import warnings
-from keras.callbacks import Callback, EarlyStopping, ModelCheckpoint
-from keras.regularizers import l2, l1
-from keras.models import load_model
-from keras import regularizers
+from tensorflow.keras.callbacks import Callback, EarlyStopping, ModelCheckpoint
+from tensorflow.keras.regularizers import l2, l1
+from tensorflow.keras.models import load_model
+from tensorflow.keras import regularizers
 # import champ
 # import ig
 # import metric
 # import dill
-from keras.callbacks import TensorBoard
+from tensorflow.keras.callbacks import TensorBoard
 
 # from GetBest import GetBest
 
@@ -286,8 +284,6 @@ IDX = np.random.choice(patient_table.shape[0], patient_table.shape[0], replace=F
 aFrame= aFrame[IDX,:]
 lbls = lbls[IDX]
 
-
-
 len(lbls)
 #scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
 #scaler.fit_transform(aFrame)
@@ -346,9 +342,6 @@ plt.plot(neib_weight[1,:]);plt.show()
 outfile = source_dir + '/Nowicka2017euclid.npz'
 np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
          neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma)
-
-
-
 outfile = source_dir + '/Nowicka2017euclid.npz'
 np.savez(outfile, Idx=Idx, aFrame=aFrame, lbls=lbls,  Dist=Dist)
 '''
@@ -359,6 +352,10 @@ lbls = npzfile['lbls'];
 Idx = npzfile['Idx'];
 aFrame = npzfile['aFrame'];
 Dist = npzfile['Dist']
+neibALL = npzfile['neibALL']
+neib_weight = npzfile['neib_weight']
+Sigma = npzfile['Sigma']
+
 
 from sklearn.decomposition import PCA
 principalComponents  = PCA(n_components = 2).fit_transform(aFrame)
@@ -536,75 +533,40 @@ for i in range(nrow):
     weight_distALL[i,] = results[i][2]
 del results
 '''
-outfile = source_dir + 'Nowicka2017euclidFeatures.npz'
+source_dir = '/media/FCS_local/Stepan/data/WeberLabels/'
+outfile = source_dir + '/Nowicka2017euclid.npz'
 # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
 npzfile = np.load(outfile)
-weight_distALL = npzfile['weight_distALL'];
-weight_distALL = weight_distALL[IDX,:]
-cut_neibF = npzfile['cut_neibF'];
-cut_neibF = cut_neibF[IDX,:]
+weight_distALL = npzfile['neib_weight'];
+# = weight_distALL[IDX,:]
+aFrame = npzfile['aFrame'];
+Dist = npzfile['Dist']
+#cut_neibF = npzfile['cut_neibF'];
+#cut_neibF = cut_neibF[IDX,:]
 neibALL = npzfile['neibALL']
-neibALL  = neibALL [IDX,:]
-np.sum(cut_neibF != 0)
+#neibALL  = neibALL [IDX,:]
+#np.sum(cut_neibF != 0)
 # plt.hist(cut_neibF[cut_neibF!=0],50)
-
-
-print('compute perplexity based weights')
-# compute weights
-import ctypes
-from numpy.ctypeslib import ndpointer
-
-# del lib
-# del perp
-# import _ctypes
-# _ctypes.dlclose(lib._handle )
-# del perp
-# del lib
-
-lib = ctypes.cdll.LoadLibrary("/home/grines02/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
-perp = lib.Perplexity
-perp.restype = None
-perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
-                 ctypes.c_size_t, ctypes.c_size_t,
-                 ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
-                 ctypes.c_double, ctypes.c_size_t, ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), ctypes.c_size_t]
-
-# here si the fifference with equlid -no sqrt
-Sigma = np.zeros(nrow, dtype=float)
-Dist = Dist[:, 0:k3]
-weight_neibALL = weight_neibALL[:, 0:k3]
-perp(np.ascontiguousarray(Dist), nrow, original_dim, np.ascontiguousarray(weight_neibALL), k, k * 3, Sigma,
-     12)
-# (          double* dist,      int N,    int D,            double* P,     double perplexity, int K,          int num_threads)
-#import _ctypes
-#_ctypes.dlclose(lib._handle)
-
-plt.scatter(x=np.mean(weight_distALL[:, 0:k], axis=1), y=np.sqrt(Sigma), alpha=0.5)
-
-np.shape(weight_neibALL)
-plt.hist(Sigma, bins=50)
-np.var(Sigma)
-plt.plot(weight_neibALL[10,])
-
-topk = np.argsort(weight_neibALL, axis=1)[:, -k:]
-topk = np.apply_along_axis(np.flip, 1, topk, 0)
-
-weight_neibF = np.array([weight_neibALL[i, topk[i]] for i in range(len(topk))])
-neibF = np.array([neibALL[i, topk[i, :], :] for i in range(len(topk))])
-weight_neibF = sklearn.preprocessing.normalize(weight_neibF, axis=1, norm='l1')
-plt.plot(weight_neibF[5,]);
-plt.show()
-
+Sigma = npzfile['Sigma']
+lbls = npzfile['lbls'];
 # [aFrame, neibF, cut_neibF, weight_neibF]
 # training set
 # targetTr = np.repeat(aFrame, r, axis=0)
 targetTr = aFrame
-neibF_Tr = neibF
-weight_neibF_Tr = weight_neibF
+neibF_Tr = neibALL
+weight_neibF_Tr =weight_distALL
 sourceTr = aFrame
 
+# session set up
+tf.config.threading.set_inter_op_parallelism_threads(0)
+tf.config.threading.set_intra_op_parallelism_threads(0)
 # Model-------------------------------------------------------------------------
-
+nrow = aFrame.shape[0]
+batch_size = 256
+original_dim = 24
+latent_dim = 2
+intermediate_dim = 12
+nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
 SigmaTsq = Input(shape=(1,))
 neib = Input(shape=(k, original_dim,))
 # var_dims = Input(shape = (original_dim,))
@@ -630,7 +592,8 @@ x_decoded_mean = decoder_mean(h_decoded)
 autoencoder = Model(inputs=[x, neib, SigmaTsq, weight_neib], outputs=x_decoded_mean)
 
 # Loss and optimizer ------------------------------------------------------
-
+# rewrite this based on recommendations here
+# https://www.tensorflow.org/guide/keras/train_and_evaluate
 
 def compute_kernel(x,y):
     x_size = tf.shape(x)[0]
@@ -659,7 +622,7 @@ def mean_square_error_NN(y_true, y_pred):
     #return tf.multiply(weightedN, 0.5)
 
 lam=1e-4
-def contractive():
+def contractive(x, x_decoded_mean):
         W = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
         W = K.transpose(W)  # N_hidden x N
         h = encoder.get_layer('z_mean').output
@@ -667,25 +630,28 @@ def contractive():
         return 1/normSigma * (SigmaTsq) * lam * K.sum(dh ** 2 * K.sum(W ** 2, axis=1), axis=1)
         #return lam * K.sum(dh ** 2 * K.sum(W ** 2, axis=1), axis=1)
 
+def loss_mmd(x, x_decoded_mean):
+    batch_size = K.shape(z_mean)[0]
+    latent_dim = K.int_shape(z_mean)[1]
+    true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0., stddev=1.)
+    return compute_mmd(true_samples, z_mean)
+
 def custom_loss(x, x_decoded_mean, z_mean):
     msew = mean_square_error_NN(x, x_decoded_mean)
     #print('msew done', K.eval(msew))
     #mmd loss
     #loss_nll = K.mean(K.square(train_xr - x))
     #batch_size = batch_size #K.shape(train_z)[0]
-    batch_size = K.shape(z_mean)[0]
-    latent_dim = K.int_shape(z_mean)[1]
+
     #print('batch_size')
     #latent_dim = latent_dim
-    true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0., stddev=1.)
-    loss_mmd = compute_mmd(true_samples, z_mean)
     #print(K.shape(loss_mmd))
     #return msew +  1 * contractive()
-    return msew + loss_mmd + 1*contractive()
+    return msew + 0.1*loss_mmd(x, x_decoded_mean) + 1*contractive(x, x_decoded_mean)
 
 loss = custom_loss(x, x_decoded_mean, z_mean)
 autoencoder.add_loss(loss)
-autoencoder.compile(optimizer='adam', metrics=[mean_square_error_NN, contractive,  custom_loss])
+autoencoder.compile(optimizer='adam', metrics=[mean_square_error_NN, contractive, custom_loss, loss_mmd])
 print(autoencoder.summary())
 print(encoder.summary())
 #print(decoder.summary())
@@ -696,12 +662,13 @@ print(encoder.summary())
 
 earlyStopping=EarlyStoppingByValLoss( monitor='val_loss', min_delta=0.0001, verbose=1, patience=10, restore_best_weights=True)
 #earlyStopping=keras.callbacks.EarlyStopping(monitor='val_loss')
-epochs = 500
-history = autoencoder.fit([targetTr[2000:172600,:], neibF_Tr[2000:172600,:],  Sigma[2000:172600], weight_neibF[2000:172600,:]],
-                epochs=epochs, batch_size=batch_size,
-                validation_data=([targetTr[0:2000,:], neibF_Tr[0:2000,:],  Sigma[0:2000], weight_neibF[0:2000,:]], None) , #shuffle=True,
-                callbacks=[CustomMetrics(), earlyStopping])#, validation_data=([targetTr, neibF_Tr,  Sigma, weight_neibF], None))
-z = encoder.predict([aFrame, neibF,  Sigma, weight_neibF])
+epochs = 2
+history = autoencoder.fit([targetTr[:,], neibF_Tr[:,:],  Sigma[:], weight_neibF[:,:]],
+                epochs=epochs, batch_size=batch_size, verbose=1,
+                validation_data=([targetTr[0:2000,:], neibF_Tr[0:2000,:],  Sigma[0:2000], weight_neibF[0:2000,:]], None),
+                           shuffle=True)
+                #callbacks=[CustomMetrics()], verbose=2)#, validation_data=([targetTr, neibF_Tr,  Sigma, weight_neibF], None))
+z = encoder.predict([aFrame, neibALL,  Sigma, weight_neibF])
 
 #encoder.save_weights('encoder_weightsWEBERCELLS_2D_MMD_CONTRACTIVEk30_2000epochs_LAM_0.0001.h5')
 
@@ -720,7 +687,7 @@ from plotly.graph_objs import Scatter3d, Figure, Layout, Scatter
 
 nrow = np.shape(z)[0]
 # subsIdx=np.random.choice(nrow,  500000)
-
+num_lbls = (np.unique(lbls, return_inverse=True)[1])
 x = z[:, 0]
 y = z[:, 1]
 # analog of tsne plot fig15 from Nowizka 2015, also see fig21
@@ -728,12 +695,12 @@ plot([Scatter(x=x, y=y,
                 mode='markers',
                 marker=dict(
                     size=1,
-                    color=lbls,  # set color to an array/list of desired values
+                    color=num_lbls,  # set color to an array/list of desired values
                     colorscale='Viridis',  # choose a colorscale
                     opacity=0.5,
                 ),
-                text=clust,
-                hoverinfo='text')], filename='2000epochs_LAM_0.0001.html')
+                text=num_lbls,
+                hoverinfo='text')], filename='OLD_LOSS_500epochs_LAM_0.0001.html')
 
 
 

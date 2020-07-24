@@ -8,7 +8,7 @@ CD8+ T Cells and NK Cells: Parallel and Complementary Soldiers of Immunotherapy
 Jillian Rosenberg1 and Jun Huang1,2
 '''
 
-import keras
+#import keras
 import tensorflow as tf
 import multiprocessing
 import numpy as np
@@ -16,20 +16,18 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 import glob
-from keras.layers import Input, Dense, Lambda, Layer, Dropout, BatchNormalization
-from keras.layers.noise import AlphaDropout
-from keras.utils import np_utils
-from keras.models import Model
-from keras import backend as K
-from keras import metrics
+from tensorflow.keras.layers import Input, Dense, Lambda, Layer, Dropout, BatchNormalization
+#from tensorflow.keras.utils import np_utils
+#import np_utils
+from tensorflow.keras import Model
+from tensorflow.keras import backend as K
+from tensorflow.keras import metrics
 import random
 # from keras.utils import multi_gpu_model
 import timeit
-from keras.optimizers import SGD
-from keras.optimizers import Adagrad
-from keras.optimizers import Adadelta
-from keras.optimizers import Adam
-from keras.constraints import maxnorm
+from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.optimizers import Adam
+#from tensorflow.keras.constraints import maxnorm
 # import readline
 # mport rpy2
 # from rpy2.robjects.packages import importr
@@ -45,15 +43,15 @@ from sklearn.preprocessing import MinMaxScaler
 # flask run
 import seaborn as sns
 import warnings
-from keras.callbacks import Callback, EarlyStopping, ModelCheckpoint
-from keras.regularizers import l2, l1
-from keras.models import load_model
-from keras import regularizers
+from tensorflow.keras.callbacks import Callback, EarlyStopping, ModelCheckpoint
+from tensorflow.keras.regularizers import l2, l1
+from tensorflow.keras.models import load_model
+from tensorflow.keras import regularizers
 # import champ
 # import ig
 # import metric
 # import dill
-from keras.callbacks import TensorBoard
+from tensorflow.keras.callbacks import TensorBoard
 
 # from GetBest import GetBest
 
@@ -544,6 +542,8 @@ del results
 # [aFrame, neibF, cut_neibF, weight_neibF]
 # training set
 # targetTr = np.repeat(aFrame, r, axis=0)
+SigmaTsq = Input(shape=(1,))
+neibALL = neibALL[:,0:30,:]
 targetTr = aFrame
 neibF_Tr = neibALL
 weight_neibF_Tr = neib_weight
@@ -556,11 +556,12 @@ neib = Input(shape=(k, original_dim,))
 # var_dims = Input(shape = (original_dim,))
 weight_neib = Input(shape=(k,))
 x = Input(shape=(original_dim, ))
+#x_weight_mean = Input(shape=(original_dim, ))
 h = Dense(intermediate_dim, activation='relu')(x)
 # h.set_weights(ae.layers[1].get_weights())
 z_mean =  Dense(latent_dim, name='z_mean')(h)
 
-encoder = Model([x, neib, SigmaTsq, weight_neib], z_mean, name='encoder')
+encoder = Model([x, SigmaTsq], z_mean, name='encoder')
 
 # we instantiate these layers separately so as to reuse them later
 #decoder_input = Input(shape=(latent_dim,))
@@ -573,15 +574,15 @@ x_decoded_mean = decoder_mean(h_decoded)
 
 #train_z = encoder([x, neib, SigmaTsq, weight_neib])
 #train_xr = decoder(train_z)
-autoencoder = Model(inputs=[x, neib, SigmaTsq, weight_neib], outputs=x_decoded_mean)
-
+#autoencoder = Model(x, x_decoded_mean)
+autoencoder = Model(inputs=[x, SigmaTsq, neib, weight_neib], outputs=[x_decoded_mean])
 # Loss and optimizer ------------------------------------------------------
 # Stopped here
 normSigma = nrow / sum(1 / Sigma)
 #weight_neibF = np.full((nrow, k), 1/k)
 
 lam=1e-4
-def contractive():
+def contractive(x, x_decoded_mean):
         W = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
         W = K.transpose(W)  # N_hidden x N
         h = encoder.get_layer('z_mean').output
@@ -618,37 +619,67 @@ def smmd(z_mean, scale =1./8., adaptive = True):
 
     return variance_normalization *( Ekzz - 2.* Ekzn + Eknn )
 
+weight_neibF = np.full((nrow, k), 1/k)
+def msew(y_true, y_pred):
+    # dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1)) / (tf.expand_dims(cut_neib,1) + 1)), axis=-1)
+    dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1))), axis=-1)
+    weightedN = k * original_dim * K.dot(dst,
+                                         K.transpose(weight_neib))  # not really a mean square error after we done this
+    # return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
+    return  tf.multiply(weightedN, 0.5 * normSigma * (1/SigmaTsq) )
 
-def custom_loss(x, x_decoded_mean, z_mean):
-    msew = keras.losses.mean_squared_error(x_decoded_mean)
-    #print('msew done', K.eval(msew))
-    #mmd loss
-    loss_mmd = smmd(z_mean, scale = 1./8. , adaptive = False )
-    #return msew +  1 * contractive()
-    return msew + 0.001*loss_mmd + 1*contractive()
+#def msew(x, x_decoded_mean):
+#    return keras.losses.mean_squared_error(x, x_decoded_mean)
+def loss_mmd(x, x_decoded_mean):
+    return smmd(z_mean, scale = 1./8. , adaptive = False )
 
-loss = custom_loss(x, x_decoded_mean, z_mean)
-autoencoder.add_loss(loss)
-autoencoder.compile(optimizer='adam', metrics=[contractive,  custom_loss])
+def custom_loss(x, x_decoded_mean):
+    return  normSigma * (1/SigmaTsq)*1*msew(x, x_decoded_mean)\
+            + 0.01*loss_mmd(x, x_decoded_mean) + 1000*contractive(x, x_decoded_mean)
+
+#loss = custom_loss(x, x_decoded_mean)
+#autoencoder.add_loss(loss)
+autoencoder.compile(optimizer='adam', loss=custom_loss, metrics=[contractive, msew, loss_mmd,  custom_loss])
 print(autoencoder.summary())
 print(encoder.summary())
 #print(decoder.summary())
-
+#no weighting:
+#weight_neibF = np.full((nrow, k), 1)
+#neib_weight3D = np.repeat(weight_neibF[:, :, np.newaxis], original_dim, axis=2)
 # compute mean weighted target x_mean = sum_j(w^j x_j), j - is neighbour number
-w_mean_target = np.average(neibALL, axis=0, weights=neib_weight)
-
+#expand weights, neib_weight is based on tsne perplexity calculations
+neib_weight3D = np.repeat(neib_weight[:, :, np.newaxis], original_dim, axis=2)
+w_mean_target = np.average(neibALL, axis=1, weights=neib_weight3D)
 #callbacks = [EarlyStoppingByLossVal( monitor='loss', value=0.01, verbose=0
 
 earlyStopping=EarlyStoppingByValLoss( monitor='val_loss', min_delta=0.0001, verbose=1, patience=10, restore_best_weights=True)
 #earlyStopping=keras.callbacks.EarlyStopping(monitor='val_loss')
-epochs = 500
 sample_weight = 1 / Sigma
-history = autoencoder.fit([targetTr[2000:172600,:], neibF_Tr[2000:172600,:],  Sigma[2000:172600], weight_neibF[2000:172600,:]],
-                epochs=epochs, batch_size=batch_size,
-                validation_data=([targetTr[0:2000,:], neibF_Tr[0:2000,:],  Sigma[0:2000], weight_neibF[0:2000,:]], None) , #shuffle=True,
-                callbacks=[CustomMetrics(), earlyStopping],
-                           sample_weight=sample_weight)#, validation_data=([targetTr, neibF_Tr,  Sigma, weight_neibF], None))
-z = encoder.predict([aFrame, neibF,  Sigma, weight_neibF])
+#history = autoencoder.fit([aFrame[2000:172600,:], w_mean_target[2000:172600,:],  Sigma[2000:172600]],
+#split data into train and test
+X_train, X_test,  w_mean_target_train, w_mean_target_test, \
+Sigma_train, Sigma_test, num_lbls_train, num_lbls_test, sample_weight_train,sample_weight_test,\
+     neibALL_train, neibALL_test,weight_neibF_train,weight_neibF_test=\
+    train_test_split(aFrame,  w_mean_target,  Sigma, num_lbls, sample_weight,neibALL, weight_neibF,
+                     test_size=0.05, random_state=42)
+epochs = 200
+history = autoencoder.fit([X_train,Sigma_train, neibALL_train, weight_neibF_train],X_train,
+                          epochs=epochs, batch_size=batch_size,
+                validation_data=([X_test,Sigma_test, neibALL_test, weight_neibF_test], X_test),
+                shuffle=True,
+                #callbacks=[CustomMetrics(), earlyStopping],
+                #sample_weight=sample_weight_train,
+                verbose=2)#, validation_data=([targetTr, neibF_Tr,  Sigma, weight_neibF], None))
+plt.plot(history.history['loss'][2:])
+plt.plot(history.history['val_loss'][2:])
+plt.title('Model loss')
+plt.ylabel('Loss')
+plt.xlabel('Epoch')
+plt.legend(['Train', 'Test'], loc='upper right')
+plt.show()
+
+
+z = encoder.predict([aFrame, Sigma])
 
 #encoder.save_weights('encoder_weightsWEBERCELLS_2D_MMD_CONTRACTIVEk30_2000epochs_LAM_0.0001.h5')
 
@@ -675,11 +706,11 @@ plot([Scatter(x=x, y=y,
                 mode='markers',
                 marker=dict(
                     size=1,
-                    color=lbls,  # set color to an array/list of desired values
+                    color=num_lbls,  # set color to an array/list of desired values
                     colorscale='Viridis',  # choose a colorscale
                     opacity=0.5,
                 ),
-                text=clust,
+                text=lbls,
                 hoverinfo='text')], filename='2000epochs_LAM_0.0001.html')
 
 
@@ -696,7 +727,7 @@ for m in range(len(markers)):
                             opacity=0.5,
                             colorbar=dict(title = markers[m])
                         ),
-                        text=clust,
+                        text=lbls,
                         hoverinfo='text'
                         )], filename='Balanced2dPerplexityk30weighted2000epochs_LAM_0.00001_' + markers[m] + '.html')
 

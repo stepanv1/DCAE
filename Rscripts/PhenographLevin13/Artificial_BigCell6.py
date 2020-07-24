@@ -211,18 +211,7 @@ ae_nn.summary()
 
 ae_nn.compile(optimizer='adadelta', loss=ae_loss, metrics=[mean_square_error_NN])
 
-history_DAEnn= ae_nn.fit([X_train, neib_train], X_train, epochs=20000, batch_size=256,
-                      shuffle=True,
-                      validation_data=([X_test, neib_test], X_test),
-                verbose=2)
-plt.plot(history_DAEnn.history['loss'][1000:])
-plt.plot(history_DAEnn.history['val_loss'][1000:])
-plt.title('Model loss')
-plt.ylabel('Loss')
-plt.xlabel('Epoch')
-plt.legend(['Train', 'Test'], loc='upper right')
-plt.show()
-
+history = autoencoder.fit([aFrame[2000:172600,:], w_mean_target[2000:172600,:],  Sigma[2000:172600]],
 encoderDAEnn = Model([x, k_neib], z)
 print(encoderDAEnn.summary())
 decoderDAEnn = ae_nn
