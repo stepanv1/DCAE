@@ -260,7 +260,6 @@ def find_neighbors(data, k_, metric='manhattan', cores=12):
 
 # load data
 k = 30
-perp = k
 k3 = k * 3
 ID = 'Nowicka2017'
 '''
@@ -287,8 +286,8 @@ lbls = lbls[IDX]
 
 
 len(lbls)
-#scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
-#scaler.fit_transform(aFrame)
+scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
+scaler.fit_transform(aFrame)
 nb=find_neighbors(aFrame, k3, metric='euclidean', cores=48)
 Idx = nb['idx']; Dist = nb['dist']
 
@@ -318,6 +317,7 @@ from pathos import multiprocessing
 num_cores = 48
 #pool = multiprocessing.Pool(num_cores)
 results = Parallel(n_jobs=48, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
+original_dim=24
 neibALL = np.zeros((nrow, k3, original_dim))
 Distances = np.zeros((nrow, k3))
 neib_weight = np.zeros((nrow, k3))
@@ -341,7 +341,9 @@ neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
 
 plt.plot(neib_weight[1,:]);plt.show()
 
-outfile = source_dir + '/Nowicka2017euclid.npz'
+#outfile = source_dir + '/Nowicka2017euclid.npz'
+outfile = source_dir + '/Nowicka2017euclid_scaled.npz'
+
 np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
          neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma)
 
@@ -350,7 +352,7 @@ np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
 #outfile = source_dir + '/Nowicka2017euclid.npz'
 #np.savez(outfile, Idx=Idx, aFrame=aFrame, lbls=lbls,  Dist=Dist)
 '''
-outfile = source_dir + '/Nowicka2017euclid.npz'
+outfile = source_dir + '/Nowicka2017euclid_scaled.npz'
 
 npzfile = np.load(outfile)
 lbls = npzfile['lbls'];

@@ -52,7 +52,10 @@ from tensorflow.keras import regularizers
 # import metric
 # import dill
 from tensorflow.keras.callbacks import TensorBoard
-
+import multiprocessing
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 # from GetBest import GetBest
 
 tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0,
@@ -345,128 +348,6 @@ np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
 outfile = source_dir + '/Nowicka2017euclid.npz'
 np.savez(outfile, Idx=Idx, aFrame=aFrame, lbls=lbls,  Dist=Dist)
 '''
-outfile = source_dir + '/Nowicka2017euclid.npz'
-
-npzfile = np.load(outfile)
-lbls = npzfile['lbls'];
-Idx = npzfile['Idx'];
-aFrame = npzfile['aFrame'];
-Dist = npzfile['Dist']
-neibALL = npzfile['neibALL']
-neib_weight = npzfile['neib_weight']
-Sigma = npzfile['Sigma']
-
-
-from sklearn.decomposition import PCA
-principalComponents  = PCA(n_components = 2).fit_transform(aFrame)
-principalDf = pd.DataFrame(data = principalComponents
-             , columns = ['principal component 1', 'principal component 2'])
-finalDf = pd.concat([principalDf, pd.DataFrame(data=lbls, columns=['lbls'])], axis = 1)
-sns.pairplot(x_vars = ['principal component 1'], y_vars=['principal component 2'], data=finalDf, hue="lbls", size=5)
-
-import umap
-#TODO: compare distances and sigma-weightred distances with local graph weights, especially
-# in how they preserve cluster state (i.e weights of the edges inside the same cluster are less)
-# https://umap-learn.readthedocs.io/en/latest/api.html
-fss , _ ,_ = umap.umap_.fuzzy_simplicial_set(aFrame, n_neighbors=90, random_state=1,
-                            metric = 'euclidean', metric_kwds={},
-                            knn_indices=Idx[:,0:90], knn_dists=Dist[:,0:90],
-            angular=False, set_op_mix_ratio=1.0, local_connectivity=1.0, apply_set_operations=True, verbose=True)
-#TODO try nearest neighbour comp using umap functions
-#umap.umap_.nearest_neighbors(X, n_neighbors, metric, metric_kwds, angular, random_state, low_memory=False, use_pynndescent=True, verbose=False)
-# crete a metric to demonstrate cluster preservation by the nearest neighbour
-# create a matrices containing indices and weights
-fss_lil =  fss.tolil()
-fss_rows = fss_lil.rows
-fss_vals = fss_lil.data
-max_len  = len(max(fss_rows, key=len))
-# sort indices and weigths by value of weights
-from operator import itemgetter
-val_sort , row_sort = [], [];
-for i in range(len(fss_vals)):
-    res = [list(x) for x in zip(*sorted(zip(fss_vals[i], fss_rows[i]), key=itemgetter(0), reverse=True))]
-    val_sort.append(res[0][0:30])
-    row_sort.append(res[1][0:30])
-# take top 30 elemetes to create index and value matrices
-weight_tab=np.stack(val_sort)
-idx_tab =np.stack(row_sort)
-# create table for cluster distribution in neighbours
-num_lbls = (np.unique(lbls, return_inverse=True)[1])
-lbls_tab=(np.stack([num_lbls[idx_tab[k,:]]  for k in range(len(lbls))]))
-nei_lbls = np.c_[num_lbls, lbls_tab]
-# Same nn-based neighbours
-lbls_tab_nn=(np.stack([num_lbls[Idx[:,0:30][k,:]]  for k in range(len(lbls))]))
-nei_lbls_nn = np.c_[num_lbls, lbls_tab_nn]
-# purity vectors
-#error count
-error_rate=[30 - sum(np.equal(lbls_tab[k,:], num_lbls[k]))   for k in range(len(lbls))]
-error_rate_nn=[30 - sum(np.equal(lbls_tab_nn[k,:], num_lbls[k]))   for k in range(len(lbls))]
-plt.hist(error_rate,30)
-plt.hist(error_rate_nn,30, color='red')
-np.mean(error_rate)
-np.mean(error_rate_nn)
-#plot marker distributions
-# transform labels into natural numbers
-from sklearn import preprocessing
-
-le = preprocessing.LabelEncoder()
-le.fit(lbls)
-lbls = le.transform(lbls)
-table(lbls)
-
-bw=0.2
-cols = 8
-rows = 1
-plt.figure()
-gs = plt.GridSpec(rows, cols)
-for cl in range(0, 8):
-    bw=0.2
-    i = cl
-    plt.subplot(gs[0,i])
-    plt.title(cl)
-    sns.violinplot(data= aFrame[num_lbls==cl , :], bw = bw);
-    plt.tight_layout(pad=0.1)
-plt.show();
-
-#correlation plot
-bw=0.2
-cols = 3
-rows = 3
-plt.figure()
-gs = plt.GridSpec(rows, cols)
-for cl in range(0, 8):
-    bw=0.2
-    i = cl//rows
-    j = cl - i*cols
-    plt.subplot(gs[i, j])
-    plt.title(cl)
-    dt=aFrame[num_lbls==cl , :]
-    df = pd.DataFrame(dt)
-    corr = df.corr()
-    df.corr().unstack().sort_values().drop_duplicates().tail()
-    corr = corr[abs(corr)>0.2]
-    ax = sns.heatmap(
-        corr,
-        vmin=-1, vmax=1, center=0,
-        cmap=sns.diverging_palette(20, 220, n=200),
-        square=True
-    )
-    ax.set_xticklabels(
-        ax.get_xticklabels(),
-        rotation=45,
-        horizontalalignment='right'
-    );
-    plt.tight_layout(pad=0.1)
-plt.show();
-
-# lbls2=npzfile['lbls'];Idx2=npzfile['Idx'];aFrame2=npzfile['aFrame'];
-# cutoff2=npzfile['cutoff']; Dist2 =npzfile['Dist']
-cutoff = np.repeat(0.1, 24)
-batch_size = 200
-original_dim = 24
-latent_dim = 2
-intermediate_dim = 120
-nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
 
 #annealing schedule
 #kl_weight = K.variable(value=0)
@@ -474,45 +355,6 @@ nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim
 
 
 epsilon_std = 1.0
-U = 10  # energy barier
-szr = 0  # number of replicas in training data set
-szv = 10000  # number of replicas in validation data set
-
-# nearest neighbours
-
-# generate neighbours data
-features = aFrame
-IdxF = Idx[:, ]
-nrow = np.shape(features)[0]
-b = 0
-neibALL = np.zeros((nrow, k3, original_dim))
-cnz = np.zeros((original_dim))
-cut_neibF = np.zeros((nrow, original_dim))
-weight_distALL = np.zeros((nrow, k3))
-weight_neibALL = np.zeros((nrow, k3))
-rk = range(k3)
-
-print('compute training sources and targets...')
-from scipy.stats import binom
-
-sigmaBer = np.sqrt(cutoff * (1 - cutoff) / k)
-# precompute pmf for all cutoffs at given kfrange_cycle_linear
-probs = 1 - cutoff
-pmf = np.zeros((original_dim, k + 1))
-for j in range(original_dim):
-    rb = binom(k, probs[j])
-    pmf[j, :] = (1 - rb.cdf(range(k + 1))) ** 10
-
-
-def singleInput(i):
-    nei = features[IdxF[i, :], :]
-    cnz = [np.sum(np.where(nei[:k, j] == 0, 0, 1)) for j in range(original_dim)]
-    # cut_nei= np.array([0 if (cnz[j] >= cutoff[j] or cutoff[j]>0.5) else
-    #                   (U/(cutoff[j]**2)) * ( (cutoff[j] - cnz[j]) / sigmaBer[j] )**2 for j in range(original_dim)])
-    cut_nei = np.array([U * pmf[j, :][cnz[j]] for j in range(original_dim)])
-    # weighted distances computed in L2 metric
-    weight_di = [np.sqrt(sum((np.square(features[i] - nei[k_i,]) / (1 + cut_nei)))) for k_i in rk]
-    return [nei, cut_nei, weight_di, i]
 
 
 '''
@@ -534,10 +376,10 @@ for i in range(nrow):
 del results
 '''
 source_dir = '/media/FCS_local/Stepan/data/WeberLabels/'
-outfile = source_dir + '/Nowicka2017euclid.npz'
+outfile = source_dir + '/Nowicka2017euclid_scaled.npz'
 # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
 npzfile = np.load(outfile)
-weight_distALL = npzfile['neib_weight'];
+weight_distALL = npzfile['Dist'];
 # = weight_distALL[IDX,:]
 aFrame = npzfile['aFrame'];
 Dist = npzfile['Dist']
@@ -549,6 +391,7 @@ neibALL = npzfile['neibALL']
 # plt.hist(cut_neibF[cut_neibF!=0],50)
 Sigma = npzfile['Sigma']
 lbls = npzfile['lbls'];
+neib_weight = npzfile['neib_weight']
 # [aFrame, neibF, cut_neibF, weight_neibF]
 # training set
 # targetTr = np.repeat(aFrame, r, axis=0)
@@ -558,6 +401,7 @@ weight_neibF_Tr =weight_distALL
 sourceTr = aFrame
 
 # session set up
+
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 # Model-------------------------------------------------------------------------
@@ -612,6 +456,16 @@ def compute_mmd(x, y):   # [batch_size, z_dim] [batch_size, z_dim]
 
 normSigma = nrow / sum(1 / Sigma)
 weight_neibF = np.full((nrow, k), 1/k)
+
+neib_weight3D = np.repeat(weight_neibF[:, :, np.newaxis], original_dim, axis=2)
+w_mean_target = np.average(neibALL, axis=1, weights=neib_weight3D)
+
+def mean_square_error_NN(y_true, y_pred):
+    # dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1)) / (tf.expand_dims(cut_neib,1) + 1)), axis=-1)
+    msew = tf.keras.losses.mean_squared_error(y_true, y_pred)
+    # return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
+    return  tf.multiply(msew, normSigma * (1/SigmaTsq) )
+
 def mean_square_error_NN(y_true, y_pred):
     # dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1)) / (tf.expand_dims(cut_neib,1) + 1)), axis=-1)
     dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1))), axis=-1)
@@ -647,7 +501,7 @@ def custom_loss(x, x_decoded_mean, z_mean):
     #latent_dim = latent_dim
     #print(K.shape(loss_mmd))
     #return msew +  1 * contractive()
-    return msew + 0.1*loss_mmd(x, x_decoded_mean) + 1*contractive(x, x_decoded_mean)
+    return msew + 1*loss_mmd(x, x_decoded_mean) + 1*contractive(x, x_decoded_mean)
 
 loss = custom_loss(x, x_decoded_mean, z_mean)
 autoencoder.add_loss(loss)
@@ -662,7 +516,7 @@ print(encoder.summary())
 
 earlyStopping=EarlyStoppingByValLoss( monitor='val_loss', min_delta=0.0001, verbose=1, patience=10, restore_best_weights=True)
 #earlyStopping=keras.callbacks.EarlyStopping(monitor='val_loss')
-epochs = 2
+epochs = 200
 history = autoencoder.fit([targetTr[:,], neibF_Tr[:,:],  Sigma[:], weight_neibF[:,:]],
                 epochs=epochs, batch_size=batch_size, verbose=1,
                 validation_data=([targetTr[0:2000,:], neibF_Tr[0:2000,:],  Sigma[0:2000], weight_neibF[0:2000,:]], None),
@@ -700,11 +554,160 @@ plot([Scatter(x=x, y=y,
                     opacity=0.5,
                 ),
                 text=num_lbls,
-                hoverinfo='text')], filename='OLD_LOSS_500epochs_LAM_0.0001.html')
+                #hoverinfo='text')], filename='tmp.html')
+                hoverinfo='text')], filename='OLD_LOSS_200epochs_LAM_0.001_MMD_1_caled.html')
+
+
+# same model as above but with optimized target loss
+
+SigmaTsq = Input(shape=(1,))
+neib = Input(shape=(k, original_dim,))
+# var_dims = Input(shape = (original_dim,))
+
+x = Input(shape=(original_dim, ))
+h = Dense(intermediate_dim, activation='relu')(x)
+# h.set_weights(ae.layers[1].get_weights())
+z_mean =  Dense(latent_dim, name='z_mean')(h)
+
+encoder = Model([x, neib, SigmaTsq], z_mean, name='encoder')
+
+# we instantiate these layers separately so as to reuse them later
+#decoder_input = Input(shape=(latent_dim,))
+
+decoder_h = Dense(intermediate_dim, activation='relu')
+decoder_mean = Dense(original_dim, activation='relu')
+h_decoded = decoder_h(z_mean)
+x_decoded_mean = decoder_mean(h_decoded)
+#decoder = Model(decoder_input, x_decoded_mean, name='decoder')
+
+#train_z = encoder([x, neib, SigmaTsq, weight_neib])
+#train_xr = decoder(train_z)
+autoencoder = Model(inputs=[x, neib, SigmaTsq], outputs=x_decoded_mean)
+
+# Loss and optimizer ------------------------------------------------------
+# rewrite this based on recommendations here
+# https://www.tensorflow.org/guide/keras/train_and_evaluate
+
+def compute_kernel(x,y):
+    x_size = tf.shape(x)[0]
+    y_size = tf.shape(y)[0]
+    dim = tf.shape(x)[1]
+    tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, y_size, 1]))
+    tiled_y = tf.tile(tf.reshape(y, tf.stack([1, y_size, dim])), tf.stack([x_size, 1, 1]))
+    return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
+
+
+def compute_mmd(x, y):   # [batch_size, z_dim] [batch_size, z_dim]
+    x_kernel = compute_kernel(x, x)
+    y_kernel = compute_kernel(y, y)
+    xy_kernel = compute_kernel(x, y)
+    return tf.reduce_mean(x_kernel) + tf.reduce_mean(y_kernel) - 2 * tf.reduce_mean(xy_kernel)
+
+normSigma = nrow / sum(1 / Sigma)
+weight_neibF = np.full((nrow, k), 1/k)
+
+neib_weight3D = np.repeat(weight_neibF[:, :, np.newaxis], original_dim, axis=2)
+w_mean_target = np.average(neibALL, axis=1, weights=neib_weight3D)
+
+def mean_square_error_NN(y_true, y_pred):
+    # dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1)) / (tf.expand_dims(cut_neib,1) + 1)), axis=-1)
+    msew = tf.keras.losses.mean_squared_error(y_true, y_pred)
+    # return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
+    return  tf.multiply(msew, normSigma * (1/SigmaTsq) )
+    #return tf.multiply(weightedN, 0.5)
+
+lam=1e-4
+def contractive(x, x_decoded_mean):
+        W = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
+        W = K.transpose(W)  # N_hidden x N
+        h = encoder.get_layer('z_mean').output
+        dh = h * (1 - h)  # N_batch x N_hidden
+        return 1/normSigma * (SigmaTsq) * lam * K.sum(dh ** 2 * K.sum(W ** 2, axis=1), axis=1)
+        #return lam * K.sum(dh ** 2 * K.sum(W ** 2, axis=1), axis=1)
+
+def loss_mmd(x, x_decoded_mean):
+    batch_size = K.shape(z_mean)[0]
+    latent_dim = K.int_shape(z_mean)[1]
+    true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0., stddev=1.)
+    return compute_mmd(true_samples, z_mean)
+nn=30
+def custom_loss(x, x_decoded_mean, z_mean):
+    msew = mean_square_error_NN(x, x_decoded_mean)
+    #print('msew done', K.eval(msew))
+    #mmd loss
+    #loss_nll = K.mean(K.square(train_xr - x))
+    #batch_size = batch_size #K.shape(train_z)[0]
+
+    #print('batch_size')
+    #latent_dim = latent_dim
+    #print(K.shape(loss_mmd))
+    #return msew +  1 * contractive()
+    return nn*msew + 1*loss_mmd(x, x_decoded_mean) + 10*contractive(x, x_decoded_mean)
+
+loss = custom_loss(x, x_decoded_mean, z_mean)
+autoencoder.add_loss(loss)
+autoencoder.compile(optimizer='adam', metrics=[mean_square_error_NN, contractive, custom_loss, loss_mmd])
+print(autoencoder.summary())
+print(encoder.summary())
+#print(decoder.summary())
 
 
 
+#callbacks = [EarlyStoppingByLossVal( monitor='loss', value=0.01, verbose=0
 
+earlyStopping=EarlyStoppingByValLoss( monitor='val_loss', min_delta=0.0001, verbose=1, patience=10, restore_best_weights=True)
+#earlyStopping=keras.callbacks.EarlyStopping(monitor='val_loss')
+epochs = 600
+history = autoencoder.fit([targetTr[:,], neibF_Tr[:,:],  Sigma[:]],
+                epochs=epochs, batch_size=batch_size, verbose=1,
+                validation_data=([targetTr[0:2000,:], neibF_Tr[0:2000,:],  Sigma[0:2000], weight_neibF[0:2000,:]], None),
+                           shuffle=True)
+                #callbacks=[CustomMetrics()], verbose=2)#, validation_data=([targetTr, neibF_Tr,  Sigma, weight_neibF], None))
+z = encoder.predict([aFrame, neibALL,  Sigma])
+plt.plot(history.history['loss'][5:])
+plt.plot(history.history['val_loss'][:])
+plt.title('Model loss')
+plt.ylabel('Loss')
+plt.xlabel('Epoch')
+plt.legend(['Train', 'Test'], loc='upper right')
+plt.show()
+#encoder.save_weights('encoder_weightsWEBERCELLS_2D_MMD_CONTRACTIVEk30_2000epochs_LAM_0.0001.h5')
+
+#encoder.load_weights('encoder_weightsWEBERCELLS_2D_MMD_CONTRACTIVEk30_200epochs_LAM_0.0001.h5')
+
+#z = encoder.predict([aFrame, neibF,  Sigma, weight_neibF])
+
+#- visualisation -----------------------------------------------------------------------------------------------
+
+from plotly import __version__
+from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
+from plotly.graph_objs import Scatter3d, Figure, Layout, Scatter
+
+# np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt', x_test_enc)
+# x_test_enc=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt')
+
+nrow = np.shape(z)[0]
+# subsIdx=np.random.choice(nrow,  500000)
+num_lbls = (np.unique(lbls, return_inverse=True)[1])
+x = z[:, 0]
+y = z[:, 1]
+# analog of tsne plot fig15 from Nowizka 2015, also see fig21
+plot([Scatter(x=x, y=y,
+                mode='markers',
+                marker=dict(
+                    size=1,
+                    color=num_lbls,  # set color to an array/list of desired values
+                    colorscale='Viridis',  # choose a colorscale
+                    opacity=0.5,
+                ),
+                text=lbls,
+                #hoverinfo='text')], filename='tmp.html')
+                hoverinfo='text')], filename='OLD_LOSS_200epochs_LAM_0.001_MMD_1_caled.html')
+
+
+
+x = aFrame[:, 0]
+y = aFrame[:, 1]
 # analog of tsne plot fig15 from Nowizka 2015, also see fig21
 for m in range(len(markers)):
     plot([Scatter(x=x, y=y,
@@ -716,9 +719,72 @@ for m in range(len(markers)):
                             opacity=0.5,
                             colorbar=dict(title = markers[m])
                         ),
-                        text=clust,
+                        text=lbls,
                         hoverinfo='text'
-                        )], filename='Balanced2dPerplexityk30weighted2000epochs_LAM_0.00001_' + markers[m] + '.html')
+                        )], filename='2dPerplexityk30weighted2000epochs_LAM_0.001_' + markers[m] + '.html')
+
+# first attempt to plot with buttons
+#def plot_data(df):
+
+sub_idx =  np.random.choice(range(len(lbls)), 10000, replace  =False)
+x = aFrame[sub_idx, 0]
+y = aFrame[sub_idx, 1]
+lbls_s = lbls[sub_idx]
+
+import plotly.graph_objects as go
+fig = go.Figure()
+fig.add_trace(Scatter(x=x, y=y,
+                        mode='markers',
+                        marker=dict(
+                            size=1,
+                            color=x,  # set color to an array/list of desired values
+                            colorscale='Viridis',  # choose a colorscale
+                            opacity=0.5,
+                            colorbar=dict(title = markers[0])
+                        ),
+                        text=lbls_s,
+                        hoverinfo='text',
+                        name = markers[0]
+                        ))
+
+fig.add_trace(Scatter(x=x, y=y,
+                        mode='markers',
+                        marker=dict(
+                            size=1,
+                            color=y,  # set color to an array/list of desired values
+                            colorscale='Viridis',  # choose a colorscale
+                            opacity=0.5,
+                            colorbar=dict(title = markers[1])
+                        ),
+                        text=lbls_s,
+                        hoverinfo='text',
+                        name = markers[1]
+                        ))
+
+fig.update_layout(
+    updatemenus=[go.layout.Updatemenu(
+        active=0,
+        buttons=list(
+            [dict(label = markers[0],
+                  method = 'update',
+                  args = [{'visible': [True, False]},
+                          {'title': markers[0],
+                           'showlegend':False}]),
+             dict(label = markers[1],
+                  method = 'update',
+                  args = [{'visible': [False, True]}, # the index of True aligns with the indices of plot traces
+                          {'title': markers[1],
+                           'showlegend':False}]),
+             ])
+        )
+    ])
+
+fig.show()
+
+
+
+
+
 
 
 le.fit(patient_table[:,1])
@@ -963,3 +1029,11 @@ print(np.mean(np.array([np.mean(np.array(connClean2)[lbls == cl]) for cl in uniq
 
 # plotly in 3d
 
+# check teh gradiaents
+outputTensor = model.output #Or model.layers[index].output
+  listOfVariableTensors = model.trainable_weights
+gradients = k.gradients(outputTensor, listOfVariableTensors)
+trainingExample = np.random.random((1,8))
+sess = tf.InteractiveSession()
+sess.run(tf.initialize_all_variables())
+evaluated_gradients = sess.run(gradients,feed_dict={model.input:trainingExample})
