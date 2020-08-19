@@ -466,13 +466,13 @@ def mean_square_error_NN(y_true, y_pred):
     # return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
     return  tf.multiply(msew, normSigma * (1/SigmaTsq) )
 
-def mean_square_error_NN(y_true, y_pred):
-    # dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1)) / (tf.expand_dims(cut_neib,1) + 1)), axis=-1)
-    dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1))), axis=-1)
-    weightedN = k * original_dim * K.dot(dst,
-                                         K.transpose(weight_neib))  # not really a mean square error after we done this
+#def mean_square_error_NN(y_true, y_pred):
+     # dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1)) / (tf.expand_dims(cut_neib,1) + 1)), axis=-1)
+  #  dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1))), axis=-1)
+   # weightedN = k * original_dim * K.dot(dst,
+    #                                     K.transpose(weight_neib))  # not really a mean square error after we done this
     # return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
-    return  tf.multiply(weightedN, 0.5 * normSigma * (1/SigmaTsq) )
+    #return  tf.multiply(weightedN, 0.5 * normSigma * (1/SigmaTsq) )
     #return tf.multiply(weightedN, 0.5)
 
 lam=1e-4
@@ -482,6 +482,15 @@ def contractive(x, x_decoded_mean):
         h = encoder.get_layer('z_mean').output
         dh = h * (1 - h)  # N_batch x N_hidden
         return 1/normSigma * (SigmaTsq) * lam * K.sum(dh ** 2 * K.sum(W ** 2, axis=1), axis=1)
+
+
+def contractive2(x, x_decoded_mean):
+        W = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
+        W = K.transpose(W)  # N_hidden x N
+        h = encoder.get_layer('z_mean').output
+        dh = h * (1 - h)  # N_batch x N_hidden
+        return 1 / normSigma * (SigmaTsq) * lam * K.sum(dh ** 2 * K.sum(W ** 2, axis=1), axis=1)
+
         #return lam * K.sum(dh ** 2 * K.sum(W ** 2, axis=1), axis=1)
 
 def loss_mmd(x, x_decoded_mean):
@@ -501,7 +510,7 @@ def custom_loss(x, x_decoded_mean, z_mean):
     #latent_dim = latent_dim
     #print(K.shape(loss_mmd))
     #return msew +  1 * contractive()
-    return msew + 1*loss_mmd(x, x_decoded_mean) + 1*contractive(x, x_decoded_mean)
+    return msew + 1*loss_mmd(x, x_decoded_mean) + 10*contractive(x, x_decoded_mean)# TODO try without nn
 
 loss = custom_loss(x, x_decoded_mean, z_mean)
 autoencoder.add_loss(loss)
@@ -516,7 +525,7 @@ print(encoder.summary())
 
 earlyStopping=EarlyStoppingByValLoss( monitor='val_loss', min_delta=0.0001, verbose=1, patience=10, restore_best_weights=True)
 #earlyStopping=keras.callbacks.EarlyStopping(monitor='val_loss')
-epochs = 200
+epochs = 500
 history = autoencoder.fit([targetTr[:,], neibF_Tr[:,:],  Sigma[:], weight_neibF[:,:]],
                 epochs=epochs, batch_size=batch_size, verbose=1,
                 validation_data=([targetTr[0:2000,:], neibF_Tr[0:2000,:],  Sigma[0:2000], weight_neibF[0:2000,:]], None),
@@ -555,10 +564,30 @@ plot([Scatter(x=x, y=y,
                 ),
                 text=num_lbls,
                 #hoverinfo='text')], filename='tmp.html')
-                hoverinfo='text')], filename='OLD_LOSS_200epochs_LAM_0.001_MMD_1_caled.html')
+                hoverinfo='text')], filename='OLD_LOSS_500epochs_LAM_10_MMD_1_caled.html')
 
 
 # same model as above but with optimized target loss
+#######################################################
+# targetTr = np.repeat(aFrame, r, axis=0)
+targetTr = aFrame
+neibF_Tr = neibALL
+weight_neibF_Tr =weight_distALL
+sourceTr = aFrame
+
+# session set up
+
+#tf.config.threading.set_inter_op_parallelism_threads(0)
+#tf.config.threading.set_intra_op_parallelism_threads(0)
+
+
+nrow = aFrame.shape[0]
+batch_size = 256
+original_dim = 24
+latent_dim = 2
+intermediate_dim = 120
+intermediate_dim2=120
+nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
 
 SigmaTsq = Input(shape=(1,))
 neib = Input(shape=(k, original_dim,))
@@ -574,7 +603,7 @@ encoder = Model([x, neib, SigmaTsq], z_mean, name='encoder')
 # we instantiate these layers separately so as to reuse them later
 #decoder_input = Input(shape=(latent_dim,))
 
-decoder_h = Dense(intermediate_dim, activation='relu')
+decoder_h = Dense(intermediate_dim2, activation='relu')
 decoder_mean = Dense(original_dim, activation='relu')
 h_decoded = decoder_h(z_mean)
 x_decoded_mean = decoder_mean(h_decoded)
@@ -613,7 +642,7 @@ def mean_square_error_NN(y_true, y_pred):
     # dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1)) / (tf.expand_dims(cut_neib,1) + 1)), axis=-1)
     msew = tf.keras.losses.mean_squared_error(y_true, y_pred)
     # return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
-    return  tf.multiply(msew, normSigma * (1/SigmaTsq) )
+    return  tf.multiply(msew, normSigma * 1/SigmaTsq ) # TODO Sigma -denomiator or nominator? try reverse, schek hpw sigma computed in UMAP
     #return tf.multiply(weightedN, 0.5)
 
 lam=1e-4
@@ -622,7 +651,7 @@ def contractive(x, x_decoded_mean):
         W = K.transpose(W)  # N_hidden x N
         h = encoder.get_layer('z_mean').output
         dh = h * (1 - h)  # N_batch x N_hidden
-        return 1/normSigma * (SigmaTsq) * lam * K.sum(dh ** 2 * K.sum(W ** 2, axis=1), axis=1)
+        return 1/normSigma * (SigmaTsq) * lam * K.sum(dh ** 2 * K.sum(W ** 2, axis=1), axis=1)#TODO reverse SigmaFactor; check if Sigma really squared
         #return lam * K.sum(dh ** 2 * K.sum(W ** 2, axis=1), axis=1)
 
 def loss_mmd(x, x_decoded_mean):
@@ -633,16 +662,8 @@ def loss_mmd(x, x_decoded_mean):
 nn=30
 def custom_loss(x, x_decoded_mean, z_mean):
     msew = mean_square_error_NN(x, x_decoded_mean)
-    #print('msew done', K.eval(msew))
-    #mmd loss
-    #loss_nll = K.mean(K.square(train_xr - x))
-    #batch_size = batch_size #K.shape(train_z)[0]
-
-    #print('batch_size')
-    #latent_dim = latent_dim
-    #print(K.shape(loss_mmd))
-    #return msew +  1 * contractive()
-    return nn*msew + 1*loss_mmd(x, x_decoded_mean) + 10*contractive(x, x_decoded_mean)
+    #
+    return 1*msew + 1*loss_mmd(x, x_decoded_mean) + 2*contractive(x, x_decoded_mean)
 
 loss = custom_loss(x, x_decoded_mean, z_mean)
 autoencoder.add_loss(loss)
@@ -657,7 +678,7 @@ print(encoder.summary())
 
 earlyStopping=EarlyStoppingByValLoss( monitor='val_loss', min_delta=0.0001, verbose=1, patience=10, restore_best_weights=True)
 #earlyStopping=keras.callbacks.EarlyStopping(monitor='val_loss')
-epochs = 600
+epochs = 1500
 history = autoencoder.fit([targetTr[:,], neibF_Tr[:,:],  Sigma[:]],
                 epochs=epochs, batch_size=batch_size, verbose=1,
                 validation_data=([targetTr[0:2000,:], neibF_Tr[0:2000,:],  Sigma[0:2000], weight_neibF[0:2000,:]], None),
@@ -665,7 +686,7 @@ history = autoencoder.fit([targetTr[:,], neibF_Tr[:,:],  Sigma[:]],
                 #callbacks=[CustomMetrics()], verbose=2)#, validation_data=([targetTr, neibF_Tr,  Sigma, weight_neibF], None))
 z = encoder.predict([aFrame, neibALL,  Sigma])
 plt.plot(history.history['loss'][5:])
-plt.plot(history.history['val_loss'][:])
+plt.plot(history.history['val_loss'][5:])
 plt.title('Model loss')
 plt.ylabel('Loss')
 plt.xlabel('Epoch')
@@ -702,12 +723,12 @@ plot([Scatter(x=x, y=y,
                 ),
                 text=lbls,
                 #hoverinfo='text')], filename='tmp.html')
-                hoverinfo='text')], filename='OLD_LOSS_200epochs_LAM_0.001_MMD_1_caled.html')
+                hoverinfo='text')], filename='New_LOSS_500epochs_LAM_0.001_MMD_0.1_scaled.html')
 
 
 
-x = aFrame[:, 0]
-y = aFrame[:, 1]
+x = z[:, 0]
+y = z[:, 1]
 # analog of tsne plot fig15 from Nowizka 2015, also see fig21
 for m in range(len(markers)):
     plot([Scatter(x=x, y=y,
@@ -727,57 +748,91 @@ for m in range(len(markers)):
 #def plot_data(df):
 
 sub_idx =  np.random.choice(range(len(lbls)), 10000, replace  =False)
-x = aFrame[sub_idx, 0]
-y = aFrame[sub_idx, 1]
+x = z[sub_idx, 0]
+y = z[sub_idx, 1]
 lbls_s = lbls[sub_idx]
+sFrame = aFrame[sub_idx,:]
 
 import plotly.graph_objects as go
 fig = go.Figure()
-fig.add_trace(Scatter(x=x, y=y,
+nM=len(markers)
+for m in range(nM):
+    fig.add_trace(Scatter(x=x, y=y,
                         mode='markers',
                         marker=dict(
-                            size=1,
-                            color=x,  # set color to an array/list of desired values
+                            size=2,
+                            color=sFrame[:,m],  # set color to an array/list of desired values
                             colorscale='Viridis',  # choose a colorscale
                             opacity=0.5,
-                            colorbar=dict(title = markers[0])
+                            colorbar=dict(title = markers[m])
                         ),
                         text=lbls_s,
                         hoverinfo='text',
-                        name = markers[0]
+                        name = markers[m]
                         ))
 
-fig.add_trace(Scatter(x=x, y=y,
-                        mode='markers',
-                        marker=dict(
-                            size=1,
-                            color=y,  # set color to an array/list of desired values
-                            colorscale='Viridis',  # choose a colorscale
-                            opacity=0.5,
-                            colorbar=dict(title = markers[1])
-                        ),
-                        text=lbls_s,
-                        hoverinfo='text',
-                        name = markers[1]
-                        ))
 
+vis_mat=np.zeros((nM,nM), dtype=bool)
+np.fill_diagonal(vis_mat, True)
+
+button_list = list([dict(label = markers[m],
+                    method = 'update',
+                    args = [{'visible': vis_mat[m,:]},
+                          {'title': markers[m],
+                           'showlegend':False}]) for m in range(len(markers))])
 fig.update_layout(
     updatemenus=[go.layout.Updatemenu(
         active=0,
-        buttons=list(
-            [dict(label = markers[0],
-                  method = 'update',
-                  args = [{'visible': [True, False]},
-                          {'title': markers[0],
-                           'showlegend':False}]),
-             dict(label = markers[1],
-                  method = 'update',
-                  args = [{'visible': [False, True]}, # the index of True aligns with the indices of plot traces
-                          {'title': markers[1],
-                           'showlegend':False}]),
-             ])
+        buttons=button_list
         )
     ])
+#TODO: add color by cluster
+
+fig.show()
+
+# just the most important markers
+marker_sub=['CD3', 'CD45', 'pNFkB', 'CD4', 'CD20','pAkt', 'pStat1', 'IgM', 'pS6', 'HLA-DR', 'CD7']
+sub_idx =  np.random.choice(range(len(lbls)), 10000, replace  =False)
+x = z[sub_idx, 0]
+y = z[sub_idx, 1]
+lbls_s = lbls[sub_idx]
+sFrame = aFrame[sub_idx,:]
+result = [markers.index(i) for i in marker_sub]
+sFrame = sFrame[:, result]
+import plotly.graph_objects as go
+fig = go.Figure()
+nM=len(marker_sub)
+for m in range(nM):
+    fig.add_trace(Scatter(x=x, y=y,
+                        mode='markers',
+                        marker=dict(
+                            size=2,
+                            color=sFrame[:,m],  # set color to an array/list of desired values
+                            colorscale='Viridis',  # choose a colorscale
+                            opacity=0.5,
+                            colorbar=dict(title = marker_sub[m])
+                        ),
+                        text=lbls_s,
+                        hoverinfo='text',
+                        name = marker_sub[m]
+                        ))
+
+
+vis_mat=np.zeros((nM,nM), dtype=bool)
+np.fill_diagonal(vis_mat, True)
+
+button_list = list([dict(label = marker_sub[m],
+                    method = 'update',
+                    args = [{'visible': vis_mat[m,:]},
+                          {'title': marker_sub[m],
+                           'showlegend':False}]) for m in range(len(marker_sub))])
+fig.update_layout(
+    updatemenus=[go.layout.Updatemenu(
+        active=0,
+        buttons=button_list
+        )
+    ])
+#TODO: add color by cluster
 
 fig.show()
 
