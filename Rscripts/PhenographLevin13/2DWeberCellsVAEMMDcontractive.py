@@ -654,6 +654,22 @@ def contractive(x, x_decoded_mean):
         return 1/normSigma * (SigmaTsq) * lam * K.sum(dh ** 2 * K.sum(W ** 2, axis=1), axis=1)#TODO reverse SigmaFactor; check if Sigma really squared
         #return lam * K.sum(dh ** 2 * K.sum(W ** 2, axis=1), axis=1)
 
+
+def deep_contractive(x, x_decoded_mean):
+    W = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
+    Z = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
+    W = K.transpose(W);
+    Z = K.transpose(Z);  # N_hidden x N
+    h = encoder.get_layer('z_mean').output
+    dh = h * (1 - h)  # N_batch x N_hidden
+    s = encoder.get_layer('intermediate').output
+    ds = s * (1 - s)  # N_batch x N_hidden
+    # return 1 / normSigma * (SigmaTsq) * lam * K.sum(dh ** 2 * K.sum(W ** 2, axis=1), axis=1)
+    S_1W = tf.keras.backend.dot(dh ** 2, W ** 2)  # N_batch x N_input
+    S_2Z = K.transpose(tf.keras.backend.dot(ds ** 2, Z ** 2))  # N_batch
+    return 1 / normSigma * (SigmaTsq) * lam * K.sum(tf.keras.backend.dot(S_2Z, S_1W))
+
+
 def loss_mmd(x, x_decoded_mean):
     batch_size = K.shape(z_mean)[0]
     latent_dim = K.int_shape(z_mean)[1]
