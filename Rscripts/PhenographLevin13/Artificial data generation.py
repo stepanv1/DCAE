@@ -12,7 +12,6 @@ print(tf.__version__)
 from sklearn.neighbors import NearestNeighbors
 from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.models import Model
-from keras.datasets import mnist
 from tensorflow.keras import backend as K
 import numpy as np
 import matplotlib.pyplot as plt
@@ -343,17 +342,18 @@ decoder_mean = Dense(original_dim, activation='linear')
 h_decoded = decoder_h(z)
 x_decoded_mean = decoder_mean(h_decoded)
 
-
+Kones = K.ones((nn,original_dim))
 def mean_square_error_NN(y_true, y_pred):
     dst = K.mean(K.square((k_neib - K.expand_dims(y_pred, 1))) , axis=-1)
-    weightedN = K.dot(dst, K.ones((nn,original_dim)))
+    weightedN = K.dot(dst, Kones)
     #return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
-    return  tf.multiply(weightedN, 0.5 )
-
+    return  weightedN * 0.5
+@tf.function
 def ae_loss(x, x_decoded_mean):
     msew = k*original_dim * mean_square_error_NN(x, x_decoded_mean)
     #pen_zero = K.sum(K.square(x*cut_neib), axis=-1)
     return K.mean(msew)
+
 
 aeNNtrue = Model([x, k_neib], x_decoded_mean)
 aeNNtrue.summary()
@@ -363,10 +363,14 @@ aeNNtrue.compile(optimizer='adadelta', loss=ae_loss, metrics=[mean_square_error_
 (x_train, neib) = (np.vstack((cl1_noisy, cl2_noisy)), np.vstack((cl1_noisy_nn, cl2_noisy_nn)) )
 X_train, X_test,  neib_train, neib_test, lbls_train, lbls_test = train_test_split(x_train, neib, lbls, test_size=0.33, random_state=42)
 
-history_DAEnnTrue= aeNNtrue.fit([X_train, neib_train], X_train, epochs=800, batch_size=256,
+history_DAEnnTrue= aeNNtrue.fit([X_train, neib_train], X_train, epochs=8, batch_size=256,
                       shuffle=True,
                       validation_data=([X_test, neib_test], X_test),
                 verbose=2, workers =  multiprocessing.cpu_count(), use_multiprocessing  = True )
+
+
+
+
 plt.plot(history_DAEnnTrue.history['loss'][600:])
 plt.plot(history_DAEnnTrue.history['val_loss'][600:])
 plt.title('Model loss')

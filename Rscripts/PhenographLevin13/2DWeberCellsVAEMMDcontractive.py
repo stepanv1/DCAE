@@ -262,7 +262,7 @@ lbls=patient_table[:,0]
 
 len(lbls)
 scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
-scaler.fit_transform(aFrame)
+scaler.fit_transform(aFrame) # TODO: possibly
 nb=find_neighbors(aFrame, k3, metric='euclidean', cores=12)
 Idx = nb['idx']; Dist = nb['dist']
 '''
