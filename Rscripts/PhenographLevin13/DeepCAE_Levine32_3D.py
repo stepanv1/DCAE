@@ -1,5 +1,10 @@
 '''This script to visualise cytoff data using deep variational autoencoder with MMD  with neighbourhood denoising and
 contracting knnCVAE, neighbourhood cleaning removed
+Original publication of data set: https://pubmed.ncbi.nlm.nih.gov/26095251/
+data : http://127.0.0.1:27955/library/HDCytoData/doc/Examples_and_use_cases.html,
+# watcg cd 4 separated into
+cd4  cd7+- cd15+
+compare with tsne there
 TODO ?? pretraining
 Now with entropic weighting of neibourhoods
 Innate‐like CD8+ T‐cells and NK cells: converging functions and phenotypes
@@ -260,7 +265,7 @@ def find_neighbors(data, k_, metric='manhattan', cores=12):
 # load data
 k = 30
 k3 = k * 3
-ID = 'Levine32'
+ID = 'Levine32_3D'
 '''
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
@@ -363,6 +368,9 @@ sourceTr = aFrame
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
+tf.compat.v1.disable_eager_execution()
+
+
 # Model-------------------------------------------------------------------------
 ######################################################
 # targetTr = np.repeat(aFrame, r, axis=0)
@@ -380,7 +388,7 @@ sourceTr = aFrame
 nrow = aFrame.shape[0]
 batch_size = 256
 original_dim = 32
-latent_dim = 2
+latent_dim = 3
 intermediate_dim = 120
 intermediate_dim2=120
 nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
@@ -394,7 +402,8 @@ h = Dense(intermediate_dim, activation='relu', name='intermediate')(x)
 #h = Dense(intermediate_dim, activation='sigmoid', name='intermediate')(x)
 #h = Dense(intermediate_dim, activation='softplus', name='intermediate')(x)
 # h.set_weights(ae.layers[1].get_weights())
-z_mean =  Dense(latent_dim, name='z_mean')(h)
+#z_mean =  Dense(latent_dim, name='z_mean', activation='sigmoid')(h)
+z_mean =  Dense(latent_dim, activation=None, name='z_mean')(h)
 
 encoder = Model([x, neib, SigmaTsq], z_mean, name='encoder')
 
@@ -512,6 +521,58 @@ def deep_contractive(x, x_decoded_mean):  # deep contractive with ReLu in interm
     return 1 / normSigma * (SigmaTsq) * lam * K.sum(diff_tens ** 2)
 
 
+def deep_contractive(x, x_decoded_mean):  # deep contractive with ReLu in all layersd
+    W = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
+    Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
+    W = K.transpose(W);
+    Z = K.transpose(Z);  # N_hidden x N
+    m = encoder.get_layer('intermediate').output
+    dm = tf.linalg.diag((tf.math.sign(m)+1)/2)  # N_batch x N_hidden
+    s = encoder.get_layer('z_mean').output
+    ds = tf.linalg.diag((tf.math.sign(s)+1)/2)  # N_batch x N_hidden
+    # tf.print(ds.shape)
+    # return 1 / normSigma * (SigmaTsq) * lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axis=1)
+    S_1W = tf.einsum('akl,lj->akj', dm, W)  # N_batch x N_input ??
+    # tf.print((S_1W).shape) #[None, 120]
+    S_2Z = tf.einsum('akl,lj->akj', ds, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
+    # tf.print((S_2Z).shape)
+    diff_tens = tf.einsum('akl,alj->akj', S_2Z,
+                          S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
+    # tf.Print(K.sum(diff_tens ** 2))
+    return 1 / normSigma * (SigmaTsq) * lam * K.sum(diff_tens ** 2)
+
+def deep_contractive(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
+    W = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
+    Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
+    W = K.transpose(W);
+    Z = K.transpose(Z);  # N_hidden x N
+    m = encoder.get_layer('intermediate').output
+    dm = tf.linalg.diag((tf.math.sign(m)+1)/2)  # N_batch x N_hidden
+    s = encoder.get_layer('z_mean').output
+    #ds = K.sqrt(tf.linalg.diag(s * (1 - s)))  # N_batch x N_hidden
+    #ds = tf.linalg.diag(tf.math.sign(s*(1-s) ** 2 +0.1))
+    #bs = np.shape(s)[0]
+    #tf.print(bs)  # [None, 120]
+    r = tf.linalg.einsum('aj->a', s**2)
+    #tf.print(r.shape)
+    #b_i = tf.eye(latent_dim)
+    #tf.print(tf.shape(b_i))
+    #ds = tf.einsum('alk,a ->alk', b_i,r)
+    ds  = -2 * r + 1.5*r **2 + 1.5
+    #tf.print(ds.shape)
+    # return 1 / normSigma * (SigmaTsq) * lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axi0s=1)
+    S_1W = tf.einsum('akl,lj->akj', dm, W)  # N_batch x N_input ??
+    # tf.print((S_1W).shape) #[None, 120]
+    S_2Z = tf.einsum('a,lj->alj', ds, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
+    # tf.print((S_2Z).shape)
+    diff_tens = tf.einsum('akl,alj->akj', S_2Z,
+                          S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
+    # tf.Print(K.sum(diff_tens ** 2))
+    return 1 / normSigma * (SigmaTsq) * lam *(K.sum(diff_tens ** 2))
+
+
+
+
 
 
 #contractive = deep_contractive
@@ -525,15 +586,15 @@ def loss_mmd(x, x_decoded_mean):
     true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0., stddev=1.)
     return compute_mmd(true_samples, z_mean)
 nn=30
-def custom_loss(x, x_decoded_mean, z_mean):
+def custom_loss(x, x_decoded_mean):
     msew = mean_square_error_NN(x, x_decoded_mean)
     #
-    return 1*msew + 1*loss_mmd(x, x_decoded_mean) + 0.1*deep_contractive(x, x_decoded_mean)
+    return 1*msew + 1*loss_mmd(x, x_decoded_mean) + 1*deep_contractive(x, x_decoded_mean)
 ################################################################################################
 #################################################################################################
-loss = custom_loss(x, x_decoded_mean, z_mean)
-autoencoder.add_loss(loss)
-autoencoder.compile(optimizer='adam', metrics=[mean_square_error_NN, deep_contractive, custom_loss, loss_mmd])
+#loss = custom_loss(x, x_decoded_mean)
+#autoencoder.add_loss(loss)
+autoencoder.compile(optimizer='adam', loss=custom_loss)
 print(autoencoder.summary())
 print(encoder.summary())
 #print(decoder.summary())
@@ -542,15 +603,16 @@ print(encoder.summary())
 
 #callbacks = [EarlyStoppingByLossVal( monitor='loss', value=0.01, verbose=0
 
-earlyStopping=EarlyStoppingByValLoss( monitor='val_loss', min_delta=0.0001, verbose=1, patience=10, restore_best_weights=True)
+#earlyStopping=EarlyStoppingByValLoss( monitor='val_loss', min_delta=0.0001, verbose=1, patience=10, restore_best_weights=True)
 #earlyStopping=keras.callbacks.EarlyStopping(monitor='val_loss')
-epochs = 1300
+epochs = 5000
 batch_size=256
 #history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],
-history = autoencoder.fit([targetTr[:,:], neibF_Tr[:,:],  Sigma],
-                epochs=epochs, batch_size=batch_size, verbose=1,
+history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],targetTr,
+#history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],w_mean_target,
+                epochs=epochs, batch_size=batch_size, verbose=1, shuffle=True)
                 #validation_data=([targetTr[0:2000,:], neibF_Tr[0:2000,:],  Sigma[0:2000], weight_neibF[0:2000,:]], None),
-                           shuffle=True)
+                          # shuffle=True)
                 #callbacks=[CustomMetrics()], verbose=2)#, validation_data=([targetTr, neibF_Tr,  Sigma, weight_neibF], None))
 z = encoder.predict([aFrame, neibALL,  Sigma])
 plt.plot(history.history['loss'][5:])
@@ -572,7 +634,7 @@ import plotly
 from plotly import __version__
 from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
 from plotly.graph_objs import Scatter3d, Figure, Layout, Scatter
-
+import plotly.graph_objects as go
 # np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt', x_test_enc)
 # x_test_enc=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt')
 
@@ -581,8 +643,10 @@ nrow = np.shape(z)[0]
 num_lbls = (np.unique(lbls, return_inverse=True)[1])
 x = z[:, 0]
 y = z[:, 1]
+zz = z[:, 2]
 # analog of tsne plot fig15 from Nowizka 2015, also see fig21
-plot([Scatter(x=x, y=y,
+fig = go.Figure()
+fig.add_trace(Scatter3d(x=x, y=y, z=zz,
                 mode='markers',
                 marker=dict(
                     size=1,
@@ -592,72 +656,48 @@ plot([Scatter(x=x, y=y,
                 ),
                 text=lbls,
                 #hoverinfo='text')], filename='tmp.html')
-                hoverinfo='text')], filename=ID + 'New_LOSS_500epochs_LAM_0.001_MMD_1_DCAE_0.1_scaled.html')
-
-
-
-x = z[:, 0]
-y = z[:, 1]
-# analog of tsne plot fig15 from Nowizka 2015, also see fig21
-for m in range(len(markers)):
-    plot([Scatter(x=x, y=y,
-                        mode='markers',
-                        marker=dict(
-                            size=1,
-                            color=aFrame[:, m],  # set color to an array/list of desired values
-                            colorscale='Viridis',  # choose a colorscale
-                            opacity=0.5,
-                            colorbar=dict(title = markers[m])
-                        ),
-                        text=lbls,
-                        hoverinfo='text'
-                        )], filename='2dPerplexityk30weighted2000epochs_LAM_0.001_' + markers[m] + '.html')
-
-# first attempt to plot with buttons
-#def plot_data(df):
-
-sub_idx =  np.random.choice(range(len(lbls)), 10000, replace  =False)
-x = z[sub_idx, 0]
-y = z[sub_idx, 1]
-lbls_s = lbls[sub_idx]
-sFrame = aFrame[sub_idx,:]
-
-import plotly.graph_objects as go
-fig = go.Figure()
-nM=len(markers)
-for m in range(nM):
-    fig.add_trace(Scatter(x=x, y=y,
-                        mode='markers',
-                        marker=dict(
-                            size=2,
-                            color=sFrame[:,m],  # set color to an array/list of desired values
-                            colorscale='Viridis',  # choose a colorscale
-                            opacity=0.5,
-                            colorbar=dict(title = markers[m])
-                        ),
-                        text=lbls_s,
-                        hoverinfo='text',
-                        name = markers[m]
-                        ))
-
-
-vis_mat=np.zeros((nM,nM), dtype=bool)
-np.fill_diagonal(vis_mat, True)
-
-button_list = list([dict(label = markers[m],
-                    method = 'update',
-                    args = [{'visible': vis_mat[m,:]},
-                          {'title': markers[m],
-                           'showlegend':False}]) for m in range(len(markers))])
-fig.update_layout(
-    updatemenus=[go.layout.Updatemenu(
-        active=0,
-        buttons=button_list
-        )
-    ])
-#TODO: add color by cluster
+                hoverinfo='text'))
 
 fig.show()
+plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_HAT_potential_in CAE_MMD_1_DCAE_1_scaled.html')
+
+# plot the same with clicable cluster colours
+nrow = np.shape(z)[0]
+# subsIdx=np.random.choice(nrow,  500000)
+num_lbls = (np.unique(lbls, return_inverse=True)[1])
+x = z[:, 0]
+y = z[:, 1]
+zz = z[:, 2]
+# analog of tsne plot fig15 from Nowizka 2015, also see fig21
+fig = go.Figure()
+lbls_list = np.unique(lbls)
+nM=len(np.unique(lbls))
+from matplotlib.colors import rgb2hex
+import seaborn as sns
+palette = sns.color_palette(None, nM)
+colors = np.array([ rgb2hex(palette[i]) for i in range(len(palette)) ])
+
+fig = go.Figure()
+for m in range(nM):
+    IDX = [x == lbls_list[m] for x in lbls]
+    xs = x[IDX]; ys = y[IDX]; zs = zz[IDX];
+    fig.add_trace(Scatter3d(x=xs, y=ys, z =zs,
+                name = lbls_list[m],
+                mode='markers',
+                marker=dict(
+                    size=1,
+                    color=colors[m],  # set color to an array/list of desired values
+                    opacity=0.5,
+                ),
+                text=lbls[IDX],
+                #hoverinfo='text')], filename='tmp.html')
+                hoverinfo='text'))
+    fig.update_layout(yaxis=dict(range=[-3,3]))
+fig.show()
+plotly.offline.plot(fig, filename=ID + 'HAT_potential_in CAE_MMD_1_DCAE_5_scaledButtons.html')
+
+
+
 
 # just the most important markers
 marker_sub=['CD45RA', 'CD19', 'CD22',
@@ -672,15 +712,16 @@ marker_sub=['CD45RA', 'CD19', 'CD22',
 sub_idx =  np.random.choice(range(len(lbls)), 10000, replace  =False)
 x = z[sub_idx, 0]
 y = z[sub_idx, 1]
+zz = z[sub_idx, 2]
 lbls_s = lbls[sub_idx]
 sFrame = aFrame[sub_idx,:]
 result = [markers.index(i) for i in marker_sub]
 sFrame = sFrame[:, result]
-import plotly.graph_objects as go
+
 fig = go.Figure()
 nM=len(marker_sub)
 for m in range(nM):
-    fig.add_trace(Scatter(x=x, y=y,
+    fig.add_trace(Scatter3d(x=x, y=y, z=zz,
                         mode='markers',
                         marker=dict(
                             size=2,
@@ -712,7 +753,7 @@ fig.update_layout(
 #TODO: add color by cluster
 
 fig.show()
-plotly.offline.plot(fig, filename=ID + 'DCAE_deep_reluMMD2_DCAE_0.75topMarkers.html')
+plotly.offline.plot(fig, filename=ID + 'HAt_potential_DCAE_deep_MMD1_DCAE_5topMarkers.html')
 
 
 # process a subset in limits
