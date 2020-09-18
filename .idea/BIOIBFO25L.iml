@@ -3,7 +3,7 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$" />
     <content url="file://$MODULE_DIR$/Clibs" />
-    <orderEntry type="jdk" jdkName="Python 3.7 (BIOIBFO25L)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.8 (tf)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="R Skeletons" level="application" />
     <orderEntry type="library" name="R User Library" level="project" />

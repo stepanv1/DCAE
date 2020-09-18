@@ -1,11 +1,6 @@
 '''This script to visualise cytoff data using deep variational autoencoder with MMD  with neighbourhood denoising and
 contracting knnCVAE, neighbourhood cleaning removed
-Original publication of data set: https://pubmed.ncbi.nlm.nih.gov/26095251/
-data : http://127.0.0.1:27955/library/HDCytoData/doc/Examples_and_use_cases.html,
-# watcg cd 4 separated into
-cd4  cd7+- cd15+
-compare with tsne there
-TODO ?? pretraining
+Original publication of data set: Nowizka2107
 Now with entropic weighting of neibourhoods
 Innate‐like CD8+ T‐cells and NK cells: converging functions and phenotypes
 Ayako Kurioka,corresponding author 1 , 2 Paul Klenerman, 1 , 2 and Christian B. Willbergcorresponding author 1 , 2
@@ -265,28 +260,28 @@ def find_neighbors(data, k_, metric='manhattan', cores=12):
 # load data
 k = 30
 k3 = k * 3
-ID = 'Levine32_3D'
+ID = 'Nowicka2017_3D'
 '''
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
 '''
-source_dir = '/media/grines02/New Volume1/Box Sync/Box Sync/CyTOFdataPreprocess/'
-output_dir  = '/media/grines02/New Volume1/Box Sync/Box Sync/CyTOFdataPreprocess/'
+#source_dir = '/media/FCS_local/Stepan/data/WeberLabels/'
 '''
-data0 = np.genfromtxt(source_dir + "/Levine32_data.csv" , names=None, dtype=float, skip_header=1, delimiter=',')
-aFrame = data0[:,:] 
-aFrame.shape
+#file_list = glob.glob(source_dir + '/*.txt')
+data0 = np.genfromtxt(source_dir + "d_matrix.txt"
+, names=None, dtype=float, skip_header=1)
+aFrame = data0[:,1:] 
 # set negative values to zero
 aFrame[aFrame < 0] = 0
-lbls= np.genfromtxt(source_dir + "/Levine32_population.csv" , names=None, skip_header=0, delimiter=',', dtype='U100')
-#randomize order
-IDX = np.random.choice(aFrame.shape[0], aFrame.shape[0], replace=False)
+patient_table = np.genfromtxt(source_dir + "label_patient.txt", names=None, dtype='str', skip_header=1, delimiter=" ", usecols = (1, 2, 3))
+lbls=patient_table[:,0]
+IDX = np.random.choice(patient_table.shape[0], patient_table.shape[0], replace=False)
 #patient_table = patient_table[IDX,:]
 aFrame= aFrame[IDX,:]
 lbls = lbls[IDX]
 len(lbls)
-scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
-scaler.fit_transform(aFrame)
+#scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
+#scaler.fit_transform(aFrame)
 nb=find_neighbors(aFrame, k3, metric='euclidean', cores=48)
 Idx = nb['idx']; Dist = nb['dist']
 #Dist = Dist[IDX]
@@ -310,7 +305,6 @@ from pathos import multiprocessing
 num_cores = 48
 #pool = multiprocessing.Pool(num_cores)
 results = Parallel(n_jobs=48, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
-original_dim=32
 neibALL = np.zeros((nrow, k3, original_dim))
 Distances = np.zeros((nrow, k3))
 neib_weight = np.zeros((nrow, k3))
@@ -321,7 +315,7 @@ for i in range(nrow):
     Distances[i,] = results[i][1]
 #Compute perpelexities
 nn=30
-perp((Distances[:,0:k3]),       nrow,     original_dim,   neib_weight,          nn,          k3,   Sigma,    12)
+perp((Distances[:,0:k3]),       nrow,     original_dim,   neib_weight,          nn,          k3,   Sigma,    48)
       #(     double* dist,      int N,    int D,       double* P,     double perplexity,    int K, int num_threads)
 np.shape(neib_weight)
 plt.plot(neib_weight[1,])
@@ -332,15 +326,44 @@ neib_weight=np.array([ neib_weight[i, topk[i]] for i in range(len(topk))])
 neib_weight=sklearn.preprocessing.normalize(neib_weight, axis=1, norm='l1')
 neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
 plt.plot(neib_weight[1,:]);plt.show()
-#outfile = source_dir + '/Nowicka2017euclid.npz'
-outfile = source_dir + '/Levine32euclid_scaled.npz'
+outfile = source_dir + '/Nowicka2017euclid.npz'
 np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
          neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma)
+outfile = source_dir + '/Nowicka2017euclid.npz'
+np.savez(outfile, Idx=Idx, aFrame=aFrame, lbls=lbls,  Dist=Dist)
 '''
 
-outfile = source_dir + '/Levine32euclid_scaled.npz'
+#annealing schedule
+#kl_weight = K.variable(value=0)
+#kl_weight_lst = K.variable(np.array(frange_cycle_linear(0.0, 1.0, epochs, n_cycle=10, ratio=0.75)))
 
-markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
+
+epsilon_std = 1.0
+
+
+'''
+inputs = range(nrow)
+from joblib import Parallel, delayed
+from pathos import multiprocessing
+num_cores = multiprocessing.cpu_count()
+#pool = multiprocessing.Pool(num_cores)
+results = Parallel(n_jobs=num_cores, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
+'''
+
+'''
+for i in range(nrow):
+ neibALL[i,] = results[i][0]
+for i in range(nrow):
+    cut_neibF[i,] = results[i][1]
+for i in range(nrow):
+    weight_distALL[i,] = results[i][2]
+del results
+'''
+source_dir = "/home/grines02/PycharmProjects/BIOIBFO25L/data/WeberLabels"
+markers = ["CD3", "CD45", "pNFkB", "pp38", "CD4", "CD20", "CD33", "pStat5", "CD123", "pAkt", "pStat1", "pSHP2",
+           "pZap70",
+           "pStat3", "CD14", "pSlp76", "pBtk", "pPlcg2", "pErk", "pLat", "IgM", "pS6", "HLA-DR", "CD7"]
+outfile = source_dir + '/Nowicka2017euclid_scaled.npz'
 # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
 npzfile = np.load(outfile)
 weight_distALL = npzfile['Dist'];
@@ -365,7 +388,6 @@ weight_neibF_Tr =weight_distALL
 sourceTr = aFrame
 
 # session set up
-
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.compat.v1.disable_eager_execution()
@@ -387,7 +409,7 @@ sourceTr = aFrame
 
 nrow = aFrame.shape[0]
 batch_size = 256
-original_dim = 32
+original_dim = aFrame.shape[1]
 latent_dim = 3
 intermediate_dim = 120
 intermediate_dim2=120
@@ -589,7 +611,7 @@ nn=30
 def custom_loss(x, x_decoded_mean):
     msew = mean_square_error_NN(x, x_decoded_mean)
     #
-    return 1*msew + 1*loss_mmd(x, x_decoded_mean) + 1*deep_contractive(x, x_decoded_mean)
+    return 1*msew + 1*loss_mmd(x, x_decoded_mean) + 5*deep_contractive(x, x_decoded_mean)
 ################################################################################################
 #################################################################################################
 #loss = custom_loss(x, x_decoded_mean)
@@ -659,7 +681,7 @@ fig.add_trace(Scatter3d(x=x, y=y, z=zz,
                 hoverinfo='text'))
 
 fig.show()
-plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_HAT_potential_in CAE_MMD_1_DCAE_1_scaled.html')
+plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_HAT_potential_in_CAE_MMD_1_DCAE_1_scaled.html')
 
 # plot the same with clicable cluster colours
 nrow = np.shape(z)[0]
@@ -694,20 +716,48 @@ for m in range(nM):
                 hoverinfo='text'))
     fig.update_layout(yaxis=dict(range=[-3,3]))
 fig.show()
-plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_knHAT_potential_in CAE_MMD_1_DCAE_5_scaledButtons.html')
+plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_knHAT_potential_in_CAE_MMD_1_DCAE_5_scaledButtons.html')
 
 
+# plot the same with clicable cluster colours
+nrow = np.shape(z)[0]
+# subsIdx=np.random.choice(nrow,  500000)
+num_lbls = (np.unique(lbls, return_inverse=True)[1])
+x = z[:, 0]
+y = z[:, 1]
+zz = z[:, 2]
+# analog of tsne plot fig15 from Nowizka 2015, also see fig21
+fig = go.Figure()
+lbls_list = np.unique(lbls)
+nM=len(np.unique(lbls))
+from matplotlib.colors import rgb2hex
+import seaborn as sns
+palette = sns.color_palette(None, nM)
+colors = np.array([ rgb2hex(palette[i]) for i in range(len(palette)) ])
+
+fig = go.Figure()
+for m in range(nM):
+    IDX = [x == lbls_list[m] for x in lbls]
+    xs = x[IDX]; ys = y[IDX]; zs = zz[IDX];
+    fig.add_trace(Scatter3d(x=xs, y=ys, z =zs,
+                name = lbls_list[m],
+                mode='markers',
+                marker=dict(
+                    size=1,
+                    color=colors[m],  # set color to an array/list of desired values
+                    opacity=0.5,
+                ),
+                text=lbls[IDX],
+                #hoverinfo='text')], filename='tmp.html')
+                hoverinfo='text'))
+    fig.update_layout(yaxis=dict(range=[-3,3]))
+fig.show()
+plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_knHAT_potential_in_CAE_MMD_1_DCAE_5_scaledButtons.html')
 
 
 # just the most important markers
-marker_sub=['CD45RA', 'CD19', 'CD22',
-            'CD11b', 'CD4','CD8', 'CD34', 'CD20',
-            'CXCR4', 'CD45','CD123', 'CD321',
-            'CD33', 'CD47','CD11c',
-            'CD7', 'CD15', 'CD16','CD44', 'CD38',
-            'CD3', 'CD61','CD117', 'CD49d',
-            'HLA-DR', 'CD64','CD41'
-            ] #
+marker_sub=['CD3', 'CD45', 'pNFkB', 'CD4', 'CD20','pAkt', 'pStat1', 'IgM', 'pS6', 'HLA-DR', 'CD7', 'pZap70']
+
 #marker_sub=markers
 sub_idx =  np.random.choice(range(len(lbls)), 10000, replace  =False)
 x = z[sub_idx, 0]

@@ -265,13 +265,13 @@ def find_neighbors(data, k_, metric='manhattan', cores=12):
 # load data
 k = 30
 k3 = k * 3
-ID = 'Levine32_3D'
+ID = 'Levine32_2D_confined'
 '''
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
 '''
-source_dir = '/media/grines02/New Volume1/Box Sync/Box Sync/CyTOFdataPreprocess/'
-output_dir  = '/media/grines02/New Volume1/Box Sync/Box Sync/CyTOFdataPreprocess/'
+source_dir = '/media/grines02/New Volume/Box Sync/Box Sync/CyTOFdataPreprocess/'
+output_dir  = '/media/grines02/New Volume/Box Sync/Box Sync/CyTOFdataPreprocess/'
 '''
 data0 = np.genfromtxt(source_dir + "/Levine32_data.csv" , names=None, dtype=float, skip_header=1, delimiter=',')
 aFrame = data0[:,:] 
@@ -388,7 +388,7 @@ sourceTr = aFrame
 nrow = aFrame.shape[0]
 batch_size = 256
 original_dim = 32
-latent_dim = 3
+latent_dim = 2+1
 intermediate_dim = 120
 intermediate_dim2=120
 nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
@@ -461,85 +461,13 @@ def contractive(x, x_decoded_mean):
         return 1/normSigma * (SigmaTsq) * lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axis=1)
 import sys
 
-
-def deep_contractive(x, x_decoded_mean):
-       W = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
-       Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
-       W = K.transpose(W);  Z = K.transpose(Z); # N_hidden x N
-       m = encoder.get_layer('intermediate').output
-       dm = tf.linalg.diag(m * (1 - m))   # N_batch x N_hidden
-       s = encoder.get_layer('z_mean').output
-       ds = tf.linalg.diag(s * (1 - s))  # N_batch x N_hidden
-       #tf.print(ds.shape)
-       #return 1 / normSigma * (SigmaTsq) * lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axis=1)
-       S_1W = tf.einsum('akl,lj->akj', dm, W ) # N_batch x N_input ??
-       #tf.print((S_1W).shape) #[None, 120]
-       S_2Z = tf.einsum('akl,lj->akj', ds, Z ) # N_batch ?? TODO: use tf. and einsum and/or tile
-       #tf.print((S_2Z).shape)
-       diff_tens = tf.einsum('akl,alj->akj' , S_2Z, S_1W ) # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
-       #tf.Print(K.sum(diff_tens ** 2))
-       return 1 / normSigma * (SigmaTsq) * lam * K.sum(diff_tens ** 2)
+#TODO: kernel implementation
+# https://stackoverflow.com/questions/49793557/how-to-perform-kernel-density-estimation-in-tensorflow
+# https://www.tensorflow.org/api_docs/python/tf/numpy_function
+# FFT kde https://pastebin.com/LNdYCZgw; even shorter version in answer here: https://stackoverflow.com/questions/18921419/implementing-a-2d-fft-based-kernel-density-estimator-in-python-and-comparing-i
 
 
-def deep_contractive(x, x_decoded_mean): # deep contractive with softplus in intermediate layer
-       W = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
-       Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
-       W = K.transpose(W);  Z = K.transpose(Z); # N_hidden x N
-       m = encoder.get_layer('intermediate').output
-       dm = tf.linalg.diag(1 - 1/(tf.math.exp(m)))   # N_batch x N_hidden
-       s = encoder.get_layer('z_mean').output
-       ds = tf.linalg.diag(s * (1 - s))  # N_batch x N_hidden
-       #tf.print(ds.shape)
-       #return 1 / normSigma * (SigmaTsq) * lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axis=1)
-       S_1W = tf.einsum('akl,lj->akj', dm, W ) # N_batch x N_input ??
-       #tf.print((S_1W).shape) #[None, 120]
-       S_2Z = tf.einsum('akl,lj->akj', ds, Z ) # N_batch ?? TODO: use tf. and einsum and/or tile
-       #tf.print((S_2Z).shape)
-       diff_tens = tf.einsum('akl,alj->akj' , S_2Z, S_1W ) # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
-       #tf.Print(K.sum(diff_tens ** 2))
-       return 1 / normSigma * (SigmaTsq) * lam * K.sum(diff_tens ** 2)
-
-
-def deep_contractive(x, x_decoded_mean):  # deep contractive with ReLu in intermediate layer
-    W = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
-    Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
-    W = K.transpose(W);
-    Z = K.transpose(Z);  # N_hidden x N
-    m = encoder.get_layer('intermediate').output
-    dm = tf.linalg.diag((tf.math.sign(m)+1)/2)  # N_batch x N_hidden
-    s = encoder.get_layer('z_mean').output
-    ds = tf.linalg.diag(s * (1 - s))  # N_batch x N_hidden
-    # tf.print(ds.shape)
-    # return 1 / normSigma * (SigmaTsq) * lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axis=1)
-    S_1W = tf.einsum('akl,lj->akj', dm, W)  # N_batch x N_input ??
-    # tf.print((S_1W).shape) #[None, 120]
-    S_2Z = tf.einsum('akl,lj->akj', ds, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
-    # tf.print((S_2Z).shape)
-    diff_tens = tf.einsum('akl,alj->akj', S_2Z,
-                          S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
-    # tf.Print(K.sum(diff_tens ** 2))
-    return 1 / normSigma * (SigmaTsq) * lam * K.sum(diff_tens ** 2)
-
-
-def deep_contractive(x, x_decoded_mean):  # deep contractive with ReLu in all layersd
-    W = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
-    Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
-    W = K.transpose(W);
-    Z = K.transpose(Z);  # N_hidden x N
-    m = encoder.get_layer('intermediate').output
-    dm = tf.linalg.diag((tf.math.sign(m)+1)/2)  # N_batch x N_hidden
-    s = encoder.get_layer('z_mean').output
-    ds = tf.linalg.diag((tf.math.sign(s)+1)/2)  # N_batch x N_hidden
-    # tf.print(ds.shape)
-    # return 1 / normSigma * (SigmaTsq) * lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axis=1)
-    S_1W = tf.einsum('akl,lj->akj', dm, W)  # N_batch x N_input ??
-    # tf.print((S_1W).shape) #[None, 120]
-    S_2Z = tf.einsum('akl,lj->akj', ds, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
-    # tf.print((S_2Z).shape)
-    diff_tens = tf.einsum('akl,alj->akj', S_2Z,
-                          S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
-    # tf.Print(K.sum(diff_tens ** 2))
-    return 1 / normSigma * (SigmaTsq) * lam * K.sum(diff_tens ** 2)
+#TODO 2: implement extra-layer of neyrons catshin maximum in latent space, same as SOM (self organizing maps)
 
 def deep_contractive(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
     W = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
@@ -553,13 +481,20 @@ def deep_contractive(x, x_decoded_mean):  # attempt to avoid vanishing derivativ
     #ds = tf.linalg.diag(tf.math.sign(s*(1-s) ** 2 +0.1))
     #bs = np.shape(s)[0]
     #tf.print(bs)  # [None, 120]
-    r = tf.linalg.einsum('aj->a', s**2)
-    #tf.print(r.shape)
-    #b_i = tf.eye(latent_dim)
-    #tf.print(tf.shape(b_i))
-    #ds = tf.einsum('alk,a ->alk', b_i,r)
-    ds  = -2 * r + 1.5*r **2 + 1.5
-    #tf.print(ds.shape)
+    #r = tf.linalg.einsum('aj->a', s**2)
+    # create projector on main latent and confined spaces
+    Pxy = tf.constant([1, 1, 0], dtype=tf.float32)
+    Pconf = tf.constant([0, 0, 1], dtype=tf.float32)
+    #Uconf = tf.linalg.einsum('ajk->ajk', s, )
+    # add confinement term , Uconf
+    ##rs =  s * Pxy
+    ##r = tf.linalg.einsum('aj->a', rs ** 2)
+    Us = s * Pconf
+    Uconf  = tf.linalg.einsum('aj->a', Us ** 2)
+    ##ds  =(0.1 * r**2 +  1) * (Uconf  + 1)
+    # try without xy confinement
+    ds =  (Uconf + 1)
+    #tf.print(ds.shape[0])
     # return 1 / normSigma * (SigmaTsq) * lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axi0s=1)
     S_1W = tf.einsum('akl,lj->akj', dm, W)  # N_batch x N_input ??
     # tf.print((S_1W).shape) #[None, 120]
@@ -568,11 +503,7 @@ def deep_contractive(x, x_decoded_mean):  # attempt to avoid vanishing derivativ
     diff_tens = tf.einsum('akl,alj->akj', S_2Z,
                           S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
     # tf.Print(K.sum(diff_tens ** 2))
-    return 1 / normSigma * (SigmaTsq) * lam *(K.sum(diff_tens ** 2))
-
-
-
-
+    return 1 / normSigma * (SigmaTsq) * lam * K.sum(diff_tens ** 2)
 
 
 #contractive = deep_contractive
@@ -580,16 +511,17 @@ def deep_contractive(x, x_decoded_mean):  # attempt to avoid vanishing derivativ
 
         #return lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axis=1)
 
-def loss_mmd(x, x_decoded_mean):
+def loss_mmd(x, x_decoded_mean): # changed here to uniform
     batch_size = K.shape(z_mean)[0]
     latent_dim = K.int_shape(z_mean)[1]
-    true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0., stddev=1.)
+    #true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0., stddev=1.)
+    true_samples = K.random_uniform(shape=(batch_size, latent_dim),minval=-1.0, maxval=1.0)
     return compute_mmd(true_samples, z_mean)
 nn=30
 def custom_loss(x, x_decoded_mean):
     msew = mean_square_error_NN(x, x_decoded_mean)
     #
-    return 1*msew + 1*loss_mmd(x, x_decoded_mean) + 1*deep_contractive(x, x_decoded_mean)
+    return 1*msew + 1*loss_mmd(x, x_decoded_mean) + 5*deep_contractive(x, x_decoded_mean)
 ################################################################################################
 #################################################################################################
 #loss = custom_loss(x, x_decoded_mean)
@@ -605,7 +537,7 @@ print(encoder.summary())
 
 #earlyStopping=EarlyStoppingByValLoss( monitor='val_loss', min_delta=0.0001, verbose=1, patience=10, restore_best_weights=True)
 #earlyStopping=keras.callbacks.EarlyStopping(monitor='val_loss')
-epochs = 5000
+epochs = 200
 batch_size=256
 #history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],
 history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],targetTr,
@@ -643,10 +575,9 @@ nrow = np.shape(z)[0]
 num_lbls = (np.unique(lbls, return_inverse=True)[1])
 x = z[:, 0]
 y = z[:, 1]
-zz = z[:, 2]
 # analog of tsne plot fig15 from Nowizka 2015, also see fig21
 fig = go.Figure()
-fig.add_trace(Scatter3d(x=x, y=y, z=zz,
+fig.add_trace(Scatter(x=x, y=y,
                 mode='markers',
                 marker=dict(
                     size=1,
@@ -659,7 +590,7 @@ fig.add_trace(Scatter3d(x=x, y=y, z=zz,
                 hoverinfo='text'))
 
 fig.show()
-plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_HAT_potential_in CAE_MMD_1_DCAE_1_scaled.html')
+plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_square_potential_in CAE_MMD_1_DCAE_5_scaled.html')
 
 # plot the same with clicable cluster colours
 nrow = np.shape(z)[0]
@@ -667,7 +598,7 @@ nrow = np.shape(z)[0]
 num_lbls = (np.unique(lbls, return_inverse=True)[1])
 x = z[:, 0]
 y = z[:, 1]
-zz = z[:, 2]
+
 # analog of tsne plot fig15 from Nowizka 2015, also see fig21
 fig = go.Figure()
 lbls_list = np.unique(lbls)
@@ -680,8 +611,8 @@ colors = np.array([ rgb2hex(palette[i]) for i in range(len(palette)) ])
 fig = go.Figure()
 for m in range(nM):
     IDX = [x == lbls_list[m] for x in lbls]
-    xs = x[IDX]; ys = y[IDX]; zs = zz[IDX];
-    fig.add_trace(Scatter3d(x=xs, y=ys, z =zs,
+    xs = x[IDX]; ys = y[IDX];
+    fig.add_trace(Scatter(x=xs, y=ys,
                 name = lbls_list[m],
                 mode='markers',
                 marker=dict(
@@ -694,7 +625,7 @@ for m in range(nM):
                 hoverinfo='text'))
     fig.update_layout(yaxis=dict(range=[-3,3]))
 fig.show()
-plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_knHAT_potential_in CAE_MMD_1_DCAE_5_scaledButtons.html')
+plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_square_potential_in CAE_MMD_1_DCAE_5_scaledButtons.html')
 
 
 
@@ -708,6 +639,55 @@ marker_sub=['CD45RA', 'CD19', 'CD22',
             'CD3', 'CD61','CD117', 'CD49d',
             'HLA-DR', 'CD64','CD41'
             ] #
+#marker_sub=markers
+sub_idx =  np.random.choice(range(len(lbls)), 10000, replace  =False)
+x = z[sub_idx, 0]
+y = z[sub_idx, 1]
+
+lbls_s = lbls[sub_idx]
+sFrame = aFrame[sub_idx,:]
+result = [markers.index(i) for i in marker_sub]
+sFrame = sFrame[:, result]
+
+fig = go.Figure()
+nM=len(marker_sub)
+for m in range(nM):
+    fig.add_trace(Scatter(x=x, y=y,
+                        mode='markers',
+                        marker=dict(
+                            size=2,
+                            color=sFrame[:,m],  # set color to an array/list of desired values
+                            colorscale='Viridis',  # choose a colorscale
+                            opacity=0.5,
+                            colorbar=dict(title = marker_sub[m])
+                        ),
+                        text=lbls_s,
+                        hoverinfo='text',
+                        name = marker_sub[m]
+                        ))
+
+
+vis_mat=np.zeros((nM,nM), dtype=bool)
+np.fill_diagonal(vis_mat, True)
+
+button_list = list([dict(label = marker_sub[m],
+                    method = 'update',
+                    args = [{'visible': vis_mat[m,:]},
+                          {'title': marker_sub[m],
+                           'showlegend':False}]) for m in range(len(marker_sub))])
+fig.update_layout(
+    updatemenus=[go.layout.Updatemenu(
+        active=0,
+        buttons=button_list
+        )
+    ])
+#TODO: add color by cluster
+
+fig.show()
+plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_square_potential_DCAE_deep_MMD1_DCAE_5_topMarkers.html')
+
+# in 3D:
+
 #marker_sub=markers
 sub_idx =  np.random.choice(range(len(lbls)), 10000, replace  =False)
 x = z[sub_idx, 0]
@@ -754,6 +734,10 @@ fig.update_layout(
 
 fig.show()
 plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_HAt_potential_DCAE_deep_MMD1_DCAE_5topMarkers.html')
+
+
+
+
 
 
 # process a subset in limits
