@@ -50,50 +50,7 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 
 # two subspace clusters centers
 original_dim = 30
-cl1_center = np.zeros(original_dim)
-cl2_center = np.concatenate((np.ones(20),  np.zeros(10)), axis=0 )
-ncl1 =ncl2=100000
 '''
-cl1_center = np.zeros(original_dim)
-cl2_center = np.concatenate((np.ones(20),  np.zeros(10)), axis=0 )
-
-lbls = np.concatenate((np.zeros(ncl1), np.ones(ncl2)), axis=0)
-
-cl1 = cl1_center +  np.concatenate([np.zeros((ncl1,20)),  np.random.uniform(low=-1, high=1, size=(ncl1,10))], axis=1 )
-cl2 = cl2_center +  np.concatenate([np.random.uniform(low=-1, high=1, size=(ncl2,10)),  np.zeros((ncl2,20))], axis=1 )
-sns.violinplot(data= cl1, bw = 0.1);sns.violinplot(data= cl2, bw = 0.1);
-#noisy or not:
-noise_sig1 =  np.concatenate((np.zeros(20),  np.ones(10)), axis=0 )
-noise_sig2 = np.concatenate((np.ones(10), np.zeros(20)), axis=0 )
-noise_scale =1
-# add noise to orthogonal dimensions
-cl1_noisy = cl1 + np.concatenate([np.random.normal(loc=0, scale = noise_scale, size=(ncl1,20)), np.zeros((ncl1,10))], axis=1 )
-cl2_noisy = cl2 + np.concatenate([ np.zeros((ncl2, 10)), np.random.normal(loc=0, scale = noise_scale, size=(ncl2,20))], axis=1 )
-sns.violinplot(data= cl1_noisy, bw = 0.1);sns.violinplot(data= cl2_noisy, bw = 0.1);
-
-# create noisy neighbours, 30 per each initial point,  neighbours live in parallel dims
-# and add orthogonal noise
-def Perturbation(i, cl, noise_sig, nn):
-    ncol = np.shape(cl)[1]
-    nrow = np.shape(cl)[0]
-    sample= cl[i,:] + (noise_sig-1)* np.random.normal(loc=0, scale = noise_scale, size=(nn,30)) +\
-            noise_sig * np.random.normal(loc=0, scale = noise_scale, size=(nn,30))
-    return sample
-nn=30
-resSample1 = Parallel(n_jobs=48, verbose=0, backend="threading")(delayed(Perturbation,
-                check_pickle=False)(i, cl1, noise_sig1, nn) for i in range(np.shape(cl1_noisy)[0]))
-#cl1_noisy_nn = np.vstack(resSample1)
-cl1_noisy_nn = np.zeros((ncl1, nn, 30))
-for i in range(ncl1):
-    cl1_noisy_nn[i,:,:] = resSample1[i]
-
-resSample2 = Parallel(n_jobs=48, verbose=0, backend="threading")(delayed(Perturbation,
-                check_pickle=False)(i, cl2, noise_sig2, nn) for i in range(np.shape(cl2_noisy)[0]))
-cl2_noisy_nn = np.zeros((ncl2, nn, 30))
-for i in range(ncl2):
-    cl2_noisy_nn[i,:,:] = resSample2[i]
-del resSample1, resSample2
-
 # find neighbours an define clusters consiting solely from perturbed data
 def find_neighbors(data, k_, metric='euclidean', cores=12):
     tree = NearestNeighbors(n_neighbors=k_, algorithm="ball_tree", leaf_size=30, metric=metric,  metric_params=None, n_jobs=cores)
@@ -101,62 +58,52 @@ def find_neighbors(data, k_, metric='euclidean', cores=12):
     dist, ind = tree.kneighbors(return_distance=True)
     return {'dist': np.array(dist), 'idx': np.array(ind)}
 
-noisy_clus = np.concatenate(np.vstack((cl1_noisy_nn[:, np.random.choice(cl1_noisy_nn.shape[1], 1, replace=False), :],
-                            cl2_noisy_nn[:, np.random.choice(cl2_noisy_nn.shape[1], 1, replace=False), :] )), axis=0)
-# visualise with umap
+source_dir = "/media/FCS_local/Stepan/data/"
+#file_list = glob.glob(source_dir + '/*.txt')
+data0 = np.genfromtxt(source_dir + "ArtCells6_Small.csv", names=None, dtype=float, skip_header=1, delimiter=',')
+aFrame = data0[:,1:]
 
-# find orthogonal distances
-# zero's in noise_sig are noisy dims
-def ort_dist(i, noise_sig, cl, cl_center):
-    dist= np.sum(np.square((cl[i,:] - cl_center) * (noise_sig-1)))
-    return dist
-resSample1 = Parallel(n_jobs=48, verbose=0, backend="threading")(delayed(ort_dist,
-                check_pickle=False)(i, noise_sig1, noisy_clus[lbls==0,:], cl1_center)
-                                                                 for i in range(np.shape(noisy_clus[lbls==0,:])[0]))
-cl1_ort_dist = np.array(resSample1)
-resSample2 = Parallel(n_jobs=48, verbose=0, backend="threading")(delayed(ort_dist,
-                check_pickle=False)(i, noise_sig2, noisy_clus[lbls==1,:], cl2_center)
-                                                                 for i in range(np.shape(noisy_clus[lbls==1,:])[0]))
-cl2_ort_dist = np.array(resSample2)
+lbls=np.genfromtxt(source_dir + "ArtCells6_Small_labels.csv", names=None, dtype=int, skip_header=1, delimiter=',')[:,1]
 
-
-nrow=noisy_clus.shape[0]
-# find nearest neighbours
-nb=find_neighbors(noisy_clus, nn, metric='manhattan', cores=48)
+len(lbls)
+k3 = 90
+nb=find_neighbors(aFrame, k3, metric='manhattan', cores=48)
 Idx = nb['idx']; Dist = nb['dist']
+
+
+nrow=Idx.shape[0]
+# find nearest neighbours
 
 
 def singleInput(i):
     nei = noisy_clus[Idx[i, :], :]
     return [nei, i]
 
-
-nrow=noisy_clus.shape[0]
 # find nearest neighbours
 nn=30
 
-rk=range(nn)
+rk=range(k3)
 def singleInput(i):
-     nei =  noisy_clus[Idx[i,:],:]
-     di = [np.sqrt(sum(np.square(noisy_clus[i] - nei[k_i,]))) for k_i in rk]
+     nei =  aFrame[Idx[i,:],:]
+     di = [np.sqrt(sum(np.square(aFrame[i] - nei[k_i,]))) for k_i in rk]
      return [nei, di, i]
 
 inputs = range(nrow)
 from joblib import Parallel, delayed
 from pathos import multiprocessing
-num_cores = multiprocessing.cpu_count()
+num_cores = 48
 #pool = multiprocessing.Pool(num_cores)
 results = Parallel(n_jobs=48, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
-neibALL = np.zeros((nrow, nn, original_dim))
-Distances = np.zeros((nrow, nn))
-neib_weight = np.zeros((nrow, nn))
+neibALL = np.zeros((nrow, k3, original_dim))
+Distances = np.zeros((nrow, k3))
+neib_weight = np.zeros((nrow, k3))
 Sigma = np.zeros(nrow, dtype=float)
 for i in range(nrow):
     neibALL[i,] = results[i][0]
 for i in range(nrow):
     Distances[i,] = results[i][1]
 #Compute perpelexities
-perp((Distances[:,0:nn]),       nrow,     original_dim,   neib_weight,          nn,          nn,   Sigma,    48)
+perp((Distances[:,0:k3]),       nrow,     original_dim,   neib_weight,          nn,          k3,   Sigma,    48)
       #(     double* dist,      int N,    int D,       double* P,     double perplexity,    int K, int num_threads)
 np.shape(neib_weight)
 plt.plot(neib_weight[1,])
@@ -169,33 +116,24 @@ neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
 
 plt.plot(neib_weight[1,:]);plt.show()
 
-outfile = './data/ArtBulbz.npz'
-np.savez(outfile, Idx=Idx, cl1=cl1, cl2=cl2, noisy_clus=noisy_clus,
-         lbls=lbls,  Dist=Dist, cl1_noisy_nn =cl1_noisy_nn,
-         cl2_noisy_nn=cl2_noisy_nn, cl1_noisy =cl1_noisy,
-         cl2_noisy=cl2_noisy,cl1_ort_dist=cl2_ort_dist, cl2_ort_dist=cl2_ort_dist,
+outfile = './data/ArtCell6_Small.npz'
+np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
          neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma)
-
-import dill                            
-filepath = 'session_ArtdataGeneration.pkl'
-dill.dump_session(filepath) # Save the session
-dill.load_session(filepath)
-
 '''
 
-outfile = './data/ArtBulbz.npz'
+###########################################
+#load preprocessed data
+nn=15
+outfile = './data/ArtCell6_Small.npz'
 npzfile = np.load(outfile)
 lbls = npzfile['lbls'];
-Idx=npzfile['Idx']; cl1=npzfile['cl1']; cl2=npzfile['cl2']; noisy_clus=npzfile['noisy_clus'];
-lbls=npzfile['lbls'];  Dist=npzfile['Dist']; cl1_noisy_nn =npzfile['cl1_noisy_nn'];
-cl2_noisy_nn=npzfile['cl2_noisy_nn'];
-cl1_noisy =npzfile['cl1_noisy'];
-cl2_noisy=npzfile['cl2_noisy'];
-cl1_ort_dist=npzfile['cl2_ort_dist'];
-cl2_ort_dist=npzfile['cl2_ort_dist'];
-neibALL=npzfile['neibALL']
+Idx=npzfile['Idx'][:,0:nn];
+lbls=npzfile['lbls'];
+Dist=npzfile['Dist'][:,0:nn];
+neibALL=npzfile['neibALL'][:,0:nn,:];
 neib_weight= npzfile['neib_weight']
 Sigma = npzfile['Sigma']
+aFrame = npzfile['aFrame']
 
 
 '''
@@ -223,216 +161,36 @@ sess = tf.Session(config=config)
 K.set_session(sess)
 ####################################################################
 ############################### run vanilla DAE ####################
-nn=30
-
-# (a) Deep denoising Autoencoder
-model_name = 'DAE'
-# this is the size of our encoded representations
-encoding_dim = 2
-
-# this is our input placeholder
-input = Input(shape=(30, ))
-# "encoded" is the encoded representation of the inputs
-encoded = Dense(10, activation=act)(input)
-encoded = Dense(encoding_dim, activation='sigmoid')(encoded)
-# "decoded" is the lossy reconstruction of the input
-decoded = Dense(10, activation=act)(encoded)
-decoded = Dense(30, activation='linear')(decoded)
-# this model maps an input to its reconstruction
-autoencoderDAE = Model(input, decoded)
-# Separate Encoder model
-# this model maps an input to its encoded representation
-encoderDAE = Model(input, encoded)
-# Separate Decoder model
-# create a placeholder for an encoded (32-dimensional) input
-encoded_input = Input(shape=(encoding_dim, ))
-# retrieve the layers of the autoencoder model
-decoder_layer1 = autoencoderDAE.layers[-2]
-decoder_layer2 = autoencoderDAE.layers[-1]
-# create the decoder model
-decoderDAE = Model(encoded_input, decoder_layer2(decoder_layer1(encoded_input)))
-# Train to reconstruct MNIST digits
-# configure model to use a per-pixel binary crossentropy loss, and the Adadelta optimizer
-autoencoderDAE.compile(optimizer='adadelta', loss='mean_squared_error')
-# prepare input data from noisy output and clean input
-cl2_noisy= cl2_noisy; cl1_noisy= cl1_noisy;cl1= cl1;cl2= cl2
-(x_train, y_train) = (np.vstack((cl1_noisy, cl2_noisy)), np.vstack((cl1, cl2)) )
-X_train, X_test,  Y_train, Y_test, lbls_train, lbls_test = train_test_split(x_train, y_train, lbls, test_size=0.33, random_state=42)
-print(x_train.shape)
-print(y_train.shape)
-# Train autoencoder
-my_epochs = 500
-history_DAE= autoencoderDAE.fit(X_train, Y_train, epochs=my_epochs, batch_size=256, shuffle=True, validation_data=(X_test, Y_test),
-                verbose=2)
-fig0 = plt.figure();
-plt.plot(history_DAE.history['loss'][100:])
-plt.plot(history_DAE.history['val_loss'][100:])
-plt.title('Model loss')
-plt.ylabel('Loss')
-plt.xlabel('Epoch')
-plt.legend(['Train', 'Test'], loc='upper right')
-plt.show()
-
-# Visualize the reconstructed encoded representations
-
-# encode and decode some digits
-# note that we take them from the *test* set
-encoded_bulbs = encoderDAE.predict(X_test)
-decoded_bulbs = decoderDAE.predict(encoded_bulbs)
-fig0 = plt.figure();
-plt.scatter(encoded_bulbs[:,0], encoded_bulbs[:,1], c=lbls_test, s = 0.1)
-plt.title(model_name)
-plt.show();
-figSave0 = plt.figure()
-plt.scatter(encoded_bulbs[:,0], encoded_bulbs[:,1], c=lbls_test, s = 0.1)
-plt.title(model_name)
-plt.savefig(os.getcwd() + '/plots/' + model_name  +  '_bulbs.png')
-
-# now plot decoded bulbs co-dimensions in input and output data:
-#input:
-cl=0;bw=0.02
-fig = plt.figure()
-sns.violinplot(data= Y_test[lbls_test==cl , :], bw = bw);
-plt.savefig(os.getcwd() + '/plots/' + 'cluster1_nonoise.png')
-fig = plt.figure()
-ax = sns.violinplot(data= X_test[lbls_test==cl , :], bw = bw);
-plt.savefig(os.getcwd() + '/plots/' + 'cluster1_noise.png')
-cl=1;bw=0.02
-fig = plt.figure()
-sns.violinplot(data= Y_test[lbls_test==cl , :], bw = bw);
-plt.savefig(os.getcwd() + '/plots/' + 'cluster2_nonoise.png')
-fig = plt.figure()
-ax = sns.violinplot(data= X_test[lbls_test==cl , :], bw = bw);
-plt.savefig(os.getcwd() + '/plots/' + 'cluster2_noise.png')
-
-
-#output:
-figcl0 = plt.figure();
-bx = sns.violinplot(data= decoded_bulbs[lbls_test==0 , :], bw = bw);
-plt.show();
-figcl1 = plt.figure();
-bx = sns.violinplot(data= decoded_bulbs[lbls_test==1 , :], bw = bw);
-plt.show();
-
-##############################################################################################################
-#########################################################################################################
-# b) Theoretical formula from paper with two noise sources (second data set with second noise is created)
-model_name  = 'True NN'
-
-# add noise to orthogonal dimensions
-#form neighbour data for y_train of autoencoder
-
-k=nn;intermediate_dim=15; latent_dim = 2
-k_neib = Input(shape = (k, original_dim, ))
-#var_dims = Input(shape = (original_dim,))
-x = Input(shape=(original_dim,))
-h = Dense(intermediate_dim, activation=act)(x)
-#h.set_weights(ae.layers[1].get_weights())
-z = Dense(latent_dim, activation='sigmoid')(h)
-
-# we instantiate these layers separately so as to reuse them later
-decoder_h = Dense(intermediate_dim, activation=act)
-decoder_mean = Dense(original_dim, activation='linear')
-h_decoded = decoder_h(z)
-x_decoded_mean = decoder_mean(h_decoded)
-
-#@tf.function
-Kones = K.ones((nn,original_dim))
-def mean_square_error_NN(y_true, y_pred):
-    dst = K.mean(K.square((k_neib - K.expand_dims(y_pred, 1))) , axis=-1)
-    weightedN = K.dot(dst, Kones)
-    #return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
-    return  tf.multiply(weightedN, 0.5 )
-
-def ae_loss(x, x_decoded_mean):
-    msew = k*original_dim * mean_square_error_NN(x, x_decoded_mean)
-    #pen_zero = K.sum(K.square(x*cut_neib), axis=-1)
-    return K.mean(msew)
-
-aeNNtrue = Model([x, k_neib], x_decoded_mean)
-aeNNtrue.summary()
-
-aeNNtrue.compile(optimizer='adadelta', loss=ae_loss, metrics=[mean_square_error_NN])
-#split data into train and test
-(x_train, neib) = (np.vstack((cl1_noisy, cl2_noisy)), np.vstack((cl1_noisy_nn, cl2_noisy_nn)) )
-X_train, X_test,  neib_train, neib_test, lbls_train, lbls_test = train_test_split(x_train, neib, lbls, test_size=0.33, random_state=42)
-
-
-history_DAEnnTrue= aeNNtrue.fit([X_train, neib_train], X_train, epochs=800, batch_size=256,
-                      shuffle=True,
-                      validation_data=([X_test, neib_test], X_test),
-                verbose=2)
-
-plt.plot(history_DAEnnTrue.history['loss'][600:])
-plt.plot(history_DAEnnTrue.history['val_loss'][600:])
-plt.title('Model loss')
-plt.ylabel('Loss')
-plt.xlabel('Epoch')
-plt.legend(['Train', 'Test'], loc='upper right')
-plt.show()
-
-encoderNNtrue = Model([x, k_neib], z)
-print(encoderNNtrue.summary())
-decoderNNtrue = aeNNtrue
-print(decoderNNtrue.summary())
-
-encoded_bulbs = encoderNNtrue.predict([X_test, neib_test])
-decoded_bulbs = decoderNNtrue.predict([X_test, neib_test])
-fig0 = plt.figure();
-plt.scatter(encoded_bulbs[:,0], encoded_bulbs[:,1], c = lbls_test, s = 0.5)
-plt.title(model_name)
-plt.show()
-figSave0 = plt.figure()
-plt.scatter(encoded_bulbs[:,0], encoded_bulbs[:,1], c=lbls_test, s = 0.1)
-plt.title(model_name)
-plt.savefig(os.getcwd() + '/plots/' + model_name  +  '_bulbs.png')
-
-# now plot decoded bulbs co-dimensions in input and output data:
-#input:
-cl=1;bw=0.2
-fig1 = plt.figure();
-ax = sns.violinplot(data= X_test[lbls_test==cl , :], bw = bw);
-plt.show();
-#output:
-figcl0 = plt.figure();
-bx = sns.violinplot(data= decoded_bulbs[lbls_test==0 , :], bw = bw);
-plt.show();
-figcl1 = plt.figure();
-bx = sns.violinplot(data= decoded_bulbs[lbls_test==1 , :], bw = bw);
-plt.show();
-
-
-
 #############################################################################################
 #############################################################################################
 # c) analysis with knn neighbours instead second noise
-model_name = 'Estimated NN'
+model_name = 'Estimated NN_6_small'
 
 print('compute training sources and targets...')
 
 from scipy.stats import binom
 #split data into train and test
-(x_train, neib) = (noisy_clus, neibALL)
+(x_train, neib) = (aFrame, neibALL)
 #nn_lbls = np.array([item for item in lbls for i in range(nn)]).astype(int)
-X_train, X_test,  neib_train, neib_test, lbls_train, lbls_test, ort_train, ort_test \
-    = train_test_split(x_train, neib, lbls, np.concatenate((cl1_ort_dist,cl2_ort_dist)), test_size=0.33, random_state=42)
+X_train, X_test,  neib_train, neib_test, lbls_train, lbls_test  \
+    = train_test_split(x_train, neib, lbls, test_size=0.1, random_state=42)
 
 # create model and train
-k=nn;original_dim=30;intermediate_dim=15; intermediate_dim2 =6; latent_dim = 2
+k=nn;original_dim=30;intermediate_dim=15; intermediate_dim2 =6; latent_dim = 5
 k_neib = Input(shape = (k, original_dim, ))
 #var_dims = Input(shape = (original_dim,))
 x = Input(shape=(original_dim,))
 h = Dense(intermediate_dim, activation=act)(x)
-h2 =  Dense(intermediate_dim2, activation=act)(h)
+#h2 =  Dense(intermediate_dim2, activation=act)(h)
 #h.set_weights(ae.layers[1].get_weights())
-z = Dense(latent_dim, activation='sigmoid')(h2)
+z = Dense(latent_dim, activation='sigmoid')(h)
 
 # we instantiate these layers separately so as to reuse them later
-decoder_h2 = Dense(intermediate_dim2, activation=act)
+#decoder_h2 = Dense(intermediate_dim2, activation=act)
 decoder_h = Dense(intermediate_dim, activation=act)
 decoder_mean = Dense(original_dim, activation='linear')
-h_decoded2 = decoder_h2(z)
-h_decoded = decoder_h(h_decoded2)
+#h_decoded2 = decoder_h2(z)
+h_decoded = decoder_h(z)
 x_decoded_mean = decoder_mean(h_decoded)
 
 
@@ -453,38 +211,27 @@ ae_nn.summary()
 
 ae_nn.compile(optimizer='adadelta', loss=ae_loss, metrics=[mean_square_error_NN])
 
-history_DAEnn= ae_nn.fit([X_train, neib_train], X_train, epochs=10000, batch_size=256,
-                      shuffle=True,
-                      validation_data=([X_test, neib_test], X_test),
-                verbose=2)
-plt.plot(history_DAEnn.history['loss'][00:])
-plt.plot(history_DAEnn.history['val_loss'][00:])
-plt.title('Model loss')
-plt.ylabel('Loss')
-plt.xlabel('Epoch')
-plt.legend(['Train', 'Test'], loc='upper right')
-plt.show()
-
+history = autoencoder.fit([aFrame[2000:172600,:], w_mean_target[2000:172600,:],  Sigma[2000:172600]],
 encoderDAEnn = Model([x, k_neib], z)
 print(encoderDAEnn.summary())
 decoderDAEnn = ae_nn
 print(decoderDAEnn.summary())
 
-encoded_bulbs = encoderDAEnn.predict([X_test, neib_test])
-decoded_bulbs = decoderDAEnn.predict([X_test, neib_test])
+encoded_bulbs = encoderDAEnn.predict([x_train, neibALL])
+decoded_bulbs = decoderDAEnn.predict([x_train, neibALL])
 #encoded_bulbs = encoderDAEnn.predict([X_train, neib_train])
 #decoded_bulbs = decoderDAEnn.predict([X_train, neib_train])
 fig0 = plt.figure();
-plt.scatter(encoded_bulbs[:,0], encoded_bulbs[:,1], c = lbls_test, s=0.1)
+plt.scatter(encoded_bulbs[:,1], encoded_bulbs[:,2], c = lbls, s=0.1)
 plt.title(model_name)
 plt.show()
-figDist = plt.figure();
-plt.scatter(encoded_bulbs[:,0], encoded_bulbs[:,1], c = ort_test, s=0.1,
-            cmap='viridis')
-plt.colorbar()
-plt.title(model_name)
-plt.show()
-plt.savefig(os.getcwd() + '/plots/' + model_name  +  'ort_dist_bulbs.png')
+#figDist = plt.figure();
+#plt.scatter(encoded_bulbs[:,0], encoded_bulbs[:,1], c = ort_test, s=0.1,
+#            cmap='viridis')
+#plt.colorbar()
+#plt.title(model_name)
+#plt.show()
+#plt.savefig(os.getcwd() + '/plots/' + model_name  +  'ort_dist_bulbs.png')
 
 figSave0 = plt.figure()
 plt.scatter(encoded_bulbs[:,0], encoded_bulbs[:,1], c=lbls_test, s = 0.1)
@@ -492,17 +239,54 @@ plt.title(model_name)
 plt.savefig(os.getcwd() + '/plots/' + model_name  +  '_bulbs.png')
 # now plot decoded bulbs co-dimensions in input and output data:
 #input:
-cl=1;bw=0.2
-fig1 = plt.figure();
-ax = sns.violinplot(data= X_test[lbls_test==cl , :], bw = bw);
-plt.show();
-#output:
-figcl0 = plt.figure();
-bx = sns.violinplot(data= decoded_bulbs[lbls_test==0 , :], bw = bw);
+cols = 6
+rows = 2
+plt.figure()
+gs = plt.GridSpec(rows, cols)
+for cl in range(1,7):
+    bw=0.2
+    i = cl-1
+    j = 0
+    plt.subplot(gs[j,i])
+    plt.title(cl)
+    sns.violinplot(data= x_train[lbls==cl , :], bw = bw);
+    plt.subplot(gs[j+1, i])
+    sns.violinplot(data= decoded_bulbs[lbls==cl , :], bw = bw);
+plt.tight_layout(pad=0.1)
 plt.show();
 figcl1 = plt.figure();
 bx = sns.violinplot(data= decoded_bulbs[lbls_test==1 , :], bw = bw);
 plt.show();
+import umap
+import numba
+# see how denoising looks
+numba.set_num_threads(48)
+
+reducer = umap.UMAP(n_neighbors=nn)
+embeddingTr = reducer.fit_transform(x_train)
+fig0 = plt.figure();
+plt.scatter(embeddingTr[:,0], embeddingTr[:,1], c = lbls, s=0.1)
+plt.title(model_name+'train Bulbs UMAP')
+plt.show()
+
+embeddingDec = reducer.fit_transform(decoded_bulbs)
+fig0 = plt.figure();
+plt.scatter(embeddingDec[:,0], embeddingDec[:,1], c = lbls, s=0.1)
+plt.title(model_name+'decoded Bulbs UMAP')
+plt.show()
+
+reducer = umap.UMAP(n_neighbors=nn)
+embeddingEnc = reducer.fit_transform(encoded_bulbs)
+fig0 = plt.figure();
+plt.scatter(embeddingEnc[:,0], embeddingEnc[:,1], c = lbls, s=0.1)
+plt.title(model_name+'encoded Bulbs UMAP')
+plt.show()
+
+
+
+
+
+
 
 #############################################################################################
 #########################################################################
