@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import norm
 import glob
 from tensorflow.keras.layers import Input, Dense, Lambda, Layer, Dropout, BatchNormalization
+from tensorflow.keras.layers import LeakyReLU, PReLU
 #from tensorflow.keras.utils import np_utils
 #import np_utils
 from tensorflow.keras import Model
@@ -392,14 +393,15 @@ latent_dim = 2+1
 intermediate_dim = 120
 intermediate_dim2=120
 nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
-
+#activation = LeakyReLU(alpha=0.1)
+activation = 'relu'
 SigmaTsq = Input(shape=(1,))
 neib = Input(shape=(k, original_dim,))
 # var_dims = Input(shape = (original_dim,))
 
 x = Input(shape=(original_dim, ))
-h = Dense(intermediate_dim, activation='relu', name='intermediate')(x)
-#h = Dense(intermediate_dim, activation='sigmoid', name='intermediate')(x)
+h = Dense(intermediate_dim, activation=activation, name='intermediate')(x)
+h = Dense(intermediate_dim, activation='sigmoid', name='intermediate')(x)
 #h = Dense(intermediate_dim, activation='softplus', name='intermediate')(x)
 # h.set_weights(ae.layers[1].get_weights())
 #z_mean =  Dense(latent_dim, name='z_mean', activation='sigmoid')(h)
@@ -410,8 +412,8 @@ encoder = Model([x, neib, SigmaTsq], z_mean, name='encoder')
 # we instantiate these layers separately so as to reuse them later
 #decoder_input = Input(shape=(latent_dim,))
 
-decoder_h = Dense(intermediate_dim2, activation='relu')
-decoder_mean = Dense(original_dim, activation='relu')
+decoder_h = Dense(intermediate_dim2, activation=activation)
+decoder_mean = Dense(original_dim, activation=activation)
 h_decoded = decoder_h(z_mean)
 x_decoded_mean = decoder_mean(h_decoded)
 #decoder = Model(decoder_input, x_decoded_mean, name='decoder')
@@ -487,13 +489,14 @@ def deep_contractive(x, x_decoded_mean):  # attempt to avoid vanishing derivativ
     Pconf = tf.constant([0, 0, 1], dtype=tf.float32)
     #Uconf = tf.linalg.einsum('ajk->ajk', s, )
     # add confinement term , Uconf
-    ##rs =  s * Pxy
-    ##r = tf.linalg.einsum('aj->a', rs ** 2)
+    rs =  s * Pxy
+    r = tf.linalg.einsum('aj->a', rs ** 2)
     Us = s * Pconf
-    Uconf  = tf.linalg.einsum('aj->a', Us ** 2)
-    ##ds  =(0.1 * r**2 +  1) * (Uconf  + 1)
+    Uconf  = tf.linalg.einsum('aj->a',Us ** 2 )
+    #ds  =(0.1 * r +  0.1) + (Uconf  + 1) # '3d roll' potential
+    ds = (0.1 * r**6 + 1) * (10 * Uconf  + 1 )  # strong confinement
     # try without xy confinement
-    ds =  (Uconf + 1)
+    #ds =  (Uconf + 1)
     #tf.print(ds.shape[0])
     # return 1 / normSigma * (SigmaTsq) * lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axi0s=1)
     S_1W = tf.einsum('akl,lj->akj', dm, W)  # N_batch x N_input ??
@@ -514,14 +517,16 @@ def deep_contractive(x, x_decoded_mean):  # attempt to avoid vanishing derivativ
 def loss_mmd(x, x_decoded_mean): # changed here to uniform
     batch_size = K.shape(z_mean)[0]
     latent_dim = K.int_shape(z_mean)[1]
-    #true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0., stddev=1.)
-    true_samples = K.random_uniform(shape=(batch_size, latent_dim),minval=-1.0, maxval=1.0)
+    Pconf = tf.constant([1, 1, 0.05], dtype=tf.float32)
+    true_samples = Pconf *  K.random_normal(shape=(batch_size, latent_dim), mean=0., stddev=0.5)
+    #true_samples = K.random_uniform(shape=(batch_size, latent_dim),minval=-1.0, maxval=1.0)
     return compute_mmd(true_samples, z_mean)
 nn=30
 def custom_loss(x, x_decoded_mean):
     msew = mean_square_error_NN(x, x_decoded_mean)
     #
     return 1*msew + 1*loss_mmd(x, x_decoded_mean) + 5*deep_contractive(x, x_decoded_mean)
+    #return 1*msew + 5*deep_contractive(x, x_decoded_mean)
 ################################################################################################
 #################################################################################################
 #loss = custom_loss(x, x_decoded_mean)
@@ -537,10 +542,11 @@ print(encoder.summary())
 
 #earlyStopping=EarlyStoppingByValLoss( monitor='val_loss', min_delta=0.0001, verbose=1, patience=10, restore_best_weights=True)
 #earlyStopping=keras.callbacks.EarlyStopping(monitor='val_loss')
-epochs = 200
-batch_size=256
+epochs = 1000
+batch_size=1024
 #history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],
 history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],targetTr,
+#history = autoencoder.fit([targetTr[1:1000,:], neibF_Tr[1:1000,:,:],  Sigma[1:1000]],targetTr[1:1000,:], # test on small subset
 #history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],w_mean_target,
                 epochs=epochs, batch_size=batch_size, verbose=1, shuffle=True)
                 #validation_data=([targetTr[0:2000,:], neibF_Tr[0:2000,:],  Sigma[0:2000], weight_neibF[0:2000,:]], None),
@@ -561,6 +567,44 @@ plt.show()
 #z = encoder.predict([aFrame, neibF,  Sigma, weight_neibF])
 
 #- visualisation -----------------------------------------------------------------------------------------------
+'''
+nrow = np.shape(z)[0]
+# subsIdx=np.random.choice(nrow,  500000)
+num_lbls = (np.unique(lbls[1:1000], return_inverse=True)[1])
+x = z[:, 0]
+y = z[:, 1]
+zz = z[:, 2]
+# analog of tsne plot fig15 from Nowizka 2015, also see fig21
+fig = go.Figure()
+lbls_list = np.unique(lbls[1:1000])
+nM=len(np.unique(lbls[1:1000]))
+from matplotlib.colors import rgb2hex
+import seaborn as sns
+palette = sns.color_palette(None, nM)
+colors = np.array([ rgb2hex(palette[i]) for i in range(len(palette)) ])
+
+fig = go.Figure()
+for m in range(nM):
+    IDX = [x == lbls_list[m] for x in lbls]
+    xs = x[IDX]; ys = y[IDX]; zs = zz[IDX];
+    fig.add_trace(Scatter3d(x=xs, y=ys, z =zs,
+                name = lbls_list[m],
+                mode='markers',
+                marker=dict(
+                    size=1,
+                    color=colors[m],  # set color to an array/list of desired values
+                    opacity=0.5,
+                ),
+                text=lbls[IDX],
+                #hoverinfo='text')], filename='tmp.html')
+                hoverinfo='text'))
+    fig.update_layout(yaxis=dict(range=[-3,3]))
+fig.show()
+plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_knHAT_potential_in_CAE_MMD_1_DCAE_5_scaledButtons.html')
+'''
+
+
+
 
 import plotly
 from plotly import __version__
@@ -589,7 +633,7 @@ fig.add_trace(Scatter(x=x, y=y,
                 #hoverinfo='text')], filename='tmp.html')
                 hoverinfo='text'))
 
-fig.show()
+#fig.show()
 plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_square_potential_in CAE_MMD_1_DCAE_5_scaled.html')
 
 # plot the same with clicable cluster colours
@@ -624,9 +668,42 @@ for m in range(nM):
                 #hoverinfo='text')], filename='tmp.html')
                 hoverinfo='text'))
     fig.update_layout(yaxis=dict(range=[-3,3]))
-fig.show()
+#fig.show()
 plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_square_potential_in CAE_MMD_1_DCAE_5_scaledButtons.html')
 
+nrow = np.shape(z)[0]
+# subsIdx=np.random.choice(nrow,  500000)
+num_lbls = (np.unique(lbls, return_inverse=True)[1])
+x = z[:, 0]
+y = z[:, 1]
+zz = z[:, 2]
+# analog of tsne plot fig15 from Nowizka 2015, also see fig21
+fig = go.Figure()
+lbls_list = np.unique(lbls)
+nM=len(np.unique(lbls))
+from matplotlib.colors import rgb2hex
+import seaborn as sns
+palette = sns.color_palette(None, nM)
+colors = np.array([ rgb2hex(palette[i]) for i in range(len(palette)) ])
+
+fig = go.Figure()
+for m in range(nM):
+    IDX = [x == lbls_list[m] for x in lbls]
+    xs = x[IDX]; ys = y[IDX]; zs = zz[IDX];
+    fig.add_trace(Scatter3d(x=xs, y=ys, z =zs,
+                name = lbls_list[m],
+                mode='markers',
+                marker=dict(
+                    size=1,
+                    color=colors[m],  # set color to an array/list of desired values
+                    opacity=0.5,
+                ),
+                text=lbls[IDX],
+                #hoverinfo='text')], filename='tmp.html')
+                hoverinfo='text'))
+    fig.update_layout(yaxis=dict(range=[-3,3]))
+#fig.show()
+plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_knHAT_potential_in_CAE_MMD_1_DCAE_5_scaledButtons.html')
 
 
 
@@ -683,7 +760,7 @@ fig.update_layout(
     ])
 #TODO: add color by cluster
 
-fig.show()
+#fig.show()
 plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_square_potential_DCAE_deep_MMD1_DCAE_5_topMarkers.html')
 
 # in 3D:
@@ -731,8 +808,7 @@ fig.update_layout(
         )
     ])
 #TODO: add color by cluster
-
-fig.show()
+#fig.show()
 plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_HAt_potential_DCAE_deep_MMD1_DCAE_5topMarkers.html')
 
 
@@ -771,7 +847,7 @@ nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim
 SigmaTsq = Input(shape=(1,))
 neib = Input(shape=(k, original_dim,))
 x = Input(shape=(original_dim, ))
-h = Dense(intermediate_dim, activation='relu', name='intermediate')(x)
+h = Dense(intermediate_dim, activation=activation, name='intermediate')(x)
 #h = Dense(intermediate_dim, activation='sigmoid', name='intermediate')(x)
 #h = Dense(intermediate_dim, activation='softplus', name='intermediate')(x)
 # h.set_weights(ae.layers[1].get_weights())
@@ -782,8 +858,8 @@ encoder = Model([x, neib, SigmaTsq], z_mean, name='encoder')
 # we instantiate these layers separately so as to reuse them later
 #decoder_input = Input(shape=(latent_dim,))
 
-decoder_h = Dense(intermediate_dim2, activation='relu')
-decoder_mean = Dense(original_dim, activation='relu')
+decoder_h = Dense(intermediate_dim2, activation=activation)
+decoder_mean = Dense(original_dim, activation=activation)
 h_decoded = decoder_h(z_mean)
 x_decoded_mean = decoder_mean(h_decoded)
 #decoder = Model(decoder_input, x_decoded_mean, name='decoder')

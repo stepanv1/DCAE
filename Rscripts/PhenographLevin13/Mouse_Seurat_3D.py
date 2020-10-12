@@ -265,21 +265,37 @@ def find_neighbors(data, k_, metric='manhattan', cores=12):
 # load data
 k = 30
 k3 = k * 3
-coeffCAE = 5
-ID = 'Levine32_3D_DCAE_'+ str(coeffCAE)
+ID = 'Pr_sample_008_1_Unstim_3D'
 '''
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
 '''
-source_dir = '/media/grines02/New Volume/Box Sync/Box Sync/CyTOFdataPreprocess/'
-output_dir  = '/media/grines02/New Volume/Box Sync/Box Sync/CyTOFdataPreprocess/'
+source_dir = '/media/grines02/New Volume1/Box Sync/Box Sync/CyTOFdataPreprocess/pregnancy'
+output_dir  = '/media/grines02/New Volume1/Box Sync/Box Sync/CyTOFdataPreprocess/pregnancy/output'
 '''
-data0 = np.genfromtxt(source_dir + "/Levine32_data.csv" , names=None, dtype=float, skip_header=1, delimiter=',')
-aFrame = data0[:,:] 
+#data0 = np.genfromtxt(source_dir + "/Gates_PTLG008_1_Unstim.fcs.csv" , names=None, dtype=float,  delimiter=',')
+data0 = pd.read_csv(source_dir + "/Gates_PTLG008_1_Unstim.fcs.csv")
+gating_channels = ["CD57", "CD19", "CD4", "CD8", "IgD", "CD11c", "CD16", "CD3", "CD38", "CD27", "CD14", "CXCR5", "CCR7", "CD45RA", "CD20", "CD127", "CD33", "CD28", "CD161", "TCRgd", "CD123", "CD56", "HLADR", "CD25", "CD235ab_CD61", "CD66", "CD45", "Tbet", "CD7", "FoxP3", "CD11b"]
+MarkersMap = pd.read_csv(source_dir + "/MarkersInfo.csv")
+data1 = data0.rename(columns=MarkersMap.set_index('Channels')['Markers'].to_dict())
+markers = ['CD235ab_CD61',         'CD45',           
+                          'CD66',                   'CD7',
+               'CD19',       'CD45RA',        'CD11b',          'CD4',
+               'CD8a',        'CD11c',        'CD123',         'CREB',
+              'STAT5',          'p38',        'TCRgd',        'STAT1',
+              'STAT3',           'S6',        'CXCR3',        'CD161',
+               'CD33',     'MAPKAPK2',         'Tbet',            
+              'FoxP3',                 'IkB',         'CD16',
+               'NFkB',          'ERK',         'CCR9',         'CD25',
+                'CD3',         'CCR7',         'CD15',         'CCR2',
+              'HLADR',         'CD14',         'CD56']
+data2 = data1[markers]
+aFrame = data2.to_numpy() 
 aFrame.shape
 # set negative values to zero
+
 aFrame[aFrame < 0] = 0
-lbls= np.genfromtxt(source_dir + "/Levine32_population.csv" , names=None, skip_header=0, delimiter=',', dtype='U100')
+lbls= np.genfromtxt(source_dir + "/Gates_PTLG008_1_Unstim.fcs_LeafPopulations.csv" , names=None, skip_header=1, delimiter=',', dtype='U100')
 #randomize order
 IDX = np.random.choice(aFrame.shape[0], aFrame.shape[0], replace=False)
 #patient_table = patient_table[IDX,:]
@@ -311,7 +327,7 @@ from pathos import multiprocessing
 num_cores = 48
 #pool = multiprocessing.Pool(num_cores)
 results = Parallel(n_jobs=48, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
-original_dim=32
+original_dim=37
 neibALL = np.zeros((nrow, k3, original_dim))
 Distances = np.zeros((nrow, k3))
 neib_weight = np.zeros((nrow, k3))
@@ -334,14 +350,14 @@ neib_weight=sklearn.preprocessing.normalize(neib_weight, axis=1, norm='l1')
 neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
 plt.plot(neib_weight[1,:]);plt.show()
 #outfile = source_dir + '/Nowicka2017euclid.npz'
-outfile = source_dir + '/Levine32euclid_scaled.npz'
+outfile = source_dir + '/Pr_008_1_Unstim_euclid_scaled.npz'
 np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
-         neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma)
+         neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma, markers=markers)
 '''
 
-outfile = source_dir + '/Levine32euclid_scaled.npz'
-
-markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
+outfile = source_dir + '/Pr_008_1_Unstim_euclid_scaled.npz'
+k=30
+#markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
 # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
 npzfile = np.load(outfile)
 weight_distALL = npzfile['Dist'];
@@ -351,12 +367,15 @@ Dist = npzfile['Dist']
 #cut_neibF = npzfile['cut_neibF'];
 #cut_neibF = cut_neibF[IDX,:]
 neibALL = npzfile['neibALL']
+neibALL = neibALL[:, 0:30, :]
+
 #neibALL  = neibALL [IDX,:]
 #np.sum(cut_neibF != 0)
 # plt.hist(cut_neibF[cut_neibF!=0],50)
 Sigma = npzfile['Sigma']
 lbls = npzfile['lbls'];
 neib_weight = npzfile['neib_weight']
+markers = npzfile['markers']
 # [aFrame, neibF, cut_neibF, weight_neibF]
 # training set
 # targetTr = np.repeat(aFrame, r, axis=0)
@@ -388,7 +407,7 @@ sourceTr = aFrame
 
 nrow = aFrame.shape[0]
 batch_size = 256
-original_dim = 32
+original_dim = 37
 latent_dim = 3
 intermediate_dim = 120
 intermediate_dim2=120
@@ -590,7 +609,7 @@ nn=30
 def custom_loss(x, x_decoded_mean):
     msew = mean_square_error_NN(x, x_decoded_mean)
     #
-    return 1*msew + 1*loss_mmd(x, x_decoded_mean) + coeffCAE*deep_contractive(x, x_decoded_mean)
+    return 1*msew + 1*loss_mmd(x, x_decoded_mean) + 1*deep_contractive(x, x_decoded_mean)
 ################################################################################################
 #################################################################################################
 #loss = custom_loss(x, x_decoded_mean)
@@ -606,10 +625,10 @@ print(encoder.summary())
 
 #earlyStopping=EarlyStoppingByValLoss( monitor='val_loss', min_delta=0.0001, verbose=1, patience=10, restore_best_weights=True)
 #earlyStopping=keras.callbacks.EarlyStopping(monitor='val_loss')
-epochs = 5000
+epochs = 1000
 batch_size=256
 #history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],
-history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],targetTr,
+history = autoencoder.fit([targetTr, neibF_Tr[:,0:30,:],  Sigma], targetTr,
 #history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],w_mean_target,
                 epochs=epochs, batch_size=batch_size, verbose=1, shuffle=True)
                 #validation_data=([targetTr[0:2000,:], neibF_Tr[0:2000,:],  Sigma[0:2000], weight_neibF[0:2000,:]], None),
@@ -623,12 +642,11 @@ plt.ylabel('Loss')
 plt.xlabel('Epoch')
 plt.legend(['Train', 'Test'], loc='upper right')
 plt.show()
-#encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
-#np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
+#encoder.save_weights('encoder_weightsWEBERCELLS_2D_MMD_CONTRACTIVEk30_2000epochs_LAM_0.0001.h5')
 
-encoder.load_weights(output_dir +'/'+ID + '_3D.h5')
+#encoder.load_weights('encoder_weightsWEBERCELLS_2D_MMD_CONTRACTIVEk30_200epochs_LAM_0.0001.h5')
 
-z = encoder.predict([aFrame, neibF_Tr,  Sigma, weight_neibF])
+#z = encoder.predict([aFrame, neibF,  Sigma, weight_neibF])
 
 #- visualisation -----------------------------------------------------------------------------------------------
 
@@ -661,7 +679,7 @@ fig.add_trace(Scatter3d(x=x, y=y, z=zz,
                 hoverinfo='text'))
 
 fig.show()
-plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_HAT_potential_in CAE_MMD_1_scaled.html')
+plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_HAT_potential_in CAE_MMD_1_DCAE_1_scaled.html')
 
 # plot the same with clicable cluster colours
 nrow = np.shape(z)[0]
@@ -671,7 +689,7 @@ x = z[:, 0]
 y = z[:, 1]
 zz = z[:, 2]
 # analog of tsne plot fig15 from Nowizka 2015, also see fig21
-
+fig = go.Figure()
 lbls_list = np.unique(lbls)
 nM=len(np.unique(lbls))
 from matplotlib.colors import rgb2hex
@@ -695,68 +713,63 @@ for m in range(nM):
                 #hoverinfo='text')], filename='tmp.html')
                 hoverinfo='text'))
     fig.update_layout(yaxis=dict(range=[-3,3]))
+
+vis_mat=np.zeros((nM,nM), dtype=bool)
+np.fill_diagonal(vis_mat, True)
+
+button_list = list([dict(label = np.unique(lbls)[m],
+                    method = 'update',
+                    args = [{'visible': vis_mat[m,:]},
+                          {'title': np.unique(lbls)[m],
+                           'showlegend':False}]) for m in range(len(np.unique(lbls)))])
+fig.update_layout(
+    updatemenus=[go.layout.Updatemenu(
+        active=0,
+        buttons=button_list
+        )
+    ])
+
+
 fig.show()
-html_str=plotly.io.to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
-                  include_mathjax=False, post_script=None, full_html=True,
-                  animation_opts=None, default_width='100%', default_height='100%', validate=True)
-html_dir = "/media/grines02/New Volume/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
-Html_file= open(html_dir + "/"+ID + "no_knn_denoising_knHAT_potential_inCAE_MMD_1_scaledButtons.html","w")
-Html_file.write(html_str)
-Html_file.close()
+plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_knHAT_potential_in CAE_MMD_1_DCAE_5_scaledButtons.html')
 
 
 
 
 # just the most important markers
-marker_sub=['CD45RA', 'CD19', 'CD22',
-            'CD11b', 'CD4','CD8', 'CD34', 'CD20',
-            'CXCR4', 'CD45','CD123', 'CD321',
-            'CD33', 'CD47','CD11c',
-            'CD7', 'CD15', 'CD16','CD44', 'CD38',
-            'CD3', 'CD61','CD117', 'CD49d',
-            'HLA-DR', 'CD64','CD41'
-            ] #
-#marker_sub=markers
-sub_idx =  np.random.choice(range(len(lbls)), 50000, replace  =False)
+#marker_sub=['CD45RA', 'CD19', 'CD22',
+#            'CD11b', 'CD4','CD8', 'CD34', 'CD20',
+#            'CXCR4', 'CD45','CD123', 'CD321',
+#            'CD33', 'CD47','CD11c',
+#            'CD7', 'CD15', 'CD16','CD44', 'CD38',
+#            'CD3', 'CD61','CD117', 'CD49d',
+#            'HLA-DR', 'CD64','CD41'
+#            ] #
+marker_sub=list(markers)
+sub_idx =  np.random.choice(range(len(lbls)), 10000, replace  =False)
 x = z[sub_idx, 0]
 y = z[sub_idx, 1]
 zz = z[sub_idx, 2]
 lbls_s = lbls[sub_idx]
 sFrame = aFrame[sub_idx,:]
-result = [markers.index(i) for i in marker_sub]
+result = [list(markers).index(i) for i in marker_sub]
 sFrame = sFrame[:, result]
 
-nM=len(marker_sub)
-m=0
 fig = go.Figure()
-fig.add_trace(Scatter3d(x=x, y=y, z=zz,
+nM=len(marker_sub)
+for m in range(nM):
+    fig.add_trace(Scatter3d(x=x, y=y, z=zz,
                         mode='markers',
                         marker=dict(
-                            size=0.5,
+                            size=2,
                             color=sFrame[:,m],  # set color to an array/list of desired values
                             colorscale='Viridis',  # choose a colorscale
                             opacity=0.5,
-                            colorbar=dict(xanchor = 'left', x=-0.05, len=0.5),
-                            showscale = True
+                            colorbar=dict(title = marker_sub[m])
                         ),
                         text=lbls_s,
                         hoverinfo='text',
-                        ))
-for m in range(1,nM):
-#for m in range(1,3):
-    fig.add_trace(Scatter3d(x=x, y=y, z=zz,
-                        mode='markers',
-                        visible="legendonly",
-                        marker=dict(
-                            size=0.5,
-                            color=sFrame[:,m],  # set color to an array/list of desired values
-                            colorscale='Viridis',  # choose a colorscale
-                            opacity=0.5,
-                            colorbar=dict(xanchor = 'left', x=-0.05, len=0.5),
-                            showscale = True
-                        ),
-                        text=lbls_s,
-                        hoverinfo='text'
+                        name = marker_sub[m]
                         ))
 
 
@@ -766,126 +779,18 @@ np.fill_diagonal(vis_mat, True)
 button_list = list([dict(label = marker_sub[m],
                     method = 'update',
                     args = [{'visible': vis_mat[m,:]},
-                         # {'title': marker_sub[m],
-                            {'showlegend':False}]) for m in range(len(marker_sub))])
+                          {'title': marker_sub[m],
+                           'showlegend':False}]) for m in range(len(marker_sub))])
 fig.update_layout(
-        showlegend=False,
-        updatemenus=[go.layout.Updatemenu(
+    updatemenus=[go.layout.Updatemenu(
         active=0,
         buttons=button_list
         )
     ])
 #TODO: add color by cluster
+
 fig.show()
-html_str=plotly.io.to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
-                  include_mathjax=False, post_script=None, full_html=True,
-                  animation_opts=None, default_width='100%', default_height='100%', validate=True)
-html_dir = "/media/grines02/New Volume/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
-Html_file= open(html_dir + "/"+ID + 'no_knn_denoising_HAt_potential_DCAE_deep_MMD1_DCAE_10topMarkers.html',"w")
-Html_file.write(html_str)
-Html_file.close()
-
-# hdbscan on z
-import hdbscan
-clusterer = hdbscan.HDBSCAN(min_cluster_size=300, min_samples=5, alpha=1.0, cluster_selection_method = 'leaf')
-labels = clusterer.fit_predict(z)
-table(labels)
-labels=["%.2f" % x for x in labels]
-nrow = np.shape(z)[0]
-# subsIdx=np.random.choice(nrow,  500000)
-num_lbls = (np.unique(labels, return_inverse=True)[1])
-x = z[:, 0]
-y = z[:, 1]
-zz = z[:, 2]
-# analog of tsne plot fig15 from Nowizka 2015, also see fig21
-fig = go.Figure()
-lbls_list = np.unique(labels)
-nM=len(np.unique(labels))
-from matplotlib.colors import rgb2hex
-import seaborn as sns
-palette = sns.color_palette(None, nM)
-colors = np.array([ rgb2hex(palette[i]) for i in range(len(palette)) ])
-
-fig = go.Figure()
-for m in range(nM):
-    IDX = [x == lbls_list[m] for x in labels]
-    xs = x[IDX]; ys = y[IDX]; zs = zz[IDX];
-    fig.add_trace(Scatter3d(x=xs, y=ys, z =zs,
-                name = lbls_list[m],
-                mode='markers',
-                marker=dict(
-                    size=1,
-                    color=colors[m],  # set color to an array/list of desired values
-                    opacity=0.5,
-                ),
-                text=lbls[IDX],
-                #hoverinfo='text')], filename='tmp.html')
-                hoverinfo='text'))
-    fig.update_layout()
-
-vis_mat=np.zeros((nM,nM), dtype=bool)
-np.fill_diagonal(vis_mat, True)
-
-fig.update_layout(
-        margin=dict(l=0, r=0, t=10, b=0),
-        updatemenus=[go.layout.Updatemenu(
-        active=0,
-        )
-    ])
-fig.show()
-
-# project z on 2d sphere
-def projZ(x):
-    r=np.sqrt(np.sum(x**2))
-    return(x/r)
-
-zR = np.apply_along_axis(projZ, 1, z)
-clusterer = hdbscan.HDBSCAN(min_cluster_size=500, min_samples=10, alpha=1.0, cluster_selection_method = 'leaf')
-labels = clusterer.fit_predict(zR)
-table(labels)
-labels=["%.2f" % x for x in labels]
-nrow = np.shape(zR)[0]
-# subsIdx=np.random.choice(nrow,  500000)
-num_lbls = (np.unique(labels, return_inverse=True)[1])
-x = zR[:, 0]
-y = zR[:, 1]
-zz = zR[:, 2]
-# analog of tsne plot fig15 from Nowizka 2015, also see fig21
-fig = go.Figure()
-lbls_list = np.unique(labels)
-nM=len(np.unique(labels))
-from matplotlib.colors import rgb2hex
-import seaborn as sns
-palette = sns.color_palette(None, nM)
-colors = np.array([ rgb2hex(palette[i]) for i in range(len(palette)) ])
-
-fig = go.Figure()
-for m in range(nM):
-    IDX = [x == lbls_list[m] for x in labels]
-    xs = x[IDX]; ys = y[IDX]; zs = zz[IDX];
-    fig.add_trace(Scatter3d(x=xs, y=ys, z =zs,
-                name = lbls_list[m],
-                mode='markers',
-                marker=dict(
-                    size=1,
-                    color=colors[m],  # set color to an array/list of desired values
-                    opacity=0.5,
-                ),
-                text=lbls[IDX],
-                #hoverinfo='text')], filename='tmp.html')
-                hoverinfo='text'))
-    fig.update_layout()
-
-vis_mat=np.zeros((nM,nM), dtype=bool)
-np.fill_diagonal(vis_mat, True)
-
-fig.update_layout(
-        margin=dict(l=0, r=0, t=10, b=0),
-        updatemenus=[go.layout.Updatemenu(
-        active=0,
-        )
-    ])
-fig.show()
+plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_HAt_potential_DCAE_deep_MMD1_DCAE_5topMarkers.html')
 
 
 # process a subset in limits
