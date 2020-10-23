@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import norm
 import glob
 from tensorflow.keras.layers import Input, Dense, Lambda, Layer, Dropout, BatchNormalization
+from kerassurgeon.operations import delete_layer, insert_layer, delete_channels
 #from tensorflow.keras.utils import np_utils
 #import np_utils
 from tensorflow.keras import Model
@@ -261,18 +262,223 @@ def find_neighbors(data, k_, metric='manhattan', cores=12):
     dist, ind = tree.kneighbors(return_distance=True)
     return {'dist': np.array(dist), 'idx': np.array(ind)}
 
+#compare neighbourhoof assignments
+
+ae_neib  = find_neighbors(z, k_=90, metric='euclidean', cores=12)['idx']
+ae_neib_dist = find_neighbors(z, k_=90, metric='euclidean', cores=12)['dist']
+
+def compare_neighbours(idx1 , idx2, kmax=90):
+    nrow = idx1.shape[0]
+    ncol = idx1.shape[1]
+    match =  np.arange(kmax, dtype = 'float')
+    for i in range(kmax):
+        print(i)
+        match_k = sum([ len(set(idx1[j,0:i]).intersection(idx2[j,0:i]))/(i+1) for j in range(nrow)])
+        match[i] =match_k/nrow
+        print(match[i])
+    return match
+ae_neib_compare  =   compare_neighbours(Idx, ae_neib, kmax=90)
+ae_neib_compare
+plt.plot(ae_neib_compare)
+
+# computes cluster performance measures
+from sklearn import metrics
+lblsP = labels
+lblsT = lbls
+X=aFrame
+def compute_cluster_performance(lblsT, lblsP):
+    Adjusted_Rand_Score = metrics.adjusted_rand_score(lblsT, lblsP)
+    adjusted_MI_Score = metrics.adjusted_mutual_info_score(lblsT, lblsP)
+    F1_score = metrics.f1_score(lblsT, lblsP, average = 'weighted')
+    return {'Adjusted_Rand_Score': Adjusted_Rand_Score, 'adjusted_MI_Score': adjusted_MI_Score, 'F1_score': F1_score}
+
+metrics.calinski_harabasz_score(X[np.array([i!= '-1.00' for i in labels]),:], np.array(labels)[np.array([i!= '-1.00' for i in labels])])
+metrics.calinski_harabasz_score(z[np.array([i!= '-1.00' for i in labels]),:], np.array(labels)[np.array([i!= '-1.00' for i in labels])])
+metrics.calinski_harabasz_score(X[np.array([i!= '-1.00' for i in lbls]),:], np.array(lbls)[np.array([i!= '-1.00' for i in lbls])])
+metrics.calinski_harabasz_score(z[np.array([i!= '-1.00' for i in lbls]),:], np.array(lbls)[np.array([i!= '-1.00' for i in lbls])])
+# define metrics matrixs contrasts
+#supervided
+print(compute_cluster_performance(lbls, labelsUMAP))
+print(compute_cluster_performance(lbls, labels))
+# unsupervised
+# gated:
+metrics.calinski_harabasz_score(X[np.array([i!= '-1.00' for i in lbls]),:], np.array(lbls)[np.array([i!= '-1.00' for i in lbls])])
+metrics.calinski_harabasz_score(z[np.array([i!= '-1.00' for i in lbls]),:], np.array(lbls)[np.array([i!= '-1.00' for i in lbls])])
+# AE
+metrics.calinski_harabasz_score(X[np.array([i!= '-1.00' for i in labels]),:], np.array(labels)[np.array([i!= '-1.00' for i in labels])])
+metrics.calinski_harabasz_score(z[np.array([i!= '-1.00' for i in labels]),:], np.array(labels)[np.array([i!= '-1.00' for i in labels])])
+# UMAP
+metrics.calinski_harabasz_score(X[np.array([i!= '-1.00' for i in labelsUMAP]),:], np.array(labelsUMAP)[np.array([i!= '-1.00' for i in labelsUMAP])])
+metrics.calinski_harabasz_score(z[np.array([i!= '-1.00' for i in labelsUMAP]),:], np.array(labelsUMAP)[np.array([i!= '-1.00' for i in labelsUMAP])])
+
+
+
+
+########################## do umap with precomuted distances
+import umap.umap_ as umap
+
+mapper = umap.UMAP(n_neighbors=30, n_components=2, metric='euclidean', random_state=42, low_memory=False).fit(aFrame)
+embedUMAP =  mapper.transform(aFrame)
+import hdbscan
+clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=25, alpha=0.5, cluster_selection_method = 'leaf')
+labelsUMAP = clusterer.fit_predict(embedUMAP )
+table(labelsUMAP)
+
+clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=25, alpha=0.5, cluster_selection_method = 'leaf')
+
+from sklearn.decomposition import PCA
+pca = PCA(n_components=10)
+principalComponents = pca.fit_transform(aFrame)
+attrib_z=np.c_[z, principalComponents/10]
+
+attrib_z=np.c_[z, np.array(aFrame)/8]
+clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=25, alpha=1.0, cluster_selection_method = 'leaf')
+labelsHDBscanAttributes = clusterer.fit_predict(attrib_z)
+#labelsHDBscanAttributes = clusterer.fit_predict(aFrame)
+table(labelsHDBscanAttributes)
+print(compute_cluster_performance(lbls, labelsHDBscanAttributes))
+
+# unsupervised
+# gated:
+metrics.calinski_harabasz_score(X[np.array([i!= '-1.00' for i in lbls]),:], np.array(lbls)[np.array([i!= '-1.00' for i in lbls])])
+metrics.calinski_harabasz_score(z[np.array([i!= '-1.00' for i in lbls]),:], np.array(lbls)[np.array([i!= '-1.00' for i in lbls])])
+# Attributed
+metrics.calinski_harabasz_score(X[np.array([i!= '-1.00' for i in labelsHDBscanAttributes]),:], np.array(labels)[np.array([i!= '-1.00' for i in labelsHDBscanAttributes])])
+metrics.calinski_harabasz_score(z[np.array([i!= '-1.00' for i in labelsHDBscanAttributes]),:], np.array(labelsHDBscanAttributes)[np.array([i!= '-1.00' for i in labelsHDBscanAttributes])])
+
+num_lbls = (np.unique(labelsHDBscanAttributes, return_inverse=True)[1])
+x = z[:, 0]
+y = z[:, 1]
+zz = z[:, 2]
+# analog of tsne plot fig15 from Nowizka 2015, also see fig21
+labelsHDBscanAttributes=["%.2f" % x for x in labelsHDBscanAttributes]
+lbls_list = np.unique(labelsHDBscanAttributes)
+nM=len(np.unique(labelsHDBscanAttributes))
+from matplotlib.colors import rgb2hex
+import seaborn as sns
+palette = sns.color_palette(None, nM)
+colors = np.array([ rgb2hex(palette[i]) for i in range(len(palette)) ])
+
+fig = go.Figure()
+for m in range(nM):
+    IDX = [x == lbls_list[m] for x in labelsHDBscanAttributes]
+    xs = x[IDX]; ys = y[IDX]; zs = zz[IDX];
+    fig.add_trace(Scatter3d(x=xs, y=ys, z =zs,
+                name = lbls_list[m],
+                mode='markers',
+                marker=dict(
+                    size=1,
+                    color=colors[m],  # set color to an array/list of desired values
+                    opacity=0.5,
+                ),
+                text=lbls[IDX],
+                #hoverinfo='text')], filename='tmp.html')
+                hoverinfo='text'))
+    fig.update_layout()
+
+vis_mat=np.zeros((nM,nM), dtype=bool)
+np.fill_diagonal(vis_mat, True)
+
+fig.update_layout(
+        margin=dict(l=0, r=0, t=10, b=0),
+        updatemenus=[go.layout.Updatemenu(
+        active=0,
+        )
+    ])
+fig.show()
+
+# do attributed clusteringn UMAP embedding
+attrib_UMAP=np.c_[embedUMAP, np.array(aFrame)/32]
+clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf')
+labelsHDBscanUMAPAttributes = clusterer.fit_predict(attrib_UMAP)
+#labelsHDBscanAttributes = clusterer.fit_predict(aFrame)
+table(labelsHDBscanUMAPAttributes)
+table(communities)
+print(compute_cluster_performance(lbls, labelsHDBscanUMAPAttributes))
+
+# unsupervised
+# gated:
+metrics.calinski_harabasz_score(X[np.array([i!= '-1.00' for i in lbls]),:], np.array(lbls)[np.array([i!= '-1.00' for i in lbls])])
+metrics.calinski_harabasz_score(z[np.array([i!= '-1.00' for i in lbls]),:], np.array(lbls)[np.array([i!= '-1.00' for i in lbls])])
+# Attributed
+metrics.calinski_harabasz_score(X[np.array([i!= '-1.00' for i in labelsHDBscanUMAPAttributes]),:], np.array(labelsHDBscanUMAPAttributes)[np.array([i!= '-1.00' for i in labelsHDBscanUMAPAttributes])])
+metrics.calinski_harabasz_score(z[np.array([i!= '-1.00' for i in labelsHDBscanUMAPAttributes]),:], np.array(labelsHDBscanUMAPAttributes)[np.array([i!= '-1.00' for i in labelsHDBscanUMAPAttributes])])
+
+
+# phenograph
+import phenograph
+communities, graph, Q = phenograph.cluster(aFrame)
+print(compute_cluster_performance(lbls, communities))
+
+
+
+
+
+num_lbls = (np.unique(lbls, return_inverse=True)[1])
+from matplotlib.colors import rgb2hex
+import seaborn as sns
+nM=len(np.unique(lbls))
+cluster_names=np.unique(lbls)
+palette = sns.color_palette(None, nM)
+colors = np.array([ rgb2hex(palette[i]) for i in range(len(palette)) ])
+
+fig, ax = plt.subplots(1, figsize=(14, 10))
+plt.scatter(*embedUMAP.T,  c=num_lbls, cmap='Spectral', alpha=0.5, s=0.1)
+plt.setp(ax, xticks=[], yticks=[])
+cbar = plt.colorbar(boundaries=np.arange(nM+1)-0.5)
+cbar.set_ticks(np.arange(nM))
+cbar.set_ticklabels(cluster_names)
+plt.title('Levine32 Embedded via UMAP');
+
+umap.plot.points(mapper, labels=lbls, color_key_cmap='Paired', background='black')
+
+umap_neib = find_neighbors(embedUMAP, k_=90, metric='euclidean', cores=12)['idx']
+umap_neib_compare  =   compare_neighbours(Idx, umap_neib, kmax=90)
+ae_neib_compare
+plt.plot(umap_neib_compare)
+
+
+
+import scipy.sparse
+import sympy
+import sklearn.datasets
+import sklearn.feature_extraction.text
+import umap
+import umap.plot
+import matplotlib.pyplot as plt
+primes = list(sympy.primerange(2, 110000))
+prime_to_column = {p:i for i, p in enumerate(primes)}
+
+lil_matrix_rows = []
+lil_matrix_data = []
+for n in range(100000):
+    prime_factors = sympy.primefactors(n)
+    lil_matrix_rows.append([prime_to_column[p] for p in prime_factors])
+    lil_matrix_data.append([1] * len(prime_factors))
+
+factor_matrix = scipy.sparse.lil_matrix((len(lil_matrix_rows), len(primes)), dtype=np.float32)
+factor_matrix.rows = np.array(lil_matrix_rows)
+factor_matrix.data = np.array(lil_matrix_data)
+factor_matrix
+
+mapper = umap.UMAP(metric='cosine', random_state=42, low_memory=True).fit(factor_matrix)
+
+
+umap.plot.points(mapper, values=np.arange(100000), theme='viridis')
 
 # load data
 k = 30
 k3 = k * 3
 coeffCAE = 5
-ID = 'Levine32_3D_DCAE_'+ str(coeffCAE)
+epochs = 400
+ID = 'Levine32_MMD_01_3D_DCAE_'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit'
 '''
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
 '''
-source_dir = '/media/grines02/New Volume/Box Sync/Box Sync/CyTOFdataPreprocess/'
-output_dir  = '/media/grines02/New Volume/Box Sync/Box Sync/CyTOFdataPreprocess/'
+source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess'
+output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/'
+
 '''
 data0 = np.genfromtxt(source_dir + "/Levine32_data.csv" , names=None, dtype=float, skip_header=1, delimiter=',')
 aFrame = data0[:,:] 
@@ -364,6 +570,7 @@ targetTr = aFrame
 neibF_Tr = neibALL
 weight_neibF_Tr =weight_distALL
 sourceTr = aFrame
+Idx = npzfile['Idx']
 
 # session set up
 
@@ -380,11 +587,6 @@ neibF_Tr = neibALL
 weight_neibF_Tr =weight_distALL
 sourceTr = aFrame
 
-# session set up
-
-#tf.config.threading.set_inter_op_parallelism_threads(0)
-#tf.config.threading.set_intra_op_parallelism_threads(0)
-
 
 nrow = aFrame.shape[0]
 batch_size = 256
@@ -397,28 +599,18 @@ nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim
 SigmaTsq = Input(shape=(1,))
 neib = Input(shape=(k, original_dim,))
 # var_dims = Input(shape = (original_dim,))
-
+#
+initializer = tf.keras.initializers.he_normal(12345)
 x = Input(shape=(original_dim, ))
-h = Dense(intermediate_dim, activation='relu', name='intermediate')(x)
-#h = Dense(intermediate_dim, activation='sigmoid', name='intermediate')(x)
-#h = Dense(intermediate_dim, activation='softplus', name='intermediate')(x)
-# h.set_weights(ae.layers[1].get_weights())
-#z_mean =  Dense(latent_dim, name='z_mean', activation='sigmoid')(h)
+h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer = initializer)(x)
 z_mean =  Dense(latent_dim, activation=None, name='z_mean')(h)
 
 encoder = Model([x, neib, SigmaTsq], z_mean, name='encoder')
 
-# we instantiate these layers separately so as to reuse them later
-#decoder_input = Input(shape=(latent_dim,))
-
-decoder_h = Dense(intermediate_dim2, activation='relu')
-decoder_mean = Dense(original_dim, activation='relu')
+decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate2', kernel_initializer = initializer)
+decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer = initializer)
 h_decoded = decoder_h(z_mean)
 x_decoded_mean = decoder_mean(h_decoded)
-#decoder = Model(decoder_input, x_decoded_mean, name='decoder')
-
-#train_z = encoder([x, neib, SigmaTsq, weight_neib])
-#train_xr = decoder(train_z)
 autoencoder = Model(inputs=[x, neib, SigmaTsq], outputs=x_decoded_mean)
 
 # Loss and optimizer ------------------------------------------------------
@@ -589,8 +781,8 @@ def loss_mmd(x, x_decoded_mean):
 nn=30
 def custom_loss(x, x_decoded_mean):
     msew = mean_square_error_NN(x, x_decoded_mean)
-    #
     return 1*msew + 1*loss_mmd(x, x_decoded_mean) + coeffCAE*deep_contractive(x, x_decoded_mean)
+    #eturn 1 * msew +  coeffCAE * deep_contractive(x, x_decoded_mean)
 ################################################################################################
 #################################################################################################
 #loss = custom_loss(x, x_decoded_mean)
@@ -606,7 +798,7 @@ print(encoder.summary())
 
 #earlyStopping=EarlyStoppingByValLoss( monitor='val_loss', min_delta=0.0001, verbose=1, patience=10, restore_best_weights=True)
 #earlyStopping=keras.callbacks.EarlyStopping(monitor='val_loss')
-epochs = 5000
+epochs = epochs
 batch_size=256
 #history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],
 history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],targetTr,
@@ -623,10 +815,15 @@ plt.ylabel('Loss')
 plt.xlabel('Epoch')
 plt.legend(['Train', 'Test'], loc='upper right')
 plt.show()
-#encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
-#np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
+encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
+autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
+np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
 
+#ID='Levine32_MMD_1_3D_DCAE_5'
+#encoder.load_weights('/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/Levine32_3D_DCAE_10_3D.h5')
+#autoencoder.load_weights('/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/autoencoder_Levine32_MMD_1_3D_DCAE_freezing_experiment5_3D.h5')
 encoder.load_weights(output_dir +'/'+ID + '_3D.h5')
+autoencoder.load_weights(output_dir +'autoencoder_'+ID + '_3D.h5')
 
 z = encoder.predict([aFrame, neibF_Tr,  Sigma, weight_neibF])
 
@@ -699,7 +896,7 @@ fig.show()
 html_str=plotly.io.to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                   include_mathjax=False, post_script=None, full_html=True,
                   animation_opts=None, default_width='100%', default_height='100%', validate=True)
-html_dir = "/media/grines02/New Volume/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
+html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
 Html_file= open(html_dir + "/"+ID + "no_knn_denoising_knHAT_potential_inCAE_MMD_1_scaledButtons.html","w")
 Html_file.write(html_str)
 Html_file.close()
@@ -780,14 +977,14 @@ fig.show()
 html_str=plotly.io.to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                   include_mathjax=False, post_script=None, full_html=True,
                   animation_opts=None, default_width='100%', default_height='100%', validate=True)
-html_dir = "/media/grines02/New Volume/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
+html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
 Html_file= open(html_dir + "/"+ID + 'no_knn_denoising_HAt_potential_DCAE_deep_MMD1_DCAE_10topMarkers.html',"w")
 Html_file.write(html_str)
 Html_file.close()
 
 # hdbscan on z
 import hdbscan
-clusterer = hdbscan.HDBSCAN(min_cluster_size=300, min_samples=5, alpha=1.0, cluster_selection_method = 'leaf')
+clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=25, alpha=0.5, cluster_selection_method = 'leaf')
 labels = clusterer.fit_predict(z)
 table(labels)
 labels=["%.2f" % x for x in labels]
@@ -840,7 +1037,7 @@ def projZ(x):
     return(x/r)
 
 zR = np.apply_along_axis(projZ, 1, z)
-clusterer = hdbscan.HDBSCAN(min_cluster_size=500, min_samples=10, alpha=1.0, cluster_selection_method = 'leaf')
+clusterer = hdbscan.HDBSCAN(min_cluster_size=300, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf')
 labels = clusterer.fit_predict(zR)
 table(labels)
 labels=["%.2f" % x for x in labels]
@@ -887,362 +1084,147 @@ fig.update_layout(
     ])
 fig.show()
 
+###########################################################################################3
+##### clustering using hidden layer
 
-# process a subset in limits
-xlim = [-0.75, -0.25]
-ylim = [-0.75, -0.35]
-rows = np.logical_and( np.logical_and(xlim[0] <= z[:,0] , xlim[1] >= z[:,0]) , np.logical_and(ylim[0] <= z[:,1], ylim[1] >= z[:,1]) )
-z_capture = z[rows, :]
-z_capture.shape
-
-# Model-------------------------------------------------------------------------
-######################################################
-# targetTr = np.repeat(aFrame, r, axis=0)
-targetTr_cap = targetTr[rows,:]
-neibF_Tr_cap=neibF_Tr[rows,:,:]
-Sigma_cap = Sigma[rows]
-
-# session set up
-
-#tf.config.threading.set_inter_op_parallelism_threads(0)
-#tf.config.threading.set_intra_op_parallelism_threads(0)
-
-
-nrow = targetTr_cap.shape[0]
-batch_size = 256
-original_dim = 32
-latent_dim = 2
-intermediate_dim = 120
-intermediate_dim2=120
-nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
-
-SigmaTsq = Input(shape=(1,))
-neib = Input(shape=(k, original_dim,))
 x = Input(shape=(original_dim, ))
 h = Dense(intermediate_dim, activation='relu', name='intermediate')(x)
-#h = Dense(intermediate_dim, activation='sigmoid', name='intermediate')(x)
-#h = Dense(intermediate_dim, activation='softplus', name='intermediate')(x)
-# h.set_weights(ae.layers[1].get_weights())
-z_mean =  Dense(latent_dim, name='z_mean')(h)
-
-encoder = Model([x, neib, SigmaTsq], z_mean, name='encoder')
-
-# we instantiate these layers separately so as to reuse them later
-#decoder_input = Input(shape=(latent_dim,))
-
-decoder_h = Dense(intermediate_dim2, activation='relu')
-decoder_mean = Dense(original_dim, activation='relu')
-h_decoded = decoder_h(z_mean)
-x_decoded_mean = decoder_mean(h_decoded)
-#decoder = Model(decoder_input, x_decoded_mean, name='decoder')
-
-#train_z = encoder([x, neib, SigmaTsq, weight_neib])
-#train_xr = decoder(train_z)
-autoencoder = Model(inputs=[x, neib, SigmaTsq], outputs=x_decoded_mean)
-
-# Loss and optimizer ------------------------------------------------------
-# rewrite this based on recommendations here
-# https://www.tensorflow.org/guide/keras/train_and_evaluate
-
-def compute_kernel(x,y):
-    x_size = tf.shape(x)[0]
-    y_size = tf.shape(y)[0]
-    dim = tf.shape(x)[1]
-    tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, y_size, 1]))
-    tiled_y = tf.tile(tf.reshape(y, tf.stack([1, y_size, dim])), tf.stack([x_size, 1, 1]))
-    return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
-
-
-def compute_mmd(x, y):   # [batch_size, z_dim] [batch_size, z_dim]
-    x_kernel = compute_kernel(x, x)
-    y_kernel = compute_kernel(y, y)
-    xy_kernel = compute_kernel(x, y)
-    return tf.reduce_mean(x_kernel) + tf.reduce_mean(y_kernel) - 2 * tf.reduce_mean(xy_kernel)
-
-normSigma = nrow / sum(1 / Sigma_cap)
-weight_neibF = np.full((nrow, k), 1/k)
-
-neib_weight3D = np.repeat(weight_neibF[:, :, np.newaxis], original_dim, axis=2)
-w_mean_target = np.average(neibF_Tr_cap, axis=1, weights=neib_weight3D)
-
-def mean_square_error_NN(y_true, y_pred):
-    # dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1)) / (tf.expand_dims(cut_neib,1) + 1)), axis=-1)
-    msew = tf.keras.losses.mean_squared_error(y_true, y_pred)
-    # return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
-    return  tf.multiply(msew, normSigma * 1/SigmaTsq ) # TODO Sigma -denomiator or nominator? try reverse, schek hpw sigma computed in UMAP
-    #return tf.multiply(weightedN, 0.5)
-
-lam=1e-4
-def contractive(x, x_decoded_mean):
-        W = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
-        W = K.transpose(W)  # N_hidden x N
-        m = encoder.get_layer('z_mean').output
-        dm = m * (1 - m)  # N_batch x N_hidden
-        return 1/normSigma * (SigmaTsq) * lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axis=1)
-import sys
-
-
-def deep_contractive(x, x_decoded_mean):
-       W = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
-       Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
-       W = K.transpose(W);  Z = K.transpose(Z); # N_hidden x N
-       m = encoder.get_layer('intermediate').output
-       dm = tf.linalg.diag(m * (1 - m))   # N_batch x N_hidden
-       s = encoder.get_layer('z_mean').output
-       ds = tf.linalg.diag(s * (1 - s))  # N_batch x N_hidden
-       #tf.print(ds.shape)
-       #return 1 / normSigma * (SigmaTsq) * lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axis=1)
-       S_1W = tf.einsum('akl,lj->akj', dm, W ) # N_batch x N_input ??
-       #tf.print((S_1W).shape) #[None, 120]
-       S_2Z = tf.einsum('akl,lj->akj', ds, Z ) # N_batch ?? TODO: use tf. and einsum and/or tile
-       #tf.print((S_2Z).shape)
-       diff_tens = tf.einsum('akl,alj->akj' , S_2Z, S_1W ) # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
-       #tf.Print(K.sum(diff_tens ** 2))
-       return 1 / normSigma * (SigmaTsq) * lam * K.sum(diff_tens ** 2)
-
-
-def deep_contractive(x, x_decoded_mean): # deep contractive with softplus in intermediate layer
-       W = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
-       Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
-       W = K.transpose(W);  Z = K.transpose(Z); # N_hidden x N
-       m = encoder.get_layer('intermediate').output
-       dm = tf.linalg.diag(1 - 1/(tf.math.exp(m)))   # N_batch x N_hidden
-       s = encoder.get_layer('z_mean').output
-       ds = tf.linalg.diag(s * (1 - s))  # N_batch x N_hidden
-       #tf.print(ds.shape)
-       #return 1 / normSigma * (SigmaTsq) * lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axis=1)
-       S_1W = tf.einsum('akl,lj->akj', dm, W ) # N_batch x N_input ??
-       #tf.print((S_1W).shape) #[None, 120]
-       S_2Z = tf.einsum('akl,lj->akj', ds, Z ) # N_batch ?? TODO: use tf. and einsum and/or tile
-       #tf.print((S_2Z).shape)
-       diff_tens = tf.einsum('akl,alj->akj' , S_2Z, S_1W ) # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
-       #tf.Print(K.sum(diff_tens ** 2))
-       return 1 / normSigma * (SigmaTsq) * lam * K.sum(diff_tens ** 2)
-
-
-def deep_contractive(x, x_decoded_mean):  # deep contractive with ReLu in intermediate layer
-    W = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
-    Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
-    W = K.transpose(W);
-    Z = K.transpose(Z);  # N_hidden x N
-    m = encoder.get_layer('intermediate').output
-    dm = tf.linalg.diag((tf.math.sign(m)+1)/2)  # N_batch x N_hidden
-    s = encoder.get_layer('z_mean').output
-    ds = tf.linalg.diag(s * (1 - s))  # N_batch x N_hidden
-    # tf.print(ds.shape)
-    # return 1 / normSigma * (SigmaTsq) * lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axis=1)
-    S_1W = tf.einsum('akl,lj->akj', dm, W)  # N_batch x N_input ??
-    # tf.print((S_1W).shape) #[None, 120]
-    S_2Z = tf.einsum('akl,lj->akj', ds, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
-    # tf.print((S_2Z).shape)
-    diff_tens = tf.einsum('akl,alj->akj', S_2Z,
-                          S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
-    # tf.Print(K.sum(diff_tens ** 2))
-    return 1 / normSigma * (SigmaTsq) * lam * K.sum(diff_tens ** 2)
-
-
-
-
-#contractive = deep_contractive
-
-
-        #return lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axis=1)
-
-def loss_mmd(x, x_decoded_mean):
-    batch_size = K.shape(z_mean)[0]
-    latent_dim = K.int_shape(z_mean)[1]
-    true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0., stddev=1.)
-    return compute_mmd(true_samples, z_mean)
-nn=30
-def custom_loss(x, x_decoded_mean, z_mean):
-    msew = mean_square_error_NN(x, x_decoded_mean)
-    #
-    return 1*msew + 1*loss_mmd(x, x_decoded_mean) + 0.1*deep_contractive(x, x_decoded_mean)
-################################################################################################
-#################################################################################################
-loss = custom_loss(x, x_decoded_mean, z_mean)
-autoencoder.add_loss(loss)
-autoencoder.compile(optimizer='adam', metrics=[mean_square_error_NN, deep_contractive, custom_loss, loss_mmd])
-print(autoencoder.summary())
-print(encoder.summary())
-#print(decoder.summary())
-
-
-
-#callbacks = [EarlyStoppingByLossVal( monitor='loss', value=0.01, verbose=0
-
-earlyStopping=EarlyStoppingByValLoss( monitor='val_loss', min_delta=0.0001, verbose=1, patience=10, restore_best_weights=True)
-#earlyStopping=keras.callbacks.EarlyStopping(monitor='val_loss')
-epochs = 1300
-batch_size=256
-#history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],
-history = autoencoder.fit([targetTr_cap[:,:], neibF_Tr_cap[:,:],  Sigma_cap],
-                epochs=epochs, batch_size=batch_size, verbose=1,
-                #validation_data=([targetTr[0:2000,:], neibF_Tr[0:2000,:],  Sigma[0:2000], weight_neibF[0:2000,:]], None),
-                           shuffle=True)
-                #callbacks=[CustomMetrics()], verbose=2)#, validation_data=([targetTr, neibF_Tr,  Sigma, weight_neibF], None))
-z = encoder.predict([targetTr_cap, neibF_Tr_cap,  Sigma_cap])
-plt.plot(history.history['loss'][5:])
-#plt.plot(history.history['val_loss'][5:])
-plt.title('Model loss')
-plt.ylabel('Loss')
-plt.xlabel('Epoch')
-plt.legend(['Train', 'Test'], loc='upper right')
+encoder2 = Model([x], h, name='encoder2')
+encoder2.layers[1].set_weights(encoder.layers[1].get_weights()) #= encoder.layers[1].get_weights()
+activations0 = encoder2.predict([aFrame])
+#drop dead neurons:
+import prettyplotlib as ppl
+df = pd.DataFrame(activations0)
+fig, ax = plt.subplots()
+df.boxplot(fontsize=3  )
 plt.show()
-#encoder.save_weights('encoder_weightsWEBERCELLS_2D_MMD_CONTRACTIVEk30_2000epochs_LAM_0.0001.h5')
 
-#encoder.load_weights('encoder_weightsWEBERCELLS_2D_MMD_CONTRACTIVEk30_200epochs_LAM_0.0001.h5')
 
-#z = encoder.predict([aFrame, neibF,  Sigma, weight_neibF])
+from kerassurgeon.operations import delete_layer, insert_layer, delete_channels
+encoder2 = delete_channels(encoder2, encoder2.layers[1], np.arange(intermediate_dim)[np.max(activations0,axis=0) < 0.05])
+activationsPruned = encoder2.predict([aFrame])
+df = pd.DataFrame(activationsPruned)
+fig, ax = plt.subplots()
+df.boxplot()
+plt.show()
 
-#- visualisation -----------------------------------------------------------------------------------------------
+encoderPruned = delete_channels(encoder, encoder.layers[1], np.arange(intermediate_dim)[np.max(activations0,axis=0) < 0.05])
+zPr = encoderPruned.predict([aFrame, neibF_Tr,  Sigma, weight_neibF])
 
-import plotly
-from plotly import __version__
-from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
-from plotly.graph_objs import Scatter3d, Figure, Layout, Scatter
-
-# np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt', x_test_enc)
-# x_test_enc=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt')
-
-nrow = np.shape(z)[0]
-# subsIdx=np.random.choice(nrow,  500000)
-lbls_cap = lbls[rows]
-num_lbls_cap = (np.unique(lbls_cap, return_inverse=True)[1])
-x = z[:, 0]
-y = z[:, 1]
+num_lbls = (np.unique(lbls, return_inverse=True)[1])
+x = zPr[:, 0]
+y = zPr[:, 1]
+zz = zPr[:, 2]
 # analog of tsne plot fig15 from Nowizka 2015, also see fig21
-plot([Scatter(x=x, y=y,
+
+lbls_list = np.unique(lbls)
+nM=len(np.unique(lbls))
+from matplotlib.colors import rgb2hex
+import seaborn as sns
+palette = sns.color_palette(None, nM)
+colors = np.array([ rgb2hex(palette[i]) for i in range(len(palette)) ])
+
+fig = go.Figure()
+for m in range(nM):
+    IDX = [x == lbls_list[m] for x in lbls]
+    xs = x[IDX]; ys = y[IDX]; zs = zz[IDX];
+    fig.add_trace(Scatter3d(x=xs, y=ys, z =zs,
+                name = lbls_list[m],
                 mode='markers',
                 marker=dict(
                     size=1,
-                    color=num_lbls_cap,  # set color to an array/list of desired values
-                    colorscale='Viridis',  # choose a colorscale
+                    color=colors[m],  # set color to an array/list of desired values
                     opacity=0.5,
                 ),
-                text=lbls_cap,
+                text=lbls[IDX],
                 #hoverinfo='text')], filename='tmp.html')
-                hoverinfo='text')], filename=ID + 'Subset_MMD_1_DCAE_0.1_scaled.html')
+                hoverinfo='text'))
+    fig.update_layout(yaxis=dict(range=[-3,3]))
+fig.show()
+html_str=plotly.io.to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
+                  include_mathjax=False, post_script=None, full_html=True,
+                  animation_opts=None, default_width='100%', default_height='100%', validate=True)
+html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
+Html_file= open(html_dir + "/"+ID + "no_knn_denoising_knHAT_potential_inCAE_MMD_1_scaledButtons.html","w")
+Html_file.write(html_str)
+Html_file.close()
+
+activations = activations0
+#drop dead neurons:
+import prettyplotlib as ppl
+df = pd.DataFrame(activations)
+fig, ax = plt.subplots()
+df.boxplot()
+plt.show()
+
+# prune autoencoder of last layer
+autoencoderPruned = delete_layer(autoencoder, autoencoder.layers[6])
+autoencoderPruned.summary()
+act_h2 = autoencoderPruned.predict([aFrame, neibF_Tr,  Sigma, weight_neibF])
+df = pd.DataFrame(act_h2)
+fig, ax = plt.subplots()
+df.boxplot()
+plt.show()
+
+df = pd.DataFrame(aFrame)
+fig, ax = plt.subplots()
+df.boxplot()
+plt.show()
 
 
 
-x = z[:, 0]
-y = z[:, 1]
+activations = sklearn.preprocessing.minmax_scale(activations, feature_range=(0, 1),  axis=0, copy=True)
+
+bin_code = np.where(activations>0.6, 1, 0)
+_, clusters = np.unique(bin_code, axis=0, return_inverse=True)
+table(clusters)
+clusters = [-1 if np.sum(a_==clusters) <= 1000 else a_ for a_ in clusters]
+table(clusters)
+
+num_lbls = (np.unique(clusters, return_inverse=True)[1])
+x = zR[:, 0]
+y = zR[:, 1]
+zz = zR[:, 2]
 # analog of tsne plot fig15 from Nowizka 2015, also see fig21
-for m in range(len(markers)):
-    plot([Scatter(x=x, y=y,
-                        mode='markers',
-                        marker=dict(
-                            size=1,
-                            color=aFrame[:, m],  # set color to an array/list of desired values
-                            colorscale='Viridis',  # choose a colorscale
-                            opacity=0.5,
-                            colorbar=dict(title = markers[m])
-                        ),
-                        text=lbls,
-                        hoverinfo='text'
-                        )], filename='2dPerplexityk30weighted2000epochs_LAM_0.001_' + markers[m] + '.html')
-
-# first attempt to plot with buttons
-#def plot_data(df):
-
-sub_idx =  np.random.choice(range(len(lbls)), 10000, replace  =False)
-x = z[sub_idx, 0]
-y = z[sub_idx, 1]
-lbls_s = lbls[sub_idx]
-sFrame = aFrame[sub_idx,:]
-
-import plotly.graph_objects as go
 fig = go.Figure()
-nM=len(markers)
-for m in range(nM):
-    fig.add_trace(Scatter(x=x, y=y,
-                        mode='markers',
-                        marker=dict(
-                            size=2,
-                            color=sFrame[:,m],  # set color to an array/list of desired values
-                            colorscale='Viridis',  # choose a colorscale
-                            opacity=0.5,
-                            colorbar=dict(title = markers[m])
-                        ),
-                        text=lbls_s,
-                        hoverinfo='text',
-                        name = markers[m]
-                        ))
 
+nM=len(np.unique(clusters))
+from matplotlib.colors import rgb2hex
+import seaborn as sns
+palette = sns.color_palette(None, nM)
+colors = np.array([ rgb2hex(palette[i]) for i in range(len(palette)) ])
+clusters = ["%.2f" % x for x in clusters]
+lbls_list = np.unique(clusters)
+fig = go.Figure()
+for m in range(nM):
+    IDX = [x == lbls_list[m] for x in clusters]
+    xs = x[IDX]; ys = y[IDX]; zs = zz[IDX];
+    fig.add_trace(Scatter3d(x=xs, y=ys, z =zs,
+                name = lbls_list[m],
+                mode='markers',
+                marker=dict(
+                    size=1,
+                    color=colors[m],  # set color to an array/list of desired values
+                    opacity=0.5,
+                ),
+                text=lbls[IDX],
+                #hoverinfo='text')], filename='tmp.html')
+                hoverinfo='text'))
+    fig.update_layout()
 
 vis_mat=np.zeros((nM,nM), dtype=bool)
 np.fill_diagonal(vis_mat, True)
 
-button_list = list([dict(label = markers[m],
-                    method = 'update',
-                    args = [{'visible': vis_mat[m,:]},
-                          {'title': markers[m],
-                           'showlegend':False}]) for m in range(len(markers))])
 fig.update_layout(
-    updatemenus=[go.layout.Updatemenu(
+        margin=dict(l=0, r=0, t=10, b=0),
+        updatemenus=[go.layout.Updatemenu(
         active=0,
-        buttons=button_list
         )
     ])
-#TODO: add color by cluster
-
 fig.show()
 
-# just the most important markers
-marker_sub=['CD45RA', 'CD19', 'CD22',
-            'CD11b', 'CD4','CD8', 'CD34', 'CD20',
-            'CXCR4', 'CD45','CD123', 'CD321',
-            'CD33', 'CD47','CD11c',
-            'CD7', 'CD15', 'CD16','CD44', 'CD38',
-            'CD3', 'CD61','CD117', 'CD49d',
-            'HLA-DR', 'CD64','CD41'
-            ] #
-#marker_sub=markers
-sub_idx =  np.random.choice(range(len(Sigma_cap)), 10000, replace  =False)
-x = z[sub_idx, 0]
-y = z[sub_idx, 1]
-lbls_s = lbls_cap[sub_idx]
-sFrame = targetTr_cap[sub_idx,:]
-result = [markers.index(i) for i in marker_sub]
-sFrame = sFrame[:, result]
-import plotly.graph_objects as go
-fig = go.Figure()
-nM=len(marker_sub)
-for m in range(nM):
-    fig.add_trace(Scatter(x=x, y=y,
-                        mode='markers',
-                        marker=dict(
-                            size=2,
-                            color=sFrame[:,m],  # set color to an array/list of desired values
-                            colorscale='Viridis',  # choose a colorscale
-                            opacity=0.5,
-                            colorbar=dict(title = marker_sub[m])
-                        ),
-                        text=lbls_s,
-                        hoverinfo='text',
-                        name = marker_sub[m]
-                        ))
 
 
-vis_mat=np.zeros((nM,nM), dtype=bool)
-np.fill_diagonal(vis_mat, True)
-
-button_list = list([dict(label = marker_sub[m],
-                    method = 'update',
-                    args = [{'visible': vis_mat[m,:]},
-                          {'title': marker_sub[m],
-                           'showlegend':False}]) for m in range(len(marker_sub))])
-fig.update_layout(
-    updatemenus=[go.layout.Updatemenu(
-        active=0,
-        buttons=button_list
-        )
-    ])
-#TODO: add color by cluster
-
-fig.show()
-plotly.offline.plot(fig, filename=ID + 'Subset_MMD1_DCAE_0.1topMarkers.html')
 
 
 
