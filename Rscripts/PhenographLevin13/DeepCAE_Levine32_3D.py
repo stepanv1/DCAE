@@ -283,14 +283,56 @@ plt.plot(ae_neib_compare)
 
 # computes cluster performance measures
 from sklearn import metrics
-lblsP = labels
+from sklearn.metrics import confusion_matrix
+from scipy.optimize import linear_sum_assignment
+lblsP = [str(x) for x in labels]
 lblsT = lbls
+cm = confusion_matrix(labels, predicted_labels)
 X=aFrame
+sns.set()
+ax = sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
 def compute_cluster_performance(lblsT, lblsP):
+    def _make_cost_m(cm):
+        s = np.max(cm)
+        return (- cm + s)
+
     Adjusted_Rand_Score = metrics.adjusted_rand_score(lblsT, lblsP)
     adjusted_MI_Score = metrics.adjusted_mutual_info_score(lblsT, lblsP)
-    F1_score = metrics.f1_score(lblsT, lblsP, average = 'weighted')
+    #find cluster matching and mean weighted f1_score
+    cm = confusion_matrix(lblsT, lblsP)
+    indexes = linear_sum_assignment(cm)
+    #map labels in predicted on ground truth
+    ixT, ixP =  list(indexes[0]), list(indexes[1])
+    pos_ixP =  [ixP.index(lblsP[x]) for x in range(len(lblsP))]
+    matched_pred = [ixT[x] for x in pos_ixP]
+    F1_score = metrics.f1_score(lblsT, matched_pred, average = 'weighted')
     return {'Adjusted_Rand_Score': Adjusted_Rand_Score, 'adjusted_MI_Score': adjusted_MI_Score, 'F1_score': F1_score}
+
+    y=lblsT
+    y_pred = lblsP
+    assert len(y_pred) == len(y)
+    u = np.unique(np.concatenate((y, y_pred)))
+    n_clusters = len(u)
+    mapping = dict(zip(u, range(n_clusters)))
+    reward_matrix = np.zeros((n_clusters, n_clusters), dtype=np.int64)
+    for y_pred_, y_ in zip(y_pred, y):
+        if y_ in mapping:
+            reward_matrix[mapping[y_pred_], mapping[y_]] += 1
+    cost_matrix = reward_matrix.max() - reward_matrix
+    row_assign, col_assign = linear_sum_assignment(cost_matrix)
+
+    # Construct optimal assignments matrix
+    row_assign = row_assign.reshape((-1, 1))  # (n,) to (n, 1) reshape
+    col_assign = col_assign.reshape((-1, 1))  # (n,) to (n, 1) reshape
+    assignments = np.concatenate((row_assign, col_assign), axis=1)
+
+
+
+
+
+
+
+
 
 metrics.calinski_harabasz_score(X[np.array([i!= '-1.00' for i in labels]),:], np.array(labels)[np.array([i!= '-1.00' for i in labels])])
 metrics.calinski_harabasz_score(z[np.array([i!= '-1.00' for i in labels]),:], np.array(labels)[np.array([i!= '-1.00' for i in labels])])

@@ -22,8 +22,11 @@ from keras.optimizers import Adadelta
 from keras.optimizers import Adam
 from keras.constraints import maxnorm
 import readline
-#mport rpy2
-#from rpy2.robjects.packages import importr
+import os
+os.environ['R_HOME'] = '/home/grines02/R/x86_64-pc-linux-gnu-library/3.6'
+
+import rpy2
+from rpy2.robjects.packages import importr
 #import rpy2.robjects.numpy2ri
 #rpy2.robjects.numpy2ri.activate()
 #stsne = importr('stsne')
