@@ -6,6 +6,10 @@ from rpy2.robjects.packages import SignatureTranslatedAnonymousPackage
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 from sklearn import metrics
+from plotly.graph_objs import Scatter3d, Figure, Layout, Scatter
+import plotly.graph_objects as go
+from matplotlib.colors import rgb2hex
+import seaborn as sns
 
 def compute_f1(lblsT, lblsP):
     string = """
@@ -161,12 +165,42 @@ def compare_neighbours(idx1, idx2, kmax=90):
         print(match[i])
     return match
 
-def 3Dplot_cluster_colors():
+#plotly 3D plotting functions
+def plot3D_cluster_colors(x, y, z ,lbls):
+    nrow = len(x)
+    # subsIdx=np.random.choice(nrow,  500000)
+    num_lbls = (np.unique(lbls, return_inverse=True)[1])
+    # analog of tsne plot fig15 from Nowizka 2015, also see fig21
+
+    lbls_list = np.unique(lbls)
+    nM = len(np.unique(lbls))
+
+    palette = sns.color_palette(None, nM)
+    colors = np.array([rgb2hex(palette[i]) for i in range(len(palette))])
+
+    fig = go.Figure()
+    for m in range(nM):
+        IDX = [x == lbls_list[m] for x in lbls]
+        xs = x[IDX];
+        ys = y[IDX];
+        zs = z[IDX];
+        fig.add_trace(Scatter3d(x=xs, y=ys, z=zs,
+                                name=lbls_list[m],
+                                mode='markers',
+                                marker=dict(
+                                    size=1,
+                                    color=colors[m],  # set color to an array/list of desired values
+                                    opacity=0.5,
+                                ),
+                                text=lbls[IDX],
+                                # hoverinfo='text')], filename='tmp.html')
+                                hoverinfo='text'))
+        fig.update_layout(yaxis=dict(range=[-3, 3]))
 
     return fig
 
 
-def 3Dplot_marker_colors():
+def plot3D_marker_colors():
 
     return fig
 

@@ -761,9 +761,8 @@ fig.add_trace(Scatter3d(x=x, y=y, z=zz,
                 text=lbls,
                 #hoverinfo='text')], filename='tmp.html')
                 hoverinfo='text'))
-
 fig.show()
-plotly.offline.plot(fig, filename=ID + 'no_knn_denoising_HAT_potential_in CAE_MMD_1_scaled.html')
+
 
 # plot the same with clicable cluster colours
 nrow = np.shape(z)[0]
@@ -797,6 +796,10 @@ for m in range(nM):
                 #hoverinfo='text')], filename='tmp.html')
                 hoverinfo='text'))
     fig.update_layout(yaxis=dict(range=[-3,3]))
+
+from utils_evaluation import plot3D_cluster_colors
+#reload(utils_evaluation)
+fig = plot3D_cluster_colors(x=x,y=y,z=zz, lbls=lbls)
 fig.show()
 html_str=plotly.io.to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                   include_mathjax=False, post_script=None, full_html=True,
