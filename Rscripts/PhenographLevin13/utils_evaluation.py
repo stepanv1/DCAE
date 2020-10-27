@@ -1,9 +1,11 @@
+#wrapper requires rpy2 installed (use pip install and restart pyhton)
+#https://github.com/lmweber/cytometry-clustering-comparison/blob/master/helpers/helper_match_evaluate_multiple.R
+#labels should be incoded as naturals 1,2, 3
 import rpy2
 from rpy2.robjects.packages import SignatureTranslatedAnonymousPackage
-
-#wrapper requires rpy2 installed (use pip install and restart pyhton)
-https://github.com/lmweber/cytometry-clustering-comparison/blob/master/helpers/helper_match_evaluate_multiple.R
-#labels should be incoded as naturals 1,2, 3
+import numpy as np
+from sklearn.neighbors import NearestNeighbors
+from sklearn import metrics
 
 def compute_f1(lblsT, lblsP):
     string = """
@@ -121,9 +123,53 @@ helper_match_evaluate_multiple <- function(clus_algorithm, clus_truth) {
               mean_F1 = mean_F1))
 }
 """
-
     rfuncs = SignatureTranslatedAnonymousPackage(string, "rfuncs")
 
     match_evaluate_multiple=rfuncs.helper_match_evaluate_multiple
     res= match_evaluate_multiple(rpy2.robjects.vectors.IntVector(lblsT), rpy2.robjects.vectors.IntVector(lblsP))
-    res.rx('mean_F1')[0][0]
+    return res.rx('mean_F1')[0][0]
+
+def compute_cluster_performance(lblsT, lblsP):
+    Adjusted_Rand_Score = metrics.adjusted_rand_score(lblsT, lblsP)
+    adjusted_MI_Score = metrics.adjusted_mutual_info_score(lblsT, lblsP)
+    #find cluster matching and mean weighted f1_score
+    lblsTint, lblsPint =  np.unique(lblsT, return_inverse=True)[1], np.unique(lblsP, return_inverse=True)[1]
+    F1_score = compute_f1(lblsTint, lblsPint)
+    return {'Adjusted_Rand_Score': Adjusted_Rand_Score, 'adjusted_MI_Score': adjusted_MI_Score, 'F1_score': F1_score}
+
+def table(labels):
+    unique, counts = np.unique(labels, return_counts=True)
+    print('%d %d', np.asarray((unique, counts)).T)
+    return {'unique': unique, 'counts': counts}
+
+def find_neighbors(data, k_, metric='manhattan', cores=12):
+    tree = NearestNeighbors(n_neighbors=k_, algorithm="ball_tree", leaf_size=30, metric=metric, metric_params=None,
+                            n_jobs=cores)
+    tree.fit(data)
+    dist, ind = tree.kneighbors(return_distance=True)
+    return {'dist': np.array(dist), 'idx': np.array(ind)}
+
+#compare neighbourhoof assignments
+def compare_neighbours(idx1, idx2, kmax=90):
+    nrow = idx1.shape[0]
+    ncol = idx1.shape[1]
+    match =  np.arange(kmax, dtype = 'float')
+    for i in range(kmax):
+        print(i)
+        match_k = sum([ len(set(idx1[j,0:i]).intersection(idx2[j,0:i]))/(i+1) for j in range(nrow)])
+        match[i] =match_k/nrow
+        print(match[i])
+    return match
+
+def 3Dplot_cluster_colors():
+
+    return fig
+
+
+def 3Dplot_marker_colors():
+
+    return fig
+
+
+
+

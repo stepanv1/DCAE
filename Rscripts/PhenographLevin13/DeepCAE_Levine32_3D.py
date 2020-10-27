@@ -62,25 +62,17 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 # from GetBest import GetBest
+from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance
+from plotly.graph_objs import Scatter3d, Figure, Layout, Scatter
+import plotly.graph_objects as go
+import umap.umap_ as umap
+import hdbscan
+import phenograph
+
+#/home/grines02/PycharmProjects/BIOIBFO25L/Rscripts/PhenographLevin13/utils_evaluation.py
 
 tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0,
                           write_graph=True, write_images=True)
-
-
-def table(labels):
-    unique, counts = np.unique(labels, return_counts=True)
-    print('%d %d', np.asarray((unique, counts)).T)
-    return {'unique': unique, 'counts': counts}
-
-
-
-
-def naive_power(m, n):
-    m = np.asarray(m)
-    res = m.copy()
-    for i in range(1, n):
-        res *= m
-    return res
 
 
 class CustomMetrics(Callback):
@@ -212,31 +204,8 @@ class AnnealingCallback(Callback):
         K.set_value(self.weight, new_weight)
         print ("Current KL Weight is " + str(K.get_value(self.weight)))
 
-
-
-
-# import vpsearch as vp
-# def find_neighbors(data, k_, metric='manhattan', cores=12):
-#   res = vp.find_nearest_neighbors(data, k_, cores, metric)
-#   return {'dist':np.array(res[1]), 'idx': np.int32(np.array(res[0]))}
-
-
-# from libKMCUDA import kmeans_cuda, knn_cuda
-# def find_neighbors(data, k_, metric='euclidean', cores=12):
-#    ca = kmeans_cuda(np.float32(data), 25, metric="euclidean", verbosity=1, seed=3, device=0)
-#    neighbors = knn_cuda(k_, np.float32(data), *ca, metric=metric, verbosity=1, device=0)
-#    return {'dist':0, 'idx': np.int32(neighbors)}
-
-num_cores = multiprocessing.cpu_count()
-pool = multiprocessing.Pool(num_cores)
-def table(labels):
-    unique, counts = np.unique(labels, return_counts=True)
-    print('%d %d', np.asarray((unique, counts)).T)
-    return {'unique': unique, 'counts': counts}
-
 import ctypes
 from numpy.ctypeslib import ndpointer
-
 lib = ctypes.cdll.LoadLibrary("./Clibs/perp.so")
 perp = lib.Perplexity
 perp.restype = None
@@ -247,92 +216,19 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
                 ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), #Sigma
                 ctypes.c_size_t]
 
-
-from sklearn.neighbors import NearestNeighbors
-from joblib import Parallel, delayed
-from pathos import multiprocessing
-
-
-# results = Parallel(n_jobs=12, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in range(100))
-
-def find_neighbors(data, k_, metric='manhattan', cores=12):
-    tree = NearestNeighbors(n_neighbors=k_, algorithm="ball_tree", leaf_size=30, metric=metric, metric_params=None,
-                            n_jobs=cores)
-    tree.fit(data)
-    dist, ind = tree.kneighbors(return_distance=True)
-    return {'dist': np.array(dist), 'idx': np.array(ind)}
-
-#compare neighbourhoof assignments
-
-ae_neib  = find_neighbors(z, k_=90, metric='euclidean', cores=12)['idx']
-ae_neib_dist = find_neighbors(z, k_=90, metric='euclidean', cores=12)['dist']
-
-def compare_neighbours(idx1 , idx2, kmax=90):
-    nrow = idx1.shape[0]
-    ncol = idx1.shape[1]
-    match =  np.arange(kmax, dtype = 'float')
-    for i in range(kmax):
-        print(i)
-        match_k = sum([ len(set(idx1[j,0:i]).intersection(idx2[j,0:i]))/(i+1) for j in range(nrow)])
-        match[i] =match_k/nrow
-        print(match[i])
-    return match
-ae_neib_compare  =   compare_neighbours(Idx, ae_neib, kmax=90)
-ae_neib_compare
-plt.plot(ae_neib_compare)
+#ae_neib_compare  =   compare_neighbours(Idx, ae_neib, kmax=90)
+#ae_neib_compare
+#plt.plot(ae_neib_compare)
 
 # computes cluster performance measures
-from sklearn import metrics
-from sklearn.metrics import confusion_matrix
-from scipy.optimize import linear_sum_assignment
-lblsP = [str(x) for x in labels]
+lblsP = [str(x) for x in labelsHDBscanAttributes]
 lblsT = lbls
-cm = confusion_matrix(labels, predicted_labels)
-X=aFrame
-sns.set()
-ax = sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
-def compute_cluster_performance(lblsT, lblsP):
-    def _make_cost_m(cm):
-        s = np.max(cm)
-        return (- cm + s)
 
-    Adjusted_Rand_Score = metrics.adjusted_rand_score(lblsT, lblsP)
-    adjusted_MI_Score = metrics.adjusted_mutual_info_score(lblsT, lblsP)
-    #find cluster matching and mean weighted f1_score
-    cm = confusion_matrix(lblsT, lblsP)
-    indexes = linear_sum_assignment(cm)
-    #map labels in predicted on ground truth
-    ixT, ixP =  list(indexes[0]), list(indexes[1])
-    pos_ixP =  [ixP.index(lblsP[x]) for x in range(len(lblsP))]
-    matched_pred = [ixT[x] for x in pos_ixP]
-    F1_score = metrics.f1_score(lblsT, matched_pred, average = 'weighted')
-    return {'Adjusted_Rand_Score': Adjusted_Rand_Score, 'adjusted_MI_Score': adjusted_MI_Score, 'F1_score': F1_score}
+print(compute_cluster_performance(lbls, labelsHDBscanAttributes))
+print(compute_cluster_performance(lbls[lbls!='"unassigned"'], np.asarray(labelsHDBscanAttributes)[lbls!='"unassigned"'] ))
 
-    y=lblsT
-    y_pred = lblsP
-    assert len(y_pred) == len(y)
-    u = np.unique(np.concatenate((y, y_pred)))
-    n_clusters = len(u)
-    mapping = dict(zip(u, range(n_clusters)))
-    reward_matrix = np.zeros((n_clusters, n_clusters), dtype=np.int64)
-    for y_pred_, y_ in zip(y_pred, y):
-        if y_ in mapping:
-            reward_matrix[mapping[y_pred_], mapping[y_]] += 1
-    cost_matrix = reward_matrix.max() - reward_matrix
-    row_assign, col_assign = linear_sum_assignment(cost_matrix)
-
-    # Construct optimal assignments matrix
-    row_assign = row_assign.reshape((-1, 1))  # (n,) to (n, 1) reshape
-    col_assign = col_assign.reshape((-1, 1))  # (n,) to (n, 1) reshape
-    assignments = np.concatenate((row_assign, col_assign), axis=1)
-
-
-
-
-
-
-
-
+print(compute_cluster_performance(lbls, communities))
+print(compute_cluster_performance(lbls[lbls!='"unassigned"'], communities[lbls!='"unassigned"']))
 
 metrics.calinski_harabasz_score(X[np.array([i!= '-1.00' for i in labels]),:], np.array(labels)[np.array([i!= '-1.00' for i in labels])])
 metrics.calinski_harabasz_score(z[np.array([i!= '-1.00' for i in labels]),:], np.array(labels)[np.array([i!= '-1.00' for i in labels])])
@@ -357,14 +253,9 @@ metrics.calinski_harabasz_score(z[np.array([i!= '-1.00' for i in labelsUMAP]),:]
 
 
 ########################## do umap with precomuted distances
-import umap.umap_ as umap
 
-mapper = umap.UMAP(n_neighbors=30, n_components=2, metric='euclidean', random_state=42, low_memory=False).fit(aFrame)
+mapper = umap.UMAP(n_neighbors=30, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=False).fit(aFrame)
 embedUMAP =  mapper.transform(aFrame)
-import hdbscan
-clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=25, alpha=0.5, cluster_selection_method = 'leaf')
-labelsUMAP = clusterer.fit_predict(embedUMAP )
-table(labelsUMAP)
 
 clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=25, alpha=0.5, cluster_selection_method = 'leaf')
 
@@ -373,12 +264,14 @@ pca = PCA(n_components=10)
 principalComponents = pca.fit_transform(aFrame)
 attrib_z=np.c_[z, principalComponents/10]
 
-attrib_z=np.c_[z, np.array(aFrame)/8]
+attrib_z=np.c_[z, np.array(aFrame)/10]
 clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=25, alpha=1.0, cluster_selection_method = 'leaf')
 labelsHDBscanAttributes = clusterer.fit_predict(attrib_z)
 #labelsHDBscanAttributes = clusterer.fit_predict(aFrame)
 table(labelsHDBscanAttributes)
+labelsHDBscanAttributes = [str(x) for  x in labelsHDBscanAttributes]
 print(compute_cluster_performance(lbls, labelsHDBscanAttributes))
+print(compute_cluster_performance(lbls[lbls!='"unassigned"'], np.array(labelsHDBscanAttributes)[lbls!='"unassigned"']))
 
 # unsupervised
 # gated:
@@ -430,8 +323,8 @@ fig.update_layout(
 fig.show()
 
 # do attributed clusteringn UMAP embedding
-attrib_UMAP=np.c_[embedUMAP, np.array(aFrame)/32]
-clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf')
+attrib_UMAP=np.c_[embedUMAP, np.array(aFrame)/8]
+clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=25, alpha=1.0, cluster_selection_method = 'leaf')
 labelsHDBscanUMAPAttributes = clusterer.fit_predict(attrib_UMAP)
 #labelsHDBscanAttributes = clusterer.fit_predict(aFrame)
 table(labelsHDBscanUMAPAttributes)
@@ -448,10 +341,9 @@ metrics.calinski_harabasz_score(z[np.array([i!= '-1.00' for i in labelsHDBscanUM
 
 
 # phenograph
-import phenograph
 communities, graph, Q = phenograph.cluster(aFrame)
 print(compute_cluster_performance(lbls, communities))
-
+print(compute_cluster_performance(lbls[lbls!='"unassigned"'], communities[lbls!='"unassigned"']))
 
 
 
@@ -478,35 +370,6 @@ umap_neib = find_neighbors(embedUMAP, k_=90, metric='euclidean', cores=12)['idx'
 umap_neib_compare  =   compare_neighbours(Idx, umap_neib, kmax=90)
 ae_neib_compare
 plt.plot(umap_neib_compare)
-
-
-
-import scipy.sparse
-import sympy
-import sklearn.datasets
-import sklearn.feature_extraction.text
-import umap
-import umap.plot
-import matplotlib.pyplot as plt
-primes = list(sympy.primerange(2, 110000))
-prime_to_column = {p:i for i, p in enumerate(primes)}
-
-lil_matrix_rows = []
-lil_matrix_data = []
-for n in range(100000):
-    prime_factors = sympy.primefactors(n)
-    lil_matrix_rows.append([prime_to_column[p] for p in prime_factors])
-    lil_matrix_data.append([1] * len(prime_factors))
-
-factor_matrix = scipy.sparse.lil_matrix((len(lil_matrix_rows), len(primes)), dtype=np.float32)
-factor_matrix.rows = np.array(lil_matrix_rows)
-factor_matrix.data = np.array(lil_matrix_data)
-factor_matrix
-
-mapper = umap.UMAP(metric='cosine', random_state=42, low_memory=True).fit(factor_matrix)
-
-
-umap.plot.points(mapper, values=np.arange(100000), theme='viridis')
 
 # load data
 k = 30
@@ -857,9 +720,9 @@ plt.ylabel('Loss')
 plt.xlabel('Epoch')
 plt.legend(['Train', 'Test'], loc='upper right')
 plt.show()
-encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
-autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
-np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
+#encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
+#autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
+#np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
 
 #ID='Levine32_MMD_1_3D_DCAE_5'
 #encoder.load_weights('/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/Levine32_3D_DCAE_10_3D.h5')
