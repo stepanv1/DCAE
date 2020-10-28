@@ -62,7 +62,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 # from GetBest import GetBest
-from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance
+from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ
 from plotly.graph_objs import Scatter3d, Figure, Layout, Scatter
 import plotly.graph_objects as go
 import umap.umap_ as umap
@@ -263,6 +263,24 @@ from sklearn.decomposition import PCA
 pca = PCA(n_components=10)
 principalComponents = pca.fit_transform(aFrame)
 attrib_z=np.c_[z, principalComponents/10]
+#{'Adjusted_Rand_Score': 0.345003813469301, 'adjusted_MI_Score': 0.5351897262776415, 'F1_score': 0.5710892021948847}
+#{'Adjusted_Rand_Score': 0.6829255092421479, 'adjusted_MI_Score': 0.7456982269258875, 'F1_score': 0.5876406858237604}
+prZ = projZ(z)
+attrib_z=np.c_[prZ, np.array(aFrame)/8]
+clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf')
+labelsHDBscanAttributes = clusterer.fit_predict(attrib_z)
+#labelsHDBscanAttributes = clusterer.fit_predict(aFrame)
+table(labelsHDBscanAttributes)
+labelsHDBscanAttributes = [str(x) for  x in labelsHDBscanAttributes]
+print(compute_cluster_performance(lbls, labelsHDBscanAttributes))
+print(compute_cluster_performance(lbls[lbls!='"unassigned"'], np.array(labelsHDBscanAttributes)[lbls!='"unassigned"']))
+x = prZ[:, 0]
+y = prZ[:, 1]
+zz = prZ[:, 2]
+from utils_evaluation import plot3D_cluster_colors
+plot3D_cluster_colors(x, y, zz , np.asarray(labelsHDBscanAttributes)).show()
+plot3D_marker_colors(z, aFrame, markers, sub_s = 50000, lbls=lbls).show()
+plot3D_cluster_colors(x, y, zz , lbls).show()
 
 attrib_z=np.c_[z, np.array(aFrame)/10]
 clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=25, alpha=1.0, cluster_selection_method = 'leaf')
@@ -272,6 +290,9 @@ table(labelsHDBscanAttributes)
 labelsHDBscanAttributes = [str(x) for  x in labelsHDBscanAttributes]
 print(compute_cluster_performance(lbls, labelsHDBscanAttributes))
 print(compute_cluster_performance(lbls[lbls!='"unassigned"'], np.array(labelsHDBscanAttributes)[lbls!='"unassigned"']))
+
+
+
 
 # unsupervised
 # gated:
@@ -348,28 +369,6 @@ print(compute_cluster_performance(lbls[lbls!='"unassigned"'], communities[lbls!=
 
 
 
-num_lbls = (np.unique(lbls, return_inverse=True)[1])
-from matplotlib.colors import rgb2hex
-import seaborn as sns
-nM=len(np.unique(lbls))
-cluster_names=np.unique(lbls)
-palette = sns.color_palette(None, nM)
-colors = np.array([ rgb2hex(palette[i]) for i in range(len(palette)) ])
-
-fig, ax = plt.subplots(1, figsize=(14, 10))
-plt.scatter(*embedUMAP.T,  c=num_lbls, cmap='Spectral', alpha=0.5, s=0.1)
-plt.setp(ax, xticks=[], yticks=[])
-cbar = plt.colorbar(boundaries=np.arange(nM+1)-0.5)
-cbar.set_ticks(np.arange(nM))
-cbar.set_ticklabels(cluster_names)
-plt.title('Levine32 Embedded via UMAP');
-
-umap.plot.points(mapper, labels=lbls, color_key_cmap='Paired', background='black')
-
-umap_neib = find_neighbors(embedUMAP, k_=90, metric='euclidean', cores=12)['idx']
-umap_neib_compare  =   compare_neighbours(Idx, umap_neib, kmax=90)
-ae_neib_compare
-plt.plot(umap_neib_compare)
 
 # load data
 k = 30
@@ -732,73 +731,25 @@ autoencoder.load_weights(output_dir +'autoencoder_'+ID + '_3D.h5')
 
 z = encoder.predict([aFrame, neibF_Tr,  Sigma, weight_neibF])
 
-#- visualisation -----------------------------------------------------------------------------------------------
+#- visualisation and pefroramnce metric-----------------------------------------------------------------------------------------------
 
-import plotly
-from plotly import __version__
-from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
-from plotly.graph_objs import Scatter3d, Figure, Layout, Scatter
-import plotly.graph_objects as go
+
 # np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt', x_test_enc)
 # x_test_enc=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt')
-
-nrow = np.shape(z)[0]
-# subsIdx=np.random.choice(nrow,  500000)
-num_lbls = (np.unique(lbls, return_inverse=True)[1])
-x = z[:, 0]
-y = z[:, 1]
-zz = z[:, 2]
-# analog of tsne plot fig15 from Nowizka 2015, also see fig21
-fig = go.Figure()
-fig.add_trace(Scatter3d(x=x, y=y, z=zz,
-                mode='markers',
-                marker=dict(
-                    size=1,
-                    color=num_lbls,  # set color to an array/list of desired values
-                    colorscale='Viridis',  # choose a colorscale
-                    opacity=0.5,
-                ),
-                text=lbls,
-                #hoverinfo='text')], filename='tmp.html')
-                hoverinfo='text'))
-fig.show()
-
-
-# plot the same with clicable cluster colours
-nrow = np.shape(z)[0]
-# subsIdx=np.random.choice(nrow,  500000)
-num_lbls = (np.unique(lbls, return_inverse=True)[1])
 x = z[:, 0]
 y = z[:, 1]
 zz = z[:, 2]
 # analog of tsne plot fig15 from Nowizka 2015, also see fig21
 
-lbls_list = np.unique(lbls)
-nM=len(np.unique(lbls))
-from matplotlib.colors import rgb2hex
-import seaborn as sns
-palette = sns.color_palette(None, nM)
-colors = np.array([ rgb2hex(palette[i]) for i in range(len(palette)) ])
 
-fig = go.Figure()
-for m in range(nM):
-    IDX = [x == lbls_list[m] for x in lbls]
-    xs = x[IDX]; ys = y[IDX]; zs = zz[IDX];
-    fig.add_trace(Scatter3d(x=xs, y=ys, z =zs,
-                name = lbls_list[m],
-                mode='markers',
-                marker=dict(
-                    size=1,
-                    color=colors[m],  # set color to an array/list of desired values
-                    opacity=0.5,
-                ),
-                text=lbls[IDX],
-                #hoverinfo='text')], filename='tmp.html')
-                hoverinfo='text'))
-    fig.update_layout(yaxis=dict(range=[-3,3]))
-
+# subsIdx=np.random.choice(nrow,  500000)
+num_lbls = (np.unique(lbls, return_inverse=True)[1])
+x = z[:, 0]
+y = z[:, 1]
+zz = z[:, 2]
 from utils_evaluation import plot3D_cluster_colors
-#reload(utils_evaluation)
+reload(utils_evaluation)
+
 fig = plot3D_cluster_colors(x=x,y=y,z=zz, lbls=lbls)
 fig.show()
 html_str=plotly.io.to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
@@ -809,7 +760,8 @@ Html_file= open(html_dir + "/"+ID + "no_knn_denoising_knHAT_potential_inCAE_MMD_
 Html_file.write(html_str)
 Html_file.close()
 
-
+fig = plot3D_cluster_colors(x=x,y=y,z=zz, lbls=np.asarray(labelsHDBscanAttributes))
+fig.show()
 
 
 # just the most important markers
