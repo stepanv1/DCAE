@@ -926,11 +926,6 @@ plot([Scatter(x=Y0[:,0],y=Y0[:,1],
             ),
                 text=popnames,
                 hoverinfo = 'text')])
-
-
-
-
-
 plt.show()
 
 fig, ax = plt.subplots()

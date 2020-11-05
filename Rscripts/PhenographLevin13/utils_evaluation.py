@@ -165,6 +165,23 @@ def compare_neighbours(idx1, idx2, kmax=90):
         print(match[i])
     return match
 
+'''
+data=aFrame
+idx = find_neighbors(z, k_ = kmax, metric=metric, cores=12)['idx']
+idx = find_neighbors(embedUMAP, k_ = kmax, metric=metric, cores=12)['idx']
+def compute_homogenuity(data, z, idx, kmax=30, metric= 'euclidean'):
+    nrow = idx.shape[0]
+    ncol = idx.shape[1]
+    match =  np.arange(kmax, dtype = 'float')
+    hom_k= np.zeros(kmax)
+    for i in range(1, kmax):
+        hom = sum([sum(np.std(data[idx[j,:(i+1)],:], axis=0)) for j in range(nrow)])/nrow
+        hom_k[i] = hom
+    return hom_k
+hom_kAE = hom_k
+hom_UMAP = hom_k
+'''
+
 #plotly 3D plotting functions
 def plot3D_cluster_colors(x, y, z ,lbls):
     #nrow = len(x)
@@ -201,7 +218,7 @@ def plot3D_cluster_colors(x, y, z ,lbls):
     return fig
 
 #overlap with markers
-def plot3D_marker_colors(z, data, markers, sub_s = 50000, lbls=lbls):
+def plot3D_marker_colors(z, data, markers, sub_s = 50000, lbls=None):
     nrows = z.shape[0]
     sub_idx = np.random.choice(range(nrows), sub_s, replace=False)
     x = z[sub_idx, 0]
@@ -262,6 +279,95 @@ def plot3D_marker_colors(z, data, markers, sub_s = 50000, lbls=lbls):
     return fig
 
 
+def plot2D_cluster_colors(x, y, lbls):
+    #nrow = len(x)
+    # subsIdx=np.random.choice(nrow,  500000)
+    num_lbls = (np.unique(lbls, return_inverse=True)[1])
+    # analog of tsne plot fig15 from Nowizka 2015, also see fig21
+
+    lbls_list = np.unique(lbls)
+    nM = len(np.unique(lbls))
+
+    palette = sns.color_palette(None, nM)
+    colors = np.array([rgb2hex(palette[i]) for i in range(len(palette))])
+
+    fig = go.Figure()
+    for m in range(nM):
+        IDX = [x == lbls_list[m] for x in lbls]
+        xs = x[IDX];
+        ys = y[IDX];
+        fig.add_trace(Scatter(x=xs, y=ys,
+                                name=lbls_list[m],
+                                mode='markers',
+                                marker=dict(
+                                    size=1,
+                                    color=colors[m],  # set color to an array/list of desired values
+                                    opacity=0.5,
+                                ),
+                                text=lbls[IDX],
+                                # hoverinfo='text')], filename='tmp.html')
+                                hoverinfo='text'))
+        fig.update_layout(margin=dict(l=0, r=0, b=0, t=10))
+    return fig
+
+def plot2D_marker_colors(z, data, markers, sub_s = 50000, lbls=None):
+    nrows = z.shape[0]
+    sub_idx = np.random.choice(range(nrows), sub_s, replace=False)
+    x = z[sub_idx, 0]
+    y = z[sub_idx, 1]
+    lbls_s = lbls[sub_idx]
+    sFrame = data[sub_idx, :]
+    result = [markers.index(i) for i in markers]
+    sFrame = sFrame[:, result]
+    nM = len(markers)
+    m = 0
+    fig = go.Figure()
+    fig.add_trace(Scatter(x=x, y=y,
+                            mode='markers',
+                            marker=dict(
+                                size=0.5,
+                                color=data[:, m],  # set color to an array/list of desired values
+                                colorscale='Viridis',  # choose a colorscale
+                                opacity=0.5,
+                                colorbar=dict(xanchor='left', x=-0.05, len=0.5),
+                                showscale=True
+                            ),
+                            text=lbls_s,
+                            hoverinfo='text',
+                            ))
+    for m in range(1, nM):
+        # for m in range(1,3):
+        fig.add_trace(Scatter3d(x=x, y=y,
+                                mode='markers',
+                                visible="legendonly",
+                                marker=dict(
+                                    size=0.5,
+                                    color=sFrame[:, m],  # set color to an array/list of desired values
+                                    colorscale='Viridis',  # choose a colorscale
+                                    opacity=0.5,
+                                    colorbar=dict(xanchor='left', x=-0.05, len=0.5),
+                                    showscale=True
+                                ),
+                                text=lbls_s,
+                                hoverinfo='text'
+                                ))
+
+    vis_mat = np.zeros((nM, nM), dtype=bool)
+    np.fill_diagonal(vis_mat, True)
+
+    button_list = list([dict(label=markers[m],
+                             method='update',
+                             args=[{'visible': vis_mat[m, :]},
+                                   # {'title': markers[m],
+                                   {'showlegend': False}]) for m in range(len(markers))])
+    fig.update_layout(
+        showlegend=False,
+        updatemenus=[go.layout.Updatemenu(
+            active=0,
+            buttons=button_list
+        )
+        ])
+    return fig
 
 #project on mean radius
 def projZ(x):
@@ -269,6 +375,4 @@ def projZ(x):
         return np.sqrt(np.sum(a**2))
     r = np.mean(np.apply_along_axis(radius, 1, x))
     return(x/r)
-
-zR = np.apply_along_axis(projZ, 1, z)
 
