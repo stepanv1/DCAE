@@ -230,8 +230,8 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 k = 30
 k3 = k * 3
 coeffCAE = 5
-epochs = 15000
-ID = 'Levine32_MMD_01_3D_DCAE_1200_hidden_'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
+epochs = 1500
+ID = 'Levine32_MMD_01_3D_DCAE_120_hidden_7_layers'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
 '''
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
@@ -345,15 +345,13 @@ neibF_Tr = neibALL
 weight_neibF_Tr =weight_distALL
 sourceTr = aFrame
 
-
 nrow = aFrame.shape[0]
 batch_size = 256
 original_dim = 32
 latent_dim = 3
-intermediate_dim = 1200
-intermediate_dim2=1200
+intermediate_dim = 120
+intermediate_dim2=120
 nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
-
 SigmaTsq = Input(shape=(1,))
 neib = Input(shape=(k, original_dim,))
 # var_dims = Input(shape = (original_dim,))
@@ -362,14 +360,18 @@ initializer = tf.keras.initializers.he_normal(12345)
 #initializer = None
 x = Input(shape=(original_dim, ))
 h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer = initializer)(x)
-z_mean =  Dense(latent_dim, activation=None, name='z_mean', kernel_initializer = initializer)(h)
+h1 = Dense(intermediate_dim2, activation='relu', name='intermediate2', kernel_initializer = initializer)(h)
+z_mean =  Dense(latent_dim, activation=None, name='z_mean', kernel_initializer = initializer)(h1)
+
 
 encoder = Model([x, neib, SigmaTsq], z_mean, name='encoder')
 
-decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate2', kernel_initializer = initializer)
+decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer = initializer)
+decoder_h1 = Dense(intermediate_dim2, activation='relu', name='intermediate4', kernel_initializer = initializer)
 decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer = initializer)
 h_decoded = decoder_h(z_mean)
-x_decoded_mean = decoder_mean(h_decoded)
+h_decoded2 = decoder_h1(h_decoded)
+x_decoded_mean = decoder_mean(h_decoded2)
 autoencoder = Model(inputs=[x, neib, SigmaTsq], outputs=x_decoded_mean)
 
 # Loss and optimizer ------------------------------------------------------
@@ -494,11 +496,16 @@ def deep_contractive(x, x_decoded_mean):  # deep contractive with ReLu in all la
     return 1 / normSigma * (SigmaTsq) * lam * K.sum(diff_tens ** 2)
 
 def deep_contractive(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
-    W = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
+    U = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
+    W = K.variable(value=encoder.get_layer('intermediate2').get_weights()[0])  # N x N_hidden
     Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
+    U = K.transpose(U);
     W = K.transpose(W);
     Z = K.transpose(Z);  # N_hidden x N
-    m = encoder.get_layer('intermediate').output
+
+    u = encoder.get_layer('intermediate').output
+    du = tf.linalg.diag((tf.math.sign(u) + 1) / 2)
+    m = encoder.get_layer('intermediate2').output
     dm = tf.linalg.diag((tf.math.sign(m)+1)/2)  # N_batch x N_hidden
     s = encoder.get_layer('z_mean').output
     #ds = K.sqrt(tf.linalg.diag(s * (1 - s)))  # N_batch x N_hidden
@@ -513,12 +520,14 @@ def deep_contractive(x, x_decoded_mean):  # attempt to avoid vanishing derivativ
     ds  = -2 * r + 1.5*r **2 + 1.5
     #tf.print(ds.shape)
     # return 1 / normSigma * (SigmaTsq) * lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axi0s=1)
+    # grow one level in front
+    S_0W = tf.einsum('akl,lj->akj', du, U)
     S_1W = tf.einsum('akl,lj->akj', dm, W)  # N_batch x N_input ??
     # tf.print((S_1W).shape) #[None, 120]
     S_2Z = tf.einsum('a,lj->alj', ds, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
     # tf.print((S_2Z).shape)
-    diff_tens = tf.einsum('akl,alj->akj', S_2Z,
-                          S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
+    diff_tens = tf.einsum('akl,alj->akj', S_2Z,  S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
+    diff_tens = tf.einsum('akl,alj->akj', diff_tens, S_0W)
     # tf.Print(K.sum(diff_tens ** 2))
     return 1 / normSigma * (SigmaTsq) * lam *(K.sum(diff_tens ** 2))
 
@@ -571,9 +580,9 @@ plt.ylabel('Loss')
 plt.xlabel('Epoch')
 plt.legend(['Train', 'Test'], loc='upper right')
 plt.show()
-#encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
-#autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
-#np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
+encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
+autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
+np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
 
 #ID='Levine32_MMD_1_3D_DCAE_5'
 #encoder.load_weights('/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/Levine32_3D_DCAE_10_3D.h5')
