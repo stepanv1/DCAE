@@ -10,6 +10,9 @@ from plotly.graph_objs import Scatter3d, Figure, Layout, Scatter
 import plotly.graph_objects as go
 from matplotlib.colors import rgb2hex
 import seaborn as sns
+from joblib import Parallel, delayed
+from pathos import multiprocessing
+
 
 def compute_f1(lblsT, lblsP):
     string = """
@@ -127,8 +130,8 @@ helper_match_evaluate_multiple <- function(clus_algorithm, clus_truth) {
               mean_F1 = mean_F1))
 }
 """
+    # import function from R
     rfuncs = SignatureTranslatedAnonymousPackage(string, "rfuncs")
-
     match_evaluate_multiple=rfuncs.helper_match_evaluate_multiple
     res= match_evaluate_multiple(rpy2.robjects.vectors.IntVector(lblsT), rpy2.robjects.vectors.IntVector(lblsP))
     return res.rx('mean_F1')[0][0]
@@ -165,6 +168,23 @@ def compare_neighbours(idx1, idx2, kmax=90):
         print(match[i])
     return match
 
+#compare neighbourhoof assignments
+def neighbour_marker_similarity_score(z, data, kmax=30, num_cores=12):
+    neib_z = find_neighbors(z, kmax, metric='euclidean')['idx']
+    nrow = data.shape[0]
+    match =  np.zeros(kmax, dtype = 'float')
+    def score_per_i(i):
+        print(i)
+        match_k = sum([np.sqrt(np.sum((np.mean(data[neib_z[j, :i], :], axis=0) - data[j, :]) ** 2)) for j in range(nrow)])
+        return match_k / nrow
+    results = Parallel(n_jobs=num_cores, verbose=0, backend="threading")(
+          delayed(score_per_i, check_pickle=False)(i) for i in range(2,kmax))
+    match[2:]  = results
+    return match
+
+#data = aFrame
+#zzz=neighbour_marker_similarity_score(z, data, kmax=90)
+
 '''
 data=aFrame
 idx = find_neighbors(z, k_ = kmax, metric=metric, cores=12)['idx']
@@ -183,10 +203,13 @@ hom_UMAP = hom_k
 '''
 
 #plotly 3D plotting functions
-def plot3D_cluster_colors(x, y, z ,lbls):
+def plot3D_cluster_colors(z ,lbls):
+    x = z[:, 0]
+    y = z[:, 1]
+    z1 = z[:, 2]
     #nrow = len(x)
     # subsIdx=np.random.choice(nrow,  500000)
-    num_lbls = (np.unique(lbls, return_inverse=True)[1])
+
     # analog of tsne plot fig15 from Nowizka 2015, also see fig21
 
     lbls_list = np.unique(lbls)
@@ -200,7 +223,7 @@ def plot3D_cluster_colors(x, y, z ,lbls):
         IDX = [x == lbls_list[m] for x in lbls]
         xs = x[IDX];
         ys = y[IDX];
-        zs = z[IDX];
+        zs = z1[IDX];
         fig.add_trace(Scatter3d(x=xs, y=ys, z=zs,
                                 name=lbls_list[m],
                                 mode='markers',
@@ -279,7 +302,9 @@ def plot3D_marker_colors(z, data, markers, sub_s = 50000, lbls=None):
     return fig
 
 
-def plot2D_cluster_colors(x, y, lbls):
+def plot2D_cluster_colors(z, lbls):
+    x = z[:, 0]
+    y = z[:, 1]
     #nrow = len(x)
     # subsIdx=np.random.choice(nrow,  500000)
     num_lbls = (np.unique(lbls, return_inverse=True)[1])

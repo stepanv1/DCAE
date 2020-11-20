@@ -15,7 +15,7 @@ Jillian Rosenberg1 and Jun Huang1,2
 #import keras
 import tensorflow as tf
 from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
-    plot3D_cluster_colors, plot3D_cluster_colors, plot2D_marker_colors
+    plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score
 
 import multiprocessing
 import numpy as np
@@ -231,7 +231,7 @@ k = 30
 k3 = k * 3
 coeffCAE = 1
 epochs = 1500
-ID = 'Shekhar_MMD_01_3D_DCAE_300_hidden_7_layers_CAE'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
+ID = 'Shekhar_MMD_01_3D_DCAE_h300_h200_hidden_7_layers_CAE'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
 '''
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
@@ -388,7 +388,7 @@ batch_size = 256
 original_dim = 100
 latent_dim = 3
 intermediate_dim = 300
-intermediate_dim2= 300
+intermediate_dim2= 200
 #nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
 
 SigmaTsq = Input(shape=(1,))
@@ -406,7 +406,7 @@ z_mean =  Dense(latent_dim, activation=None, name='z_mean', kernel_initializer =
 encoder = Model([x, neib, SigmaTsq], z_mean, name='encoder')
 
 decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer = initializer)
-decoder_h1 = Dense(intermediate_dim2, activation='relu', name='intermediate4', kernel_initializer = initializer)
+decoder_h1 = Dense(intermediate_dim, activation='relu', name='intermediate4', kernel_initializer = initializer)
 decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer = initializer)
 h_decoded = decoder_h(z_mean)
 h_decoded2 = decoder_h1(h_decoded)
@@ -618,9 +618,9 @@ plt.ylabel('Loss')
 plt.xlabel('Epoch')
 plt.legend(['Train', 'Test'], loc='upper right')
 plt.show()
-encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
-autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
-np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
+#encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
+#autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
+#np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
 
 #ID='Levine32_MMD_1_3D_DCAE_5'
 #encoder.load_weights('/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/Levine32_3D_DCAE_10_3D.h5')
@@ -763,6 +763,27 @@ fig.show()
 
 fig = plot3D_cluster_colors(x=embedding[:, 0],y=embedding[:, 1],z=np.zeros(len(clusters)), lbls=np.zeros(len(clusters)))
 fig.show()
+
+
+
+
+z_mr =  neighbour_marker_similarity_score(z, aFrame, kmax=90)
+embedding_mr =  neighbour_marker_similarity_score(embedding, aFrame, kmax=90)
+embedUMAP_mr = neighbour_marker_similarity_score(embedUMAP, aFrame, kmax=90)
+#np.savez(ID + '_marker_similarity.npz', z_mr = z_mr,  embedding_mr=embedding_mr, embedUMAP_mr=embedUMAP_mr)
+npobj =  np.load(ID + '_marker_similarity.npz')
+z_mr,embedding_mr,embedUMAP_mr  = npobj ['z_mr'] , npobj['embedding_mr'],  npobj['embedUMAP_mr'],
+z_mr[89]
+embedding_mr[89]
+embedUMAP_mr[89]
+# plot
+df = pd.DataFrame({'k':range(0,90)[2:],  'DCAE': z_mr[2:], 'SAUCIE': embedding_mr[2:], 'UMAP': embedUMAP_mr[2:]})
+
+# multiple line plot
+plt.plot('k', 'DCAE', data=df, marker='o', markerfacecolor='blue', markersize=2, color='skyblue', linewidth=4)
+plt.plot('k', 'SAUCIE', data=df, marker='', color='olive', linewidth=2)
+plt.plot('k', 'UMAP', data=df, marker='', color='olive', linewidth=2, linestyle='dashed')
+plt.legend()
 
 # compare SAUCIE results and ours using cross-decomposition analysis
 from sklearn.cross_decomposition import PLSCanonical, PLSRegression, CCA

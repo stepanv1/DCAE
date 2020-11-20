@@ -12,10 +12,10 @@ Ayako Kurioka,corresponding author 1 , 2 Paul Klenerman, 1 , 2 and Christian B. 
 CD8+ T Cells and NK Cells: Parallel and Complementary Soldiers of Immunotherapy
 Jillian Rosenberg1 and Jun Huang1,2
 '''
+#import keras
 import tensorflow as tf
 from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
-    plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors
-
+    plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score
 import multiprocessing
 import numpy as np
 import pandas as pd
@@ -71,24 +71,11 @@ from tensorflow.keras import regularizers
 # import dill
 from tensorflow.keras.callbacks import TensorBoard
 
+
+#/home/grines02/PycharmProjects/BIOIBFO25L/Rscripts/PhenographLevin13/utils_evaluation.py
+
 tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0,
                           write_graph=True, write_images=True)
-
-
-def table(labels):
-    unique, counts = np.unique(labels, return_counts=True)
-    print('%d %d', np.asarray((unique, counts)).T)
-    return {'unique': unique, 'counts': counts}
-
-
-
-
-def naive_power(m, n):
-    m = np.asarray(m)
-    res = m.copy()
-    for i in range(1, n):
-        res *= m
-    return res
 
 
 class CustomMetrics(Callback):
@@ -220,31 +207,8 @@ class AnnealingCallback(Callback):
         K.set_value(self.weight, new_weight)
         print ("Current KL Weight is " + str(K.get_value(self.weight)))
 
-
-
-
-# import vpsearch as vp
-# def find_neighbors(data, k_, metric='manhattan', cores=12):
-#   res = vp.find_nearest_neighbors(data, k_, cores, metric)
-#   return {'dist':np.array(res[1]), 'idx': np.int32(np.array(res[0]))}
-
-
-# from libKMCUDA import kmeans_cuda, knn_cuda
-# def find_neighbors(data, k_, metric='euclidean', cores=12):
-#    ca = kmeans_cuda(np.float32(data), 25, metric="euclidean", verbosity=1, seed=3, device=0)
-#    neighbors = knn_cuda(k_, np.float32(data), *ca, metric=metric, verbosity=1, device=0)
-#    return {'dist':0, 'idx': np.int32(neighbors)}
-
-num_cores = multiprocessing.cpu_count()
-pool = multiprocessing.Pool(num_cores)
-def table(labels):
-    unique, counts = np.unique(labels, return_counts=True)
-    print('%d %d', np.asarray((unique, counts)).T)
-    return {'unique': unique, 'counts': counts}
-
 import ctypes
 from numpy.ctypeslib import ndpointer
-
 lib = ctypes.cdll.LoadLibrary("./Clibs/perp.so")
 perp = lib.Perplexity
 perp.restype = None
@@ -255,59 +219,32 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
                 ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), #Sigma
                 ctypes.c_size_t]
 
+#ae_neib_compare  =   compare_neighbours(Idx, ae_neib, kmax=90)
+#ae_neib_compare
+#plt.plot(ae_neib_compare)
 
-from sklearn.neighbors import NearestNeighbors
-from joblib import Parallel, delayed
-from pathos import multiprocessing
-
-
-# results = Parallel(n_jobs=12, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in range(100))
-
-def find_neighbors(data, k_, metric='manhattan', cores=12):
-    tree = NearestNeighbors(n_neighbors=k_, algorithm="ball_tree", leaf_size=30, metric=metric, metric_params=None,
-                            n_jobs=cores)
-    tree.fit(data)
-    dist, ind = tree.kneighbors(return_distance=True)
-    return {'dist': np.array(dist), 'idx': np.array(ind)}
 
 
 # load data
 k = 30
 k3 = k * 3
-coeffCAE = 5
+coeffCAE = 1
 epochs = 1500
-ID = 'Pr_sample_008_1_MMD_01_3D_DCAE_h128_h63_h32_9_layers'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
-#ID = 'Pr_sample_008_1_Unstim_3D'
+ID = 'Levine32_MMD_01_3D_DCAE_h128_h63_h32_9_layers'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
 '''
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
 '''
-source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/pregnancy'
-output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/pregnancy/output'
+source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess'
+output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/'
+
 '''
-#data0 = np.genfromtxt(source_dir + "/Gates_PTLG008_1_Unstim.fcs.csv" , names=None, dtype=float,  delimiter=',')
-data0 = pd.read_csv(source_dir + "/Gates_PTLG008_1_Unstim.fcs.csv")
-gating_channels = ["CD57", "CD19", "CD4", "CD8", "IgD", "CD11c", "CD16", "CD3", "CD38", "CD27", "CD14", "CXCR5", "CCR7", "CD45RA", "CD20", "CD127", "CD33", "CD28", "CD161", "TCRgd", "CD123", "CD56", "HLADR", "CD25", "CD235ab_CD61", "CD66", "CD45", "Tbet", "CD7", "FoxP3", "CD11b"]
-MarkersMap = pd.read_csv(source_dir + "/MarkersInfo.csv")
-data1 = data0.rename(columns=MarkersMap.set_index('Channels')['Markers'].to_dict())
-markers = ['CD235ab_CD61',         'CD45',           
-                          'CD66',                   'CD7',
-               'CD19',       'CD45RA',        'CD11b',          'CD4',
-               'CD8a',        'CD11c',        'CD123',         'CREB',
-              'STAT5',          'p38',        'TCRgd',        'STAT1',
-              'STAT3',           'S6',        'CXCR3',        'CD161',
-               'CD33',     'MAPKAPK2',         'Tbet',            
-              'FoxP3',                 'IkB',         'CD16',
-               'NFkB',          'ERK',         'CCR9',         'CD25',
-                'CD3',         'CCR7',         'CD15',         'CCR2',
-              'HLADR',         'CD14',         'CD56']
-data2 = data1[markers]
-aFrame = data2.to_numpy() 
+data0 = np.genfromtxt(source_dir + "/Levine32_data.csv" , names=None, dtype=float, skip_header=1, delimiter=',')
+aFrame = data0[:,:] 
 aFrame.shape
 # set negative values to zero
-
 aFrame[aFrame < 0] = 0
-lbls= np.genfromtxt(source_dir + "/Gates_PTLG008_1_Unstim.fcs_LeafPopulations.csv" , names=None, skip_header=1, delimiter=',', dtype='U100')
+lbls= np.genfromtxt(source_dir + "/Levine32_population.csv" , names=None, skip_header=0, delimiter=',', dtype='U100')
 #randomize order
 IDX = np.random.choice(aFrame.shape[0], aFrame.shape[0], replace=False)
 #patient_table = patient_table[IDX,:]
@@ -339,7 +276,7 @@ from pathos import multiprocessing
 num_cores = 48
 #pool = multiprocessing.Pool(num_cores)
 results = Parallel(n_jobs=48, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
-original_dim=37
+original_dim=32
 neibALL = np.zeros((nrow, k3, original_dim))
 Distances = np.zeros((nrow, k3))
 neib_weight = np.zeros((nrow, k3))
@@ -362,14 +299,12 @@ neib_weight=sklearn.preprocessing.normalize(neib_weight, axis=1, norm='l1')
 neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
 plt.plot(neib_weight[1,:]);plt.show()
 #outfile = source_dir + '/Nowicka2017euclid.npz'
-outfile = source_dir + '/Pr_008_1_Unstim_euclid_scaled.npz'
+outfile = source_dir + '/Levine32euclid_scaled.npz'
 np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
-         neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma, markers=markers)
+         neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma)
 '''
-
-outfile = source_dir + '/Pr_008_1_Unstim_euclid_scaled.npz'
-k=30
-#markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
+outfile = source_dir + '/Levine32euclid_scaled.npz'
+markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
 # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
 npzfile = np.load(outfile)
 weight_distALL = npzfile['Dist'];
@@ -379,15 +314,12 @@ Dist = npzfile['Dist']
 #cut_neibF = npzfile['cut_neibF'];
 #cut_neibF = cut_neibF[IDX,:]
 neibALL = npzfile['neibALL']
-neibALL = neibALL[:, 0:30, :]
-
 #neibALL  = neibALL [IDX,:]
 #np.sum(cut_neibF != 0)
 # plt.hist(cut_neibF[cut_neibF!=0],50)
 Sigma = npzfile['Sigma']
 lbls = npzfile['lbls'];
 neib_weight = npzfile['neib_weight']
-markers = list(npzfile['markers'])
 # [aFrame, neibF, cut_neibF, weight_neibF]
 # training set
 # targetTr = np.repeat(aFrame, r, axis=0)
@@ -395,6 +327,7 @@ targetTr = aFrame
 neibF_Tr = neibALL
 weight_neibF_Tr =weight_distALL
 sourceTr = aFrame
+Idx = npzfile['Idx']
 
 # session set up
 
@@ -411,45 +344,37 @@ neibF_Tr = neibALL
 weight_neibF_Tr =weight_distALL
 sourceTr = aFrame
 
-# session set up
-
-#tf.config.threading.set_inter_op_parallelism_threads(0)
-#tf.config.threading.set_intra_op_parallelism_threads(0)
-
-
 nrow = aFrame.shape[0]
 batch_size = 256
-original_dim = 37
+original_dim = 32
 latent_dim = 3
-intermediate_dim = 120
-intermediate_dim2=120
+intermediate_dim = 128
+intermediate_dim2=64
+intermediate_dim3=32
 nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
-
 SigmaTsq = Input(shape=(1,))
 neib = Input(shape=(k, original_dim,))
 # var_dims = Input(shape = (original_dim,))
-
+#
+initializer = tf.keras.initializers.he_normal(12345)
+#initializer = None
 x = Input(shape=(original_dim, ))
-h = Dense(intermediate_dim, activation='relu', name='intermediate')(x)
-#h = Dense(intermediate_dim, activation='sigmoid', name='intermediate')(x)
-#h = Dense(intermediate_dim, activation='softplus', name='intermediate')(x)
-# h.set_weights(ae.layers[1].get_weights())
-#z_mean =  Dense(latent_dim, name='z_mean', activation='sigmoid')(h)
-z_mean =  Dense(latent_dim, activation=None, name='z_mean')(h)
+h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer = initializer)(x)
+h1 = Dense(intermediate_dim2, activation='relu', name='intermediate2', kernel_initializer = initializer)(h)
+h2 = Dense(intermediate_dim3, activation='relu', name='intermediate3', kernel_initializer = initializer)(h1)
+z_mean =  Dense(latent_dim, activation=None, name='z_mean', kernel_initializer = initializer)(h2)
+
 
 encoder = Model([x, neib, SigmaTsq], z_mean, name='encoder')
 
-# we instantiate these layers separately so as to reuse them later
-#decoder_input = Input(shape=(latent_dim,))
-
-decoder_h = Dense(intermediate_dim2, activation='relu')
-decoder_mean = Dense(original_dim, activation='relu')
+decoder_h = Dense(intermediate_dim3, activation='relu', name='intermediate4', kernel_initializer = initializer)
+decoder_h1 = Dense(intermediate_dim2, activation='relu', name='intermediate5', kernel_initializer = initializer)
+decoder_h2 = Dense(intermediate_dim, activation='relu', name='intermediate6', kernel_initializer = initializer)
+decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer = initializer)
 h_decoded = decoder_h(z_mean)
-x_decoded_mean = decoder_mean(h_decoded)
-#decoder = Model(decoder_input, x_decoded_mean, name='decoder')
-
-#train_z = encoder([x, neib, SigmaTsq, weight_neib])
-#train_xr = decoder(train_z)
+h_decoded2 = decoder_h1(h_decoded)
+h_decoded3 = decoder_h2(h_decoded2)
+x_decoded_mean = decoder_mean(h_decoded3)
 autoencoder = Model(inputs=[x, neib, SigmaTsq], outputs=x_decoded_mean)
 
 # Loss and optimizer ------------------------------------------------------
@@ -574,31 +499,35 @@ def deep_contractive(x, x_decoded_mean):  # deep contractive with ReLu in all la
     return 1 / normSigma * (SigmaTsq) * lam * K.sum(diff_tens ** 2)
 
 def deep_contractive(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
-    W = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
+    U = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
+    W = K.variable(value=encoder.get_layer('intermediate2').get_weights()[0])  # N x N_hidden
+    T = K.variable(value=encoder.get_layer('intermediate3').get_weights()[0])
     Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
-    W = K.transpose(W);
-    Z = K.transpose(Z);  # N_hidden x N
-    m = encoder.get_layer('intermediate').output
+    U = K.transpose(U)
+    W = K.transpose(W)
+    Z = K.transpose(Z)
+    T = K.transpose(T)# N_hidden x N
+
+    u = encoder.get_layer('intermediate').output
+    du = tf.linalg.diag((tf.math.sign(u) + 1) / 2)
+    m = encoder.get_layer('intermediate2').output
     dm = tf.linalg.diag((tf.math.sign(m)+1)/2)  # N_batch x N_hidden
+    t3 = encoder.get_layer('intermediate3').output
+    dt = tf.linalg.diag((tf.math.sign(t3) + 1) / 2)  # N_batch x N_hidden
+
     s = encoder.get_layer('z_mean').output
-    #ds = K.sqrt(tf.linalg.diag(s * (1 - s)))  # N_batch x N_hidden
-    #ds = tf.linalg.diag(tf.math.sign(s*(1-s) ** 2 +0.1))
-    #bs = np.shape(s)[0]
-    #tf.print(bs)  # [None, 120]
     r = tf.linalg.einsum('aj->a', s**2)
-    #tf.print(r.shape)
-    #b_i = tf.eye(latent_dim)
-    #tf.print(tf.shape(b_i))
-    #ds = tf.einsum('alk,a ->alk', b_i,r)
     ds  = -2 * r + 1.5*r **2 + 1.5
     #tf.print(ds.shape)
-    # return 1 / normSigma * (SigmaTsq) * lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axi0s=1)
+    S_0W = tf.einsum('akl,lj->akj', du, U)
     S_1W = tf.einsum('akl,lj->akj', dm, W)  # N_batch x N_input ??
+    S_2W = tf.einsum('akl,lj->akj', dt, T)
     # tf.print((S_1W).shape) #[None, 120]
     S_2Z = tf.einsum('a,lj->alj', ds, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
     # tf.print((S_2Z).shape)
-    diff_tens = tf.einsum('akl,alj->akj', S_2Z,
-                          S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
+    diff_tens = tf.einsum('akl,alj->akj', S_2Z, S_2W)
+    diff_tens = tf.einsum('akl,alj->akj', diff_tens ,  S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
+    diff_tens = tf.einsum('akl,alj->akj', diff_tens, S_0W)
     # tf.Print(K.sum(diff_tens ** 2))
     return 1 / normSigma * (SigmaTsq) * lam *(K.sum(diff_tens ** 2))
 
@@ -620,8 +549,8 @@ def loss_mmd(x, x_decoded_mean):
 nn=30
 def custom_loss(x, x_decoded_mean):
     msew = mean_square_error_NN(x, x_decoded_mean)
-    #
-    return 1*msew + 1*loss_mmd(x, x_decoded_mean) + 1*deep_contractive(x, x_decoded_mean)
+    return 1*msew + 1*loss_mmd(x, x_decoded_mean) + coeffCAE*deep_contractive(x, x_decoded_mean)
+    #eturn 1 * msew +  coeffCAE * deep_contractive(x, x_decoded_mean)
 ################################################################################################
 #################################################################################################
 #loss = custom_loss(x, x_decoded_mean)
@@ -630,17 +559,14 @@ autoencoder.compile(optimizer='adam', loss=custom_loss)
 print(autoencoder.summary())
 print(encoder.summary())
 #print(decoder.summary())
-
-
-
 #callbacks = [EarlyStoppingByLossVal( monitor='loss', value=0.01, verbose=0
 
 #earlyStopping=EarlyStoppingByValLoss( monitor='val_loss', min_delta=0.0001, verbose=1, patience=10, restore_best_weights=True)
 #earlyStopping=keras.callbacks.EarlyStopping(monitor='val_loss')
-epochs = 1000
+epochs = epochs
 batch_size=256
 #history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],
-history = autoencoder.fit([targetTr, neibF_Tr[:,0:30,:],  Sigma], targetTr,
+history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],targetTr,
 #history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],w_mean_target,
                 epochs=epochs, batch_size=batch_size, verbose=1, shuffle=True)
                 #validation_data=([targetTr[0:2000,:], neibF_Tr[0:2000,:],  Sigma[0:2000], weight_neibF[0:2000,:]], None),
@@ -664,10 +590,11 @@ plt.show()
 #ID = 'Levine32_MMD_01_3D_DCAE_5_3500_kernelInit'
 encoder.load_weights(output_dir +''+ID + '_3D.h5')
 autoencoder.load_weights(output_dir +'autoencoder_'+ID + '_3D.h5')
+
 z = encoder.predict([aFrame, neibF_Tr,  Sigma, weight_neibF])
 
+#- visualisation and pefroramnce metric-----------------------------------------------------------------------------------------------
 
-#- visualisation -----------------------------------------------------------------------------------------------
 
 # np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt', x_test_enc)
 # x_test_enc=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt')
@@ -675,7 +602,7 @@ x = z[:, 0]
 y = z[:, 1]
 zz = z[:, 2]
 
-fig = plot3D_cluster_colors(z, lbls=lbls)
+fig = plot3D_cluster_colors(x=x,y=y,z=zz, lbls=lbls)
 fig.show()
 html_str=to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                   include_mathjax=False, post_script=None, full_html=True,
@@ -696,26 +623,25 @@ Html_file= open(html_dir + "/"+ID + "_Markers.html","w")
 Html_file.write(html_str)
 Html_file.close()
 
-import hdbscan
+
 # clusteng hidden representation
 clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf') #5,20
 labelsHDBscanZ = clusterer.fit_predict(z)
 table(labelsHDBscanZ)
 print(compute_cluster_performance(lbls, labelsHDBscanZ))
-#labelsHDBscanZ= [str(x) for  x in labelsHDBscanZ]
-#fig = plot3D_cluster_colors(x=x,y=y,z=zz, lbls=np.asarray(labelsHDBscanZ))
-#fig.show()
+labelsHDBscanZ= [str(x) for  x in labelsHDBscanZ]
+fig = plot3D_cluster_colors(x=x,y=y,z=zz, lbls=np.asarray(labelsHDBscanZ))
+fig.show()
 
 #compute innternal metrics
 print(sklearn.metrics.calinski_harabasz_score(z, lbls))
 
 attrib_z=np.c_[z, aFrame/5]
-clusterer = hdbscan.HDBSCAN(min_cluster_size=300, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf') #5,20
+clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf') #5,20
 labelsHDBscanAttributes = clusterer.fit_predict(attrib_z)
 #labelsHDBscanAttributes = clusterer.fit_predict(aFrame)
 table(labelsHDBscanAttributes)
 print(compute_cluster_performance(lbls, labelsHDBscanAttributes))
-print(compute_cluster_performance(lbls[lbls!='"Unassgined"'], labelsHDBscanAttributes[lbls!='"Unassgined"']))
 labelsHDBscanAttributes= [str(x) for  x in labelsHDBscanAttributes]
 fig = plot3D_cluster_colors(x=x,y=y,z=zz, lbls=np.asarray(labelsHDBscanAttributes))
 print(sklearn.metrics.calinski_harabasz_score(attrib_z, lbls))
@@ -724,14 +650,14 @@ fig.show()
 # clustering projected z + aFrame
 prZ = projZ(z)
 attrib_z=np.c_[prZ, np.array(aFrame)/5]
-clusterer = hdbscan.HDBSCAN(min_cluster_size=300, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf')
+clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf')
 labelsHDBscanAttributesPr = clusterer.fit_predict(attrib_z)
 #labelsHDBscanAttributes = clusterer.fit_predict(aFrame)
 table(labelsHDBscanAttributesPr)
+labelsHDBscanAttributes = [str(x) for  x in labelsHDBscanAttributesPr]
 print(compute_cluster_performance(lbls, labelsHDBscanAttributesPr))
-print(compute_cluster_performance(lbls[lbls!='"Unassgined"'], labelsHDBscanAttributesPr[lbls!='"Unassgined"']))
+print(compute_cluster_performance(lbls[lbls!='"unassigned"'], np.array(labelsHDBscanAttributesPr)[lbls!='"unassigned"']))
 print(sklearn.metrics.calinski_harabasz_score(attrib_z, lbls))
-labelsHDBscanAttributesPr = [str(x) for  x in labelsHDBscanAttributesPr]
 x = prZ[:, 0]
 y = prZ[:, 1]
 zz = prZ[:, 2]
@@ -741,21 +667,20 @@ fig.show()
 # clustering UMAP representation
 #mapper = umap.UMAP(n_neighbors=30, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=False).fit(aFrame)
 #embedUMAP =  mapper.transform(aFrame)
-#np.savez('Pregnancy_' + 'embedUMAP.npz', embedUMAP=embedUMAP)
-embedUMAP = np.load('Pregnancy_' + 'embedUMAP.npz')['embedUMAP']
+#np.savez('LEVINE32_' + 'embedUMAP.npz', embedUMAP=embedUMAP)
+embedUMAP = np.load('LEVINE32_' + 'embedUMAP.npz')['embedUMAP']
 clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf') #5,20
 labelsHDBscanUMAP = clusterer.fit_predict(embedUMAP)
 table(labelsHDBscanUMAP)
 print(compute_cluster_performance(lbls, labelsHDBscanUMAP))
-#labelsHDBscanUMAP= [str(x) for  x in labelsHDBscanUMAP]#
-fig = plot2D_cluster_colors(embedUMAP, lbls=lbls)
+#labelsHDBscanUMAP= [str(x) for  x in labelsHDBscanUMAP]
+fig = plot2D_cluster_colors(x=embedUMAP[:,0],y=embedUMAP[:,1], lbls=lbls)
 fig.show()
 
 attrib_z=np.c_[embedUMAP, np.array(aFrame)/5]
 labelsHDBscanUMAPattr = clusterer.fit_predict(attrib_z)
 table(labelsHDBscanUMAPattr)
 print(compute_cluster_performance(lbls, labelsHDBscanUMAPattr))
-print(compute_cluster_performance(lbls[lbls!='"Unassgined"'], labelsHDBscanUMAPattr[lbls!='"Unassgined"']))
 print(sklearn.metrics.calinski_harabasz_score(attrib_z, lbls))
 #labelsHDBscanUMAPattr= [str(x) for  x in labelsHDBscanUMAPattr]
 #fig = plot3D_cluster_colors(x=x,y=y,z=zz, lbls=np.asarray(labelsHDBscanUMAPattr))
@@ -763,10 +688,10 @@ print(sklearn.metrics.calinski_harabasz_score(attrib_z, lbls))
 
 # cluster with phenograph
 #communities, graph, Q = phenograph.cluster(aFrame)
-#np.savez('Pregnancy_Phenograph.npz', communities=communities, graph=graph, Q=Q)
-communities =np.load('Pregnancy_Phenograph.npz')['communities']
+#np.savez('Phenograph.npz', communities=communities, graph=graph, Q=Q)
+communities =np.load('Phenograph.npz')['communities']
 print(compute_cluster_performance(lbls, communities))
-print(compute_cluster_performance(lbls[lbls!='"Unassgined"'], communities[lbls!='"Unassgined"']))
+print(compute_cluster_performance(lbls[lbls!='"unassigned"'], communities[lbls!='"unassigned"']))
 
 ######################################3
 # try SAUCIE
@@ -783,28 +708,44 @@ saucie.train(loadtrain, steps=1000)
 
 loadeval = SAUCIE.Loader(data, shuffle=False)
 embedding = saucie.get_embedding(loadeval)
-number_of_clusters, clusters = saucie.get_clusters(loadeval)
-np.savez('Pregnancy_' + 'embedSAUCIE.npz', embedding=embedding,number_of_clusters=number_of_clusters, clusters=clusters)
-embedding = np.load('Pregnancy_' + 'embedSAUCIE.npz')['embedding']
-clusters= np.load('Pregnancy_' + 'embedSAUCIE.npz')['clusters']
-print(compute_cluster_performance(lbls,  clusters))
-print(compute_cluster_performance(lbls[lbls!='"Unassgined"'], clusters[lbls!='"Unassgined"']))
+#np.savez('LEVINE32_' + 'embedSAUCIE.npz', embedding=embedding)
+embedding = np.load('LEVINE32_' + 'embedSAUCIE.npz')['embedding']
+#number_of_clusters, clusters = saucie.get_clusters(loadeval)
+#print(compute_cluster_performance(lbls,  clusters))
 #clusters= [str(x) for  x in clusters]
 #fig = plot3D_cluster_colors(x=embedding[:, 0],y=embedding[:, 1],z=np.zeros(len(clusters)), lbls=np.asarray(clusters))
 #fig.show()
-#fig = plot2D_cluster_colors(x=embedding[:, 0],y=embedding[:, 1], lbls=lbls)
-#fig.show()
+fig = plot2D_cluster_colors(x=embedding[:, 0],y=embedding[:, 1], lbls=lbls)
+fig.show()
 
 attrib_z=np.c_[embedding, np.array(aFrame)/5]
 clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf') #5,20
 labelsHDBscanSAUCIEattr = clusterer.fit_predict(attrib_z)
 table(labelsHDBscanSAUCIEattr)
 print(compute_cluster_performance(lbls, labelsHDBscanSAUCIEattr))
-print(compute_cluster_performance(lbls[lbls!='"Unassgined"'], labelsHDBscanSAUCIEattr[lbls!='"Unassgined"']))
 print(sklearn.metrics.calinski_harabasz_score(attrib_z, lbls))
 labelsHDBscanSAUCIEattr= [str(x) for  x in labelsHDBscanSAUCIEattr]
-fig = plot2D_cluster_colors(embedding, lbls=np.asarray(labelsHDBscanSAUCIEattr))
+fig = plot2D_cluster_colors(x=embedding[:, 0],y=embedding[:, 1],z=np.zeros(len(labelsHDBscanSAUCIEattr)), lbls=np.asarray(labelsHDBscanSAUCIEattr))
 fig.show()
+
+fig = plot3D_cluster_colors(x=embedding[:, 0],y=embedding[:, 1],z=np.zeros(len(clusters)), lbls=np.zeros(len(clusters)))
+fig.show()
+
+z_mr =  neighbour_marker_similarity_score(z, aFrame, kmax=90)
+embedding_mr =  neighbour_marker_similarity_score(embedding, aFrame, kmax=90)
+embedUMAP_mr = neighbour_marker_similarity_score(embedUMAP, aFrame, kmax=90)
+#np.savez(ID + '_marker_similarity.npz', z_mr = z_mr,  embedding_mr=embedding_mr, embedUMAP_mr=embedUMAP_mr)
+npobj =  np.load(ID + '_marker_similarity.npz')
+z_mr,embedding_mr,embedUMAP_mr  = npobj ['z_mr'] , npobj['embedding_mr'],  npobj['embedUMAP_mr'],
+df = pd.DataFrame({'k':range(0,90)[2:],  'DCAE': z_mr[2:], 'SAUCIE': embedding_mr[2:], 'UMAP': embedUMAP_mr[2:]})
+
+# multiple line plot
+plt.plot('k', 'DCAE', data=df, marker='o', markerfacecolor='blue', markersize=2, color='skyblue', linewidth=4)
+plt.plot('k', 'SAUCIE', data=df, marker='', color='olive', linewidth=2)
+plt.plot('k', 'UMAP', data=df, marker='', color='olive', linewidth=2, linestyle='dashed')
+plt.legend()
+
+
 
 # compare SAUCIE results and ours using cross-decomposition analysis
 from sklearn.cross_decomposition import PLSCanonical, PLSRegression, CCA
@@ -864,6 +805,178 @@ np.corrcoef(U_c.T, V_c.T)[0,1]
 cca.score(ISOmap, aFrame[sub_idx,:])
 cca.fit(embedding[sub_idx], aFrame[sub_idx,:])
 cca.score(embedding[sub_idx], aFrame[sub_idx,:])
-#######################
-#old code
+
+
+
+#cca.fit(aFrame, z)
+#cca.score(aFrame, z)
+
+
+
+
+
+
+from sklearn.decomposition import PCA, KernelPCA
+kpca = KernelPCA(kernel="rbf", fit_inverse_transform=False, gamma=10)
+X_kpca = kpca.fit_transform(z)
+
+# just the most important markers
+marker_sub=['CD45RA', 'CD19', 'CD22',
+            'CD11b', 'CD4','CD8', 'CD34', 'CD20',
+            'CXCR4', 'CD45','CD123', 'CD321',
+            'CD33', 'CD47','CD11c',
+            'CD7', 'CD15', 'CD16','CD44', 'CD38',
+            'CD3', 'CD61','CD117', 'CD49d',
+            'HLA-DR', 'CD64','CD41'
+            ] #
+#marker_sub=markers
+
+###########################################################################################3
+##### clustering using hidden layer
+
+x = Input(shape=(original_dim, ))
+h = Dense(intermediate_dim, activation='relu', name='intermediate')(x)
+encoder2 = Model([x], h, name='encoder2')
+encoder2.layers[1].set_weights(encoder.layers[1].get_weights()) #= encoder.layers[1].get_weights()
+activations0 = encoder2.predict([aFrame])
+#drop dead neurons:
+import prettyplotlib as ppl
+df = pd.DataFrame(activations0)
+fig, ax = plt.subplots()
+df.boxplot(fontsize=3  )
+plt.show()
+
+
+from kerassurgeon.operations import delete_layer, insert_layer, delete_channels
+encoder2 = delete_channels(encoder2, encoder2.layers[1], np.arange(intermediate_dim)[np.max(activations0,axis=0) < 0.05])
+activationsPruned = encoder2.predict([aFrame])
+df = pd.DataFrame(activationsPruned)
+fig, ax = plt.subplots()
+df.boxplot()
+plt.show()
+
+encoderPruned = delete_channels(encoder, encoder.layers[1], np.arange(intermediate_dim)[np.max(activations0,axis=0) < 0.05])
+zPr = encoderPruned.predict([aFrame, neibF_Tr,  Sigma, weight_neibF])
+
+num_lbls = (np.unique(lbls, return_inverse=True)[1])
+x = zPr[:, 0]
+y = zPr[:, 1]
+zz = zPr[:, 2]
+# analog of tsne plot fig15 from Nowizka 2015, also see fig21
+
+lbls_list = np.unique(lbls)
+nM=len(np.unique(lbls))
+from matplotlib.colors import rgb2hex
+import seaborn as sns
+palette = sns.color_palette(None, nM)
+colors = np.array([ rgb2hex(palette[i]) for i in range(len(palette)) ])
+
+fig = go.Figure()
+for m in range(nM):
+    IDX = [x == lbls_list[m] for x in lbls]
+    xs = x[IDX]; ys = y[IDX]; zs = zz[IDX];
+    fig.add_trace(Scatter3d(x=xs, y=ys, z =zs,
+                name = lbls_list[m],
+                mode='markers',
+                marker=dict(
+                    size=1,
+                    color=colors[m],  # set color to an array/list of desired values
+                    opacity=0.5,
+                ),
+                text=lbls[IDX],
+                #hoverinfo='text')], filename='tmp.html')
+                hoverinfo='text'))
+    fig.update_layout(yaxis=dict(range=[-3,3]))
+fig.show()
+html_str=plotly.io.to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
+                  include_mathjax=False, post_script=None, full_html=True,
+                  animation_opts=None, default_width='100%', default_height='100%', validate=True)
+html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
+Html_file= open(html_dir + "/"+ID + "no_knn_denoising_knHAT_potential_inCAE_MMD_1_scaledButtons.html","w")
+Html_file.write(html_str)
+Html_file.close()
+
+activations = activations0
+#drop dead neurons:
+import prettyplotlib as ppl
+df = pd.DataFrame(activations)
+fig, ax = plt.subplots()
+df.boxplot()
+plt.show()
+
+# prune autoencoder of last layer
+autoencoderPruned = delete_layer(autoencoder, autoencoder.layers[6])
+autoencoderPruned.summary()
+act_h2 = autoencoderPruned.predict([aFrame, neibF_Tr,  Sigma, weight_neibF])
+df = pd.DataFrame(act_h2)
+fig, ax = plt.subplots()
+df.boxplot()
+plt.show()
+
+df = pd.DataFrame(aFrame)
+fig, ax = plt.subplots()
+df.boxplot()
+plt.show()
+
+
+
+activations = sklearn.preprocessing.minmax_scale(activations, feature_range=(0, 1),  axis=0, copy=True)
+
+bin_code = np.where(activations>0.6, 1, 0)
+_, clusters = np.unique(bin_code, axis=0, return_inverse=True)
+table(clusters)
+clusters = [-1 if np.sum(a_==clusters) <= 1000 else a_ for a_ in clusters]
+table(clusters)
+
+num_lbls = (np.unique(clusters, return_inverse=True)[1])
+x = zR[:, 0]
+y = zR[:, 1]
+zz = zR[:, 2]
+# analog of tsne plot fig15 from Nowizka 2015, also see fig21
+fig = go.Figure()
+
+nM=len(np.unique(clusters))
+from matplotlib.colors import rgb2hex
+import seaborn as sns
+palette = sns.color_palette(None, nM)
+colors = np.array([ rgb2hex(palette[i]) for i in range(len(palette)) ])
+clusters = ["%.2f" % x for x in clusters]
+lbls_list = np.unique(clusters)
+fig = go.Figure()
+for m in range(nM):
+    IDX = [x == lbls_list[m] for x in clusters]
+    xs = x[IDX]; ys = y[IDX]; zs = zz[IDX];
+    fig.add_trace(Scatter3d(x=xs, y=ys, z =zs,
+                name = lbls_list[m],
+                mode='markers',
+                marker=dict(
+                    size=1,
+                    color=colors[m],  # set color to an array/list of desired values
+                    opacity=0.5,
+                ),
+                text=lbls[IDX],
+                #hoverinfo='text')], filename='tmp.html')
+                hoverinfo='text'))
+    fig.update_layout()
+
+vis_mat=np.zeros((nM,nM), dtype=bool)
+np.fill_diagonal(vis_mat, True)
+
+fig.update_layout(
+        margin=dict(l=0, r=0, t=10, b=0),
+        updatemenus=[go.layout.Updatemenu(
+        active=0,
+        )
+    ])
+fig.show()
+
+
+
+
+
+
+
+
+
+
 

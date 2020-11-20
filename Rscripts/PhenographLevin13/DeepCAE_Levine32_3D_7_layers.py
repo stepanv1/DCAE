@@ -15,7 +15,7 @@ Jillian Rosenberg1 and Jun Huang1,2
 #import keras
 import tensorflow as tf
 from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
-    plot3D_cluster_colors, plot3D_cluster_colors, plot2D_marker_colors
+    plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score
 
 import multiprocessing
 import numpy as np
@@ -229,17 +229,16 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 # load data
 k = 30
 k3 = k * 3
-coeffCAE = 5
+coeffCAE = 1
 epochs = 1500
-ID = 'Levine32_MMD_01_3D_DCAE_120_hidden_7_layers'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
+ID = 'Levine32_MMD_01_3D_DCAE_h96_h32_hidden_7_layers'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
+source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess'
+output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/'
 '''
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
-'''
-source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess'
-output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/'
 
-'''
+
 data0 = np.genfromtxt(source_dir + "/Levine32_data.csv" , names=None, dtype=float, skip_header=1, delimiter=',')
 aFrame = data0[:,:] 
 aFrame.shape
@@ -349,8 +348,8 @@ nrow = aFrame.shape[0]
 batch_size = 256
 original_dim = 32
 latent_dim = 3
-intermediate_dim = 120
-intermediate_dim2=120
+intermediate_dim =32*3
+intermediate_dim2=32
 nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
 SigmaTsq = Input(shape=(1,))
 neib = Input(shape=(k, original_dim,))
@@ -367,7 +366,7 @@ z_mean =  Dense(latent_dim, activation=None, name='z_mean', kernel_initializer =
 encoder = Model([x, neib, SigmaTsq], z_mean, name='encoder')
 
 decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer = initializer)
-decoder_h1 = Dense(intermediate_dim2, activation='relu', name='intermediate4', kernel_initializer = initializer)
+decoder_h1 = Dense(intermediate_dim, activation='relu', name='intermediate4', kernel_initializer = initializer)
 decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer = initializer)
 h_decoded = decoder_h(z_mean)
 h_decoded2 = decoder_h1(h_decoded)
@@ -580,14 +579,14 @@ plt.ylabel('Loss')
 plt.xlabel('Epoch')
 plt.legend(['Train', 'Test'], loc='upper right')
 plt.show()
-encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
-autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
-np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
+#encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
+#autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
+#np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
 
 #ID='Levine32_MMD_1_3D_DCAE_5'
 #encoder.load_weights('/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/Levine32_3D_DCAE_10_3D.h5')
 #autoencoder.load_weights('/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/autoencoder_Levine32_MMD_1_3D_DCAE_freezing_experiment5_3D.h5')
-ID = 'Levine32_MMD_01_3D_DCAE_5_3500_kernelInit'
+#ID = 'Levine32_MMD_01_3D_DCAE_5_3500_kernelInit'
 encoder.load_weights(output_dir +''+ID + '_3D.h5')
 autoencoder.load_weights(output_dir +'autoencoder_'+ID + '_3D.h5')
 
@@ -602,7 +601,7 @@ x = z[:, 0]
 y = z[:, 1]
 zz = z[:, 2]
 
-fig = plot3D_cluster_colors(x=x,y=y,z=zz, lbls=lbls)
+fig = plot3D_cluster_colors(z, lbls=lbls)
 fig.show()
 html_str=to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                   include_mathjax=False, post_script=None, full_html=True,
@@ -636,7 +635,7 @@ fig.show()
 #compute innternal metrics
 print(sklearn.metrics.calinski_harabasz_score(z, lbls))
 
-attrib_z=np.c_[z, aFrame/5]
+attrib_z=np.c_[z, aFrame/15]
 clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf') #5,20
 labelsHDBscanAttributes = clusterer.fit_predict(attrib_z)
 #labelsHDBscanAttributes = clusterer.fit_predict(aFrame)
@@ -644,8 +643,8 @@ table(labelsHDBscanAttributes)
 print(compute_cluster_performance(lbls, labelsHDBscanAttributes))
 labelsHDBscanAttributes= [str(x) for  x in labelsHDBscanAttributes]
 fig = plot3D_cluster_colors(x=x,y=y,z=zz, lbls=np.asarray(labelsHDBscanAttributes))
-print(sklearn.metrics.calinski_harabasz_score(attrib_z, lbls))
 fig.show()
+print(sklearn.metrics.calinski_harabasz_score(attrib_z, lbls))
 
 # clustering projected z + aFrame
 prZ = projZ(z)
@@ -730,6 +729,27 @@ fig.show()
 
 fig = plot3D_cluster_colors(x=embedding[:, 0],y=embedding[:, 1],z=np.zeros(len(clusters)), lbls=np.zeros(len(clusters)))
 fig.show()
+
+
+z_mr =  neighbour_marker_similarity_score(z, aFrame, kmax=90)
+embedding_mr =  neighbour_marker_similarity_score(embedding, aFrame, kmax=90)
+embedUMAP_mr = neighbour_marker_similarity_score(embedUMAP, aFrame, kmax=90)
+#np.savez(ID + '_marker_similarity.npz', z_mr = z_mr,  embedding_mr=embedding_mr, embedUMAP_mr=embedUMAP_mr)
+npobj =  np.load(ID + '_marker_similarity.npz')
+z_mr,embedding_mr,embedUMAP_mr  = npobj ['z_mr'] , npobj['embedding_mr'],  npobj['embedUMAP_mr'],
+z_mr[89]
+embedding_mr[89]
+embedUMAP_mr[89]
+# plot
+df = pd.DataFrame({'k':range(0,90)[2:],  'DCAE': z_mr[2:], 'SAUCIE': embedding_mr[2:], 'UMAP': embedUMAP_mr[2:]})
+
+# multiple line plot
+plt.plot('k', 'DCAE', data=df, marker='o', markerfacecolor='blue', markersize=2, color='skyblue', linewidth=4)
+plt.plot('k', 'SAUCIE', data=df, marker='', color='olive', linewidth=2)
+plt.plot('k', 'UMAP', data=df, marker='', color='olive', linewidth=2, linestyle='dashed')
+plt.legend()
+
+
 
 # compare SAUCIE results and ours using cross-decomposition analysis
 from sklearn.cross_decomposition import PLSCanonical, PLSRegression, CCA
