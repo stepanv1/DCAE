@@ -15,7 +15,8 @@ Jillian Rosenberg1 and Jun Huang1,2
 #import keras
 import tensorflow as tf
 from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
-    plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score
+    plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
+    get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d
 
 import multiprocessing
 import numpy as np
@@ -238,7 +239,6 @@ output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/'
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
 
-
 data0 = np.genfromtxt(source_dir + "/Levine32_data.csv" , names=None, dtype=float, skip_header=1, delimiter=',')
 aFrame = data0[:,:] 
 aFrame.shape
@@ -348,7 +348,7 @@ nrow = aFrame.shape[0]
 batch_size = 256
 original_dim = 32
 latent_dim = 3
-intermediate_dim =32*3
+intermediate_dim =32*2
 intermediate_dim2=32
 nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
 SigmaTsq = Input(shape=(1,))
@@ -748,6 +748,165 @@ plt.plot('k', 'DCAE', data=df, marker='o', markerfacecolor='blue', markersize=2,
 plt.plot('k', 'SAUCIE', data=df, marker='', color='olive', linewidth=2)
 plt.plot('k', 'UMAP', data=df, marker='', color='olive', linewidth=2, linestyle='dashed')
 plt.legend()
+
+# create performance plots for paper
+embedding = np.load('LEVINE32_' + 'embedSAUCIE.npz')['embedding']
+embedUMAP = np.load('LEVINE32_' + 'embedUMAP.npz')['embedUMAP']
+#TODO:very importmant!!! scale all the output to be in unite square (or cube)
+scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
+embedding=  scaler.fit_transform(embedding)
+embedUMAP= scaler.fit_transform(embedUMAP)
+z= scaler.fit_transform(z)
+prZ = projZ(z)
+prZ = scaler.fit_transform(prZ)
+#DCAE
+discontinuityDCAE, manytooneDCAE = get_wsd_scores(aFrame, z, 30, num_meandist=10000, compute_knn_x=False, x_knn=Idx)
+onetomany_scoreDCAE = neighbour_onetomany_score(z, Idx, kmax=30, num_cores=12)[1]
+marker_similarity_scoreDCAE = neighbour_marker_similarity_score_per_cell(z, aFrame, kmax=30, num_cores=12)
+
+discontinuityDCAE_prZ, manytooneDCAE_prZ = get_wsd_scores(aFrame, prZ, 30, num_meandist=10000, compute_knn_x=False, x_knn=Idx)
+onetomany_scoreDCAE_prZ = neighbour_onetomany_score(prZ, Idx, kmax=30, num_cores=12)[1]
+marker_similarity_scoreDCAE_prZ = neighbour_marker_similarity_score_per_cell(prZ, aFrame, kmax=30, num_cores=12)
+
+#UMAP
+discontinuityUMAP, manytooneUMAP = get_wsd_scores(aFrame, embedUMAP, 30, num_meandist=10000, compute_knn_x=False, x_knn=Idx)
+onetomany_scoreUMAP= neighbour_onetomany_score(embedUMAP, Idx, kmax=30, num_cores=12)[1]
+marker_similarity_scoreUMAP = neighbour_marker_similarity_score_per_cell(embedUMAP, aFrame, kmax=30, num_cores=12)
+#SAUCIE
+discontinuitySAUCIE, manytooneSAUCIE = get_wsd_scores(aFrame, embedding, 30, num_meandist=10000, compute_knn_x=False, x_knn=Idx)
+onetomany_scoreSAUCIE= neighbour_onetomany_score(embedding, Idx, kmax=30, num_cores=12)[1]
+marker_similarity_scoreSAUCIE = neighbour_marker_similarity_score_per_cell(embedding, aFrame, kmax=30, num_cores=12)
+
+outfile2 = source_dir + '/' + ID+ '_PerformanceMeasures.npz'
+np.savez(outfile2, discontinuityDCAE = discontinuityDCAE, manytooneDCAE= manytooneDCAE, onetomany_scoreDCAE= onetomany_scoreDCAE, marker_similarity_scoreDCAE= marker_similarity_scoreDCAE,
+         discontinuityUMAP= discontinuityUMAP, manytooneUMAP= manytooneUMAP, onetomany_scoreUMAP= onetomany_scoreUMAP, marker_similarity_scoreUMAP= marker_similarity_scoreUMAP,
+         discontinuitySAUCIE= discontinuitySAUCIE, manytooneSAUCIE= manytooneSAUCIE, onetomany_scoreSAUCIE= onetomany_scoreSAUCIE, marker_similarity_scoreSAUCIE= marker_similarity_scoreSAUCIE)
+
+
+#TODO:
+# import pickle
+
+# obj0, obj1, obj2 are created here...
+
+# Saving the objects:
+with open('objs.pkl', 'w') as f:  # Python 3: open(..., 'wb')
+    pickle.dump([obj0, obj1, obj2], f)
+
+# Getting back the objects:
+with open('objs.pkl') as f:  # Python 3: open(..., 'rb')
+    obj0, obj1, obj2 = pickle.load(f)
+
+
+
+npzfile = np.load(outfile2)
+discontinuityDCAE = npzfile['discontinuityDCAE']; manytooneDCAE= npzfile['manytooneDCAE']; onetomany_scoreDCAE= npzfile['onetomany_scoreDCAE']; marker_similarity_scoreDCAE= npzfile['marker_similarity_scoreDCAE'];
+discontinuityUMAP= npzfile['discontinuityUMAP']; manytooneUMAP= npzfile['manytooneUMAP']; onetomany_scoreUMAP= npzfile['onetomany_scoreUMAP']; marker_similarity_scoreUMAP= npzfile['marker_similarity_scoreUMAP'];
+discontinuitySAUCIE= npzfile['discontinuitySAUCIE']; manytooneSAUCIE= npzfile['manytooneSAUCIE']; onetomany_scoreSAUCIE= npzfile['onetomany_scoreSAUCIE']; marker_similarity_scoreSAUCIE=  npzfile['marker_similarity_scoreSAUCIE']
+#Quick look into results
+# TODO: data normalization by normalize_data_by_mean_pdist in y space
+np.mean(discontinuityDCAE)
+np.mean(manytooneDCAE)
+np.mean(discontinuityUMAP)
+np.mean(manytooneUMAP)
+np.mean(discontinuitySAUCIE)
+np.mean(manytooneSAUCIE)
+np.mean(onetomany_scoreDCAE[29,:])
+np.mean(marker_similarity_scoreDCAE[0][29])
+np.mean(onetomany_scoreUMAP[29,:])
+np.mean(marker_similarity_scoreUMAP[0][29])
+np.mean(onetomany_scoreSAUCIE[29,:])
+np.mean(marker_similarity_scoreSAUCIE[0][29])
+
+np.mean(discontinuityDCAE_prZ)
+np.mean(manytooneDCAE_prZ)
+np.mean(onetomany_scoreDCAE_prZ[29,:])
+np.mean(marker_similarity_scoreDCAE_prZ[0][29])
+
+np.median(discontinuityDCAE)
+np.median(manytooneDCAE)
+np.median(discontinuityUMAP)
+np.median(manytooneUMAP)
+np.median(discontinuitySAUCIE)
+np.median(manytooneSAUCIE)
+np.median(onetomany_scoreDCAE[29,:])
+np.median(marker_similarity_scoreDCAE[0][29])
+np.median(onetomany_scoreUMAP[29,:])
+np.median(marker_similarity_scoreUMAP[0][29])
+np.median(onetomany_scoreSAUCIE[29,:])
+np.median(marker_similarity_scoreSAUCIE[0][29])
+
+np.median(discontinuityDCAE_prZ)
+np.median(manytooneDCAE_prZ)
+np.median(onetomany_scoreDCAE_prZ[29,:])
+np.median(marker_similarity_scoreDCAE_prZ[0][29])
+
+
+
+
+
+
+
+
+
+plt.hist(onetomany_scoreSAUCIE[29,:],250)
+plt.hist(onetomany_scoreDCAE[29,:],250)
+plt.hist(discontinuityDCAE,250)
+plt.hist(discontinuitySAUCIE,250)
+plt.hist(z,250)
+plt.hist(embedding,250)
+
+#build table using above
+# now build plots and tables. 2 plots: 1 for onetomany_score, 1 marker_similarity_scoreDCAE on 2 methods
+# table: Discontinuity and manytoone (2 columns) with 3 rows, each per method. Save as a table then stack with output on other  data , to creae the final table
+
+
+#found in sausie internal metric based on precision and recall highly irrelevant in out settings, lets still
+# try kit and may be modify for subset clustering
+from utils_evaluation import get_wsd_scores
+embedUMAP = np.load('LEVINE32_' + 'embedUMAP.npz')['embedUMAP']
+embedding = np.load('LEVINE32_' + 'embedSAUCIE.npz')['embedding']
+z= np.load(output_dir +'/'+ ID + '_latent_rep_3D.npz')['z']
+n_neighbors = 30
+discontinuitySAUCIE, manytooneSAUCIE = get_wsd_scores(aFrame, embedding, n_neighbors, num_meandist=10000)
+vmaxSAUCIE = np.percentile(np.hstack(
+    (discontinuitySAUCIE,
+     manytooneSAUCIE)), 95)
+fig = plt.figure()
+plt.hist(discontinuitySAUCIE,500)
+plt.title('discontinuitySAUCIE' + ' median ' + str(np.median(discontinuitySAUCIE)))
+plt.show()
+fig2 = plt.figure()
+plt.hist(manytooneSAUCIE,500)
+plt.title('manytooneSAUCIE' + ' median ' + str(np.median(manytooneSAUCIE)))
+plt.show()
+
+discontinuityZ, manytooneZ = get_wsd_scores(aFrame, z, n_neighbors, num_meandist=10000)
+vmaxZ = np.percentile(np.hstack(
+    (discontinuityZ,
+     manytooneZ)), 95)
+fig3 = plt.figure()
+plt.hist(discontinuityZ,500)
+plt.title('discontinuityZ' + ' median ' + str(np.median(discontinuityZ)))
+plt.show()
+fig4 = plt.figure()
+plt.hist(manytooneZ,500)
+plt.title('manytooneZ' + ' median ' + str(np.median(manytooneZ)))
+plt.show()
+
+discontinuityUMAP, manytooneUMAP = get_wsd_scores(aFrame, embedUMAP, n_neighbors, num_meandist=10000)
+vmaxUMAP = np.percentile(np.hstack(
+    (discontinuityUMAP,
+     manytooneUMAP)), 95)
+fig5 = plt.figure()
+plt.hist(discontinuityUMAP,500)
+plt.title('discontinuityUMAP' + ' median ' + str(np.median(discontinuityUMAP)))
+plt.show()
+fig6 = plt.figure()
+plt.hist(manytooneUMAP,500)
+plt.title('manytooneUMAP' + ' median ' + str(np.median(manytooneUMAP)))
+plt.show()
+
+
 
 
 

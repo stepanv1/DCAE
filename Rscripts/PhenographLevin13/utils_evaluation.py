@@ -136,6 +136,38 @@ helper_match_evaluate_multiple <- function(clus_algorithm, clus_truth) {
     res= match_evaluate_multiple(rpy2.robjects.vectors.IntVector(lblsT), rpy2.robjects.vectors.IntVector(lblsP))
     return res.rx('mean_F1')[0][0]
 
+#generate fibbonachi grid for surface area estimate
+# from here: https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere/26127012
+import math
+def fibonacci_sphere(samples=1000):
+
+    points = []
+    phi = math.pi * (3. - math.sqrt(5.))  # golden angle in radians
+
+    for i in range(samples):
+        y = 1 - (i / float(samples - 1)) * 2  # y goes from 1 to -1
+        radius = math.sqrt(1 - y * y)  # radius at y
+
+        theta = phi * i  # golden angle increment
+
+        x = math.cos(theta) * radius
+        z = math.sin(theta) * radius
+
+        points.append((x, y, z))
+
+    return points
+
+# if nearest neighbiur of fibbonaci gris is another memmber of the grid area
+# around the grid is called empty. Surface are is then estimaptes as n_empty/n_nonempty*4*pi*r^2
+def estimate_surface_area_spehere(data, n_fib=10000 ):
+    pass
+#same but with a simple grid
+def estimate_surface_area_plane(data, n_fib=10000):
+    pass
+
+
+
+
 def compute_cluster_performance(lblsT, lblsP):
     Adjusted_Rand_Score = metrics.adjusted_rand_score(lblsT, lblsP)
     adjusted_MI_Score = metrics.adjusted_mutual_info_score(lblsT, lblsP)
@@ -178,9 +210,48 @@ def neighbour_marker_similarity_score(z, data, kmax=30, num_cores=12):
         match_k = sum([np.sqrt(np.sum((np.mean(data[neib_z[j, :i], :], axis=0) - data[j, :]) ** 2)) for j in range(nrow)])
         return match_k / nrow
     results = Parallel(n_jobs=num_cores, verbose=0, backend="threading")(
-          delayed(score_per_i, check_pickle=False)(i) for i in range(2,kmax))
-    match[2:]  = results
+          delayed(score_per_i, check_pickle=False)(i) for i in range(1,kmax))
+    match[1:]  = results
     return match
+
+def neighbour_onetomany_score(z, idx, kmax=30, num_cores=12):
+    nrow = z.shape[0]
+    match =  np.zeros(kmax, dtype = 'float')
+    per_cell_match = np.zeros((kmax, nrow), dtype = 'float')
+    def score_per_i(i):
+        print(i)
+        per_cell= np.array([np.sqrt(np.sum((np.mean(z[idx[j, :i], :], axis=0) - z[j, :]) ** 2)) for j in range(nrow)])
+        match_k = np.sum(per_cell)
+        return [match_k / nrow, per_cell]
+    results = Parallel(n_jobs=num_cores, verbose=0, backend="threading")(
+          delayed(score_per_i, check_pickle=False)(i) for i in range(1,kmax))
+    for i in range(1,kmax):
+        match[i] = results[i-1][0]
+    for i in range(1,kmax):
+        per_cell_match[i,:] = results[i-1][1]
+    return [match, per_cell_match]
+
+
+
+def neighbour_marker_similarity_score_per_cell(z, data, kmax=30, num_cores=12):
+    nrow = z.shape[0]
+    neib_z = find_neighbors(z, kmax, metric='euclidean')['idx']
+    match =  np.zeros(kmax, dtype = 'float')
+    per_cell_match = np.zeros((kmax, nrow), dtype = 'float')
+    def score_per_i(i):
+        print(i)
+        per_cell= np.array([np.sqrt(np.sum((np.mean(data[neib_z[j, :i], :], axis=0) - data[j, :]) ** 2)) for j in range(nrow)])
+        match_k = np.sum(per_cell)
+        return [match_k / nrow, per_cell]
+    results = Parallel(n_jobs=num_cores, verbose=0, backend="threading")(
+          delayed(score_per_i, check_pickle=False)(i) for i in range(1,kmax))
+    for i in range(1,kmax):
+        match[i] = results[i-1][0]
+    for i in range(1,kmax):
+        per_cell_match[i,:] = results[i-1][1]
+    return [match, per_cell_match]
+
+
 
 #data = aFrame
 #zzz=neighbour_marker_similarity_score(z, data, kmax=90)
@@ -400,4 +471,240 @@ def projZ(x):
         return np.sqrt(np.sum(a**2))
     r = np.mean(np.apply_along_axis(radius, 1, x))
     return(x/r)
+
+####################################
+# functions from https://github.com/jlmelville/quadra
+# for precision recall measurements
+# functions from pltutils:
+# Copyright (c) 2018-present, Royal Bank of Canada.
+# All rights reserved.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+# slightly modified by SG to allow knn-matrix as input
+import matplotlib.pyplot as plt
+from matplotlib.ticker import NullFormatter
+
+
+def tickoff(ax=None):
+    if ax is not None:
+        ax.xaxis.set_major_formatter(NullFormatter())
+        ax.yaxis.set_major_formatter(NullFormatter())
+        try:
+            ax.zaxis.set_major_formatter(NullFormatter())
+        except:
+            pass
+    else:
+        plt.tick_params(
+            axis='both',        # changes apply to the x-axis
+            which='both',       # both major and minor ticks are affected
+            bottom='off',       # ticks along the bottom edge are off
+            top='off',          # ticks along the top edge are off
+            labelbottom='off')  # labels along the bottom edge are off
+
+
+def show3d(data, t, ax, view_init=None, cmap=plt.cm.Spectral, linewidth=0.,
+           markersize=10.):
+    x = data[:, 0]
+    y = data[:, 1]
+    z = data[:, 2]
+    ax.scatter(x, y, z, c=t, cmap=cmap, lw=linewidth, s=markersize)
+    if view_init is not None:
+        ax.view_init(*view_init)
+    tickoff(ax)
+# from wsd.py
+import random
+
+import numpy as np
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+
+import ot
+import faiss
+
+
+def get_self_knn_idx(data, k):
+    dim = data.shape[1]
+    data = np.ascontiguousarray(data.astype('float32'))
+    try:
+        cfg = faiss.GpuIndexFlatConfig()
+        cfg.useFloat16 = False
+        cfg.device = 1
+        ngpu = 2
+        res = [faiss.StandardGpuResources() for i in range(ngpu)]
+        index = faiss.GpuIndexFlatL2(res[1], dim, cfg)
+    except:
+        index = faiss.IndexFlatL2(dim)
+    index.add(data)
+
+    _, kidx = index.search(data, k + 1)
+
+    return kidx[:, 1:]
+
+
+def get_mean_pdist(x, num=None):
+    if num is None:
+        num = len(x)
+    rand_idx = random.sample(range(len(x)), min(len(x), num))
+    distmat = squareform(pdist(x[rand_idx]))# creates 1000x1000: TODO change this
+    return distmat[np.triu_indices(distmat.shape[0])].mean()
+
+
+def normalize_data_by_mean_pdist(x, num=None):
+    if num is None:
+        num = len(x)
+    return x / get_mean_pdist(x, num)
+
+
+def get_emd2(pts1, pts2):
+    distmat = ot.dist(pts1, pts2)
+    a = ot.unif(len(pts1))
+    b = ot.unif(len(pts2))
+    return ot.emd2(a, b, distmat)
+
+
+def get_wsd_scores(x, y, k, num_meandist=None, compute_knn_x=False, x_knn=None):
+    if compute_knn_x:
+        kidx_x = get_self_knn_idx(x, k)
+    else:
+        kidx_x = x_knn
+    kidx_y = get_self_knn_idx(y, k)
+    x = normalize_data_by_mean_pdist(x, num_meandist)
+    y = normalize_data_by_mean_pdist(y, num_meandist)
+
+    assert len(kidx_x) == len(kidx_x) == len(x) == len(y)
+
+    discontiuity = np.array(
+        [get_emd2(y[kidx_x[i]], y[kidx_y[i]]) for i in range(len(x))]
+    )
+    manytoone = np.array(
+        [get_emd2(x[kidx_x[i]], x[kidx_y[i]]) for i in range(len(x))]
+    )
+
+    return discontiuity, manytoone
+
+'''
+import pandas as pd
+#get a subsample of Levine data and create artificial data with it
+source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess'
+outfile = source_dir + '/Levine32euclid_scaled.npz'
+npzfile = np.load(outfile)
+data = npzfile['aFrame'];
+color = npzfile['lbls'];
+data= data[color!='"unassigned"']
+color = color[color!='"unassigned"']
+#subsample
+nrows = data.shape[0]
+sub_idx = np.random.choice(range(nrows), 20000, replace=False)
+data= data[sub_idx]
+color = color[sub_idx]
+color=pd.Categorical(pd.factorize(color)[0])
+# example from github
+import numpy as np
+from sklearn.decomposition import PCA
+from sklearn import datasets
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import seaborn as sns
+np.random.seed(0)
+#data, color = datasets.make_blobs(n_samples=10000, centers=20, n_features=30,
+#                   random_state=0)
+
+data, color = datasets.make_classification(n_samples=20000, n_features=15,  n_informative=5, n_redundant=0, n_repeated=0,
+                n_classes=3, n_clusters_per_class=1, weights=None, flip_y=0.5, class_sep=2.0, hypercube=True, shift=0.0, scale=1.0, shuffle=True, random_state=12345)
+
+#data, color = datasets.make_swiss_roll(
+#    1000, random_state=0)
+#y = PCA(n_components=2).fit_transform(data)
+import umap.umap_ as umap
+mapper = umap.UMAP(n_neighbors=30, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=False).fit(data)
+y0 =  mapper.transform(data)
+import copy
+y=copy.deepcopy(y0)
+#cdict = {0: 'red', 1: 'blue', 2: 'green'}
+#plt.scatter(y[:, 0], y[:, 1], c=color, s=1., cmap=plt.cm.Spectral)
+dataset = pd.DataFrame()
+dataset['x'] = y[:, 0]
+dataset['y'] = y[:, 1]
+dataset['color'] = [str(x) for x in color]
+plt.scatter(y[:, 0], y[:, 1], c=color, s=1., cmap=plt.cm.Spectral)
+#sns.scatterplot(data=dataset, x="x", y="y", hue="color")
+#lets overlap and split our data
+y[(y[:,0]>=6) & (y[:,1]>=5), 1]=y[(y[:,0]>=6) & (y[:,1]>=5), 1]+1
+#plt.scatter(y[:, 0], y[:, 1], c=color, s=1., cmap=plt.cm.Spectral)
+y[(y[:,0]<6) & (y[:,1]>5), 1]=y[(y[:,0]<6) & (y[:,1]>5), 1]-10
+plt.scatter(y[:, 0], y[:, 1], c=color, s=1., cmap=plt.cm.Spectral)
+x_idx = find_neighbors(data, 30, metric= 'euclidean', cores = 12)['idx']
+discontinuity, manytoone = get_wsd_scores(data, y, 30, num_meandist=10000, compute_knn_x=False, x_knn=x_idx)
+
+onetomany_score = neighbour_onetomany_score(y, x_idx, kmax=30, num_cores=12)[1]
+onetomany_score[29,:]
+marker_similarity_score = neighbour_marker_similarity_score_per_cell(y, data, kmax=30, num_cores=12)[1]
+
+vmax1 = np.percentile(discontinuity,95)
+vmax2 = np.percentile(manytoone,95)
+vmax3=np.percentile(onetomany_score[29,:],95)
+vmax4 = np.percentile(marker_similarity_score[29,:],95)
+vmin1 = np.percentile(discontinuity,5)
+vmin2 = np.percentile(manytoone,5)
+vmin3=np.percentile(onetomany_score[29,:],5)
+vmin4 = np.percentile(marker_similarity_score[29,:],5)
+
+
+
+
+sz=0.1
+sns.set_style("white")
+fig = plt.figure(figsize=(10, 10))
+sbpl1= plt.subplot(3, 2, 1)
+plt.title("UMAP")
+plt.scatter(y0[:, 0], y0[:, 1], c=color, s=sz, cmap=plt.cm.Spectral)
+
+sbpl2= plt.subplot(3, 2, 2)
+plt.title("Broken UMAP")
+plt.scatter(y[:, 0], y[:, 1], c=color, s=sz, cmap=plt.cm.Spectral)
+#plt.axis("off")
+
+sbpl3 = plt.subplot(3, 2, 3)
+plt.title("discontinuity")
+img= plt.scatter(y[:, 0], y[:, 1], c=discontinuity,
+            vmax=vmax1, vmin=vmin1,
+            s=sz, cmap=plt.cm.rainbow)
+plt.colorbar(img)
+plt.clim(vmin1, vmax1)
+
+sbpl4 = plt.subplot(3, 2, 4)
+plt.title("many-to-one")
+img = plt.scatter(y[:, 0], y[:, 1], c=manytoone,
+                  vmax=vmax2, vmin=vmin2,
+                  s=sz, cmap=plt.cm.rainbow)
+plt.colorbar(img)
+plt.clim(vmin1, vmax2)
+
+plt.subplot(3, 2, 5)
+sbpl5 = plt.title("one-to-many")
+img = plt.scatter(y[:, 0], y[:, 1], c=onetomany_score[29,:]
+, vmax=vmax3, vmin=vmin3,
+                  s=sz, cmap=plt.cm.rainbow)
+plt.colorbar(img)
+plt.clim(vmin1, vmax3)
+
+sbpl6 = plt.subplot(3, 2, 6)
+plt.title("marker similarity")
+img = plt.scatter(y[:, 0], y[:, 1], c=marker_similarity_score[29,:]
+, vmax=vmax4,  vmin=vmin4,
+                  s=sz, cmap=plt.cm.rainbow)
+plt.colorbar(img)
+plt.clim(vmin1, vmax4)
+
+#cbax = fig.add_axes([0.92, 0.15, 0.02, 0.3])
+#cb = plt.colorbar(img, cax=cbax)
+#cb.outline.set_linewidth(0.)
+#plt.clim(0., vmax)
+
+
+plt.show()
+'''
+
+
 

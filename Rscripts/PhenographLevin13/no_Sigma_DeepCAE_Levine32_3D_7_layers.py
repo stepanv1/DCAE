@@ -231,52 +231,20 @@ k = 30
 k3 = k * 3
 coeffCAE = 1
 epochs = 1500
-ID = 'Shekhar_MMD_01_3D_DCAE_h300_h200_hidden_7_layers_CAE'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
+ID = 'no_Sigma_Levine32_MMD_01_3D_DCAE_h96_h32_hidden_7_layers'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
+source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess'
+output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/'
 '''
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
-'''
-source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess'
-output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/'
-
-'''
-Get Shekhar 2016 following  https://colab.research.google.com/github/KrishnaswamyLab/SingleCellWorkshop/blob/master/
-/exercises/Deep_Learning/notebooks/02_Answers_Exploratory_analysis_of_single_cell_data_with_SAUCIE.ipynb#scrollTo=KgaZZU8r4drd
-import scprep
-scprep.io.download.download_google_drive("1GYqmGgv-QY6mRTJhOCE1sHWszRGMFpnf", "data.pickle.gz")
-scprep.io.download.download_google_drive("1q1N1s044FGWzYnQEoYMDJOjdWPm_Uone", "metadata.pickle.gz")
-data_raw = pd.read_pickle("data.pickle.gz")
-data_raw.head()
-metadata = pd.read_pickle("metadata.pickle.gz")
-# the batch ids are in the cell barcode names
-metadata['batch'] = [int(index[7]) for index in metadata.index]
-# for simplicity, we'll split the six batches into two groups -- 1-3 and 4-6
-metadata['sample_id'] = np.where(metadata['batch'] < 4, 1, 2)
-metadata['sample_name'] = np.where(metadata['batch'] < 4, 'Samples 1-3', 'Samples 4-6')
-metadata.head()
-pca_op = sklearn.decomposition.PCA(100)
-pca = sklearn.decomposition.PCA(100)
-pca = pca.fit(data_raw.to_numpy())
-plt.plot(np.cumsum(pca.explained_variance_ratio_))
-plt.xlabel('number of components')
-
-plt.ylabel('cumulative explained variance');
-
-data = pca_op.fit_transform(data_raw.to_numpy())
 
 
-
-n_features = data.shape[1]
-n_features
-scprep.plot.scatter2d(data, c=metadata['sample_name'], ticks=False, label_prefix="PC", legend_title="Batch")
-
-# get labels
-table(metadata['CELLTYPE'])
-aFrame = data 
+data0 = np.genfromtxt(source_dir + "/Levine32_data.csv" , names=None, dtype=float, skip_header=1, delimiter=',')
+aFrame = data0[:,:] 
 aFrame.shape
 # set negative values to zero
-#aFrame[aFrame < 0] = 0
-lbls= metadata['CELLTYPE']
+aFrame[aFrame < 0] = 0
+lbls= np.genfromtxt(source_dir + "/Levine32_population.csv" , names=None, skip_header=0, delimiter=',', dtype='U100')
 #randomize order
 IDX = np.random.choice(aFrame.shape[0], aFrame.shape[0], replace=False)
 #patient_table = patient_table[IDX,:]
@@ -307,8 +275,8 @@ from joblib import Parallel, delayed
 from pathos import multiprocessing
 num_cores = 48
 #pool = multiprocessing.Pool(num_cores)
-results = Parallel(n_jobs=6, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
-original_dim=100
+results = Parallel(n_jobs=48, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
+original_dim=32
 neibALL = np.zeros((nrow, k3, original_dim))
 Distances = np.zeros((nrow, k3))
 neib_weight = np.zeros((nrow, k3))
@@ -330,15 +298,13 @@ neib_weight=np.array([ neib_weight[i, topk[i]] for i in range(len(topk))])
 neib_weight=sklearn.preprocessing.normalize(neib_weight, axis=1, norm='l1')
 neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
 plt.plot(neib_weight[1,:]);plt.show()
-outfile = source_dir + '/Shenkareuclid_scaled.npz'
+#outfile = source_dir + '/Nowicka2017euclid.npz'
+outfile = source_dir + '/Levine32euclid_scaled.npz'
 np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
          neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma)
 '''
-outfile = source_dir + '/Shenkareuclid_scaled.npz'
-markers = np.arange(1,101)
-np_load_old = np.load
-# modify the default parameters of np.load
-np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
+outfile = source_dir + '/Levine32euclid_scaled.npz'
+markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
 # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
 npzfile = np.load(outfile)
 weight_distALL = npzfile['Dist'];
@@ -352,12 +318,8 @@ neibALL = npzfile['neibALL']
 #np.sum(cut_neibF != 0)
 # plt.hist(cut_neibF[cut_neibF!=0],50)
 Sigma = npzfile['Sigma']
-# call load_data with allow_pickle implicitly set to true
 lbls = npzfile['lbls'];
 neib_weight = npzfile['neib_weight']
-# restore np.load for future normal usage
-np.load = np_load_old
-
 # [aFrame, neibF, cut_neibF, weight_neibF]
 # training set
 # targetTr = np.repeat(aFrame, r, axis=0)
@@ -366,7 +328,7 @@ neibF_Tr = neibALL
 weight_neibF_Tr =weight_distALL
 sourceTr = aFrame
 Idx = npzfile['Idx']
-
+Sigma = np.array([1 for x in Sigma])
 # session set up
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
@@ -382,15 +344,13 @@ neibF_Tr = neibALL
 weight_neibF_Tr =weight_distALL
 sourceTr = aFrame
 
-
 nrow = aFrame.shape[0]
 batch_size = 256
-original_dim = 100
+original_dim = 32
 latent_dim = 3
-intermediate_dim = 300
-intermediate_dim2= 200
-#nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
-
+intermediate_dim =32*3
+intermediate_dim2=32
+nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
 SigmaTsq = Input(shape=(1,))
 neib = Input(shape=(k, original_dim,))
 # var_dims = Input(shape = (original_dim,))
@@ -606,12 +566,13 @@ epochs = epochs
 batch_size=256
 #history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],
 history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],targetTr,
+#history = autoencoder.fit([targetTr, neibF_Tr,  Sigma],w_mean_target,
                 epochs=epochs, batch_size=batch_size, verbose=1, shuffle=True)
                 #validation_data=([targetTr[0:2000,:], neibF_Tr[0:2000,:],  Sigma[0:2000], weight_neibF[0:2000,:]], None),
                           # shuffle=True)
                 #callbacks=[CustomMetrics()], verbose=2)#, validation_data=([targetTr, neibF_Tr,  Sigma, weight_neibF], None))
 z = encoder.predict([aFrame, neibALL,  Sigma])
-plt.plot(history.history['loss'][200:])
+plt.plot(history.history['loss'][5:])
 #plt.plot(history.history['val_loss'][5:])
 plt.title('Model loss')
 plt.ylabel('Loss')
@@ -640,7 +601,7 @@ x = z[:, 0]
 y = z[:, 1]
 zz = z[:, 2]
 
-fig = plot3D_cluster_colors(x=x,y=y,z=zz, lbls=lbls)
+fig = plot3D_cluster_colors(z, lbls=lbls)
 fig.show()
 html_str=to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                   include_mathjax=False, post_script=None, full_html=True,
@@ -650,8 +611,19 @@ Html_file= open(html_dir + "/"+ID + "_Buttons.html","w")
 Html_file.write(html_str)
 Html_file.close()
 
+data2 =np.sqrt(1-(aFrame-1)**2)
+fig =plot3D_marker_colors(z, data=data2, markers=list(markers), sub_s = 50000, lbls=lbls)
+fig.show()
+html_str=to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
+                  include_mathjax=False, post_script=None, full_html=True,
+                  animation_opts=None, default_width='100%', default_height='100%', validate=True)
+html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
+Html_file= open(html_dir + "/"+ID + "_Smoothed_Markers.html","w")
+Html_file.write(html_str)
+Html_file.close()
 
-fig =plot3D_marker_colors(z, data=aFrame, markers=markers, sub_s = 20000, lbls=lbls)
+
+fig =plot3D_marker_colors(z, data=aFrame, markers=markers, sub_s = 50000, lbls=lbls)
 fig.show()
 html_str=to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                   include_mathjax=False, post_script=None, full_html=True,
@@ -663,7 +635,7 @@ Html_file.close()
 
 
 # clusteng hidden representation
-clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=25, alpha=1.0, cluster_selection_method = 'leaf') #5,20
+clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf') #5,20
 labelsHDBscanZ = clusterer.fit_predict(z)
 table(labelsHDBscanZ)
 print(compute_cluster_performance(lbls, labelsHDBscanZ))
@@ -671,7 +643,10 @@ labelsHDBscanZ= [str(x) for  x in labelsHDBscanZ]
 fig = plot3D_cluster_colors(x=x,y=y,z=zz, lbls=np.asarray(labelsHDBscanZ))
 fig.show()
 
-attrib_z=np.c_[z, aFrame[:,0:20]/20]
+#compute innternal metrics
+print(sklearn.metrics.calinski_harabasz_score(z, lbls))
+
+attrib_z=np.c_[z, aFrame/15]
 clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf') #5,20
 labelsHDBscanAttributes = clusterer.fit_predict(attrib_z)
 #labelsHDBscanAttributes = clusterer.fit_predict(aFrame)
@@ -680,17 +655,19 @@ print(compute_cluster_performance(lbls, labelsHDBscanAttributes))
 labelsHDBscanAttributes= [str(x) for  x in labelsHDBscanAttributes]
 fig = plot3D_cluster_colors(x=x,y=y,z=zz, lbls=np.asarray(labelsHDBscanAttributes))
 fig.show()
+print(sklearn.metrics.calinski_harabasz_score(attrib_z, lbls))
 
 # clustering projected z + aFrame
 prZ = projZ(z)
-attrib_z=np.c_[prZ, (aFrame)[:,0:20]/20]
-clusterer = hdbscan.HDBSCAN(min_cluster_size=50, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf')
+attrib_z=np.c_[prZ, np.array(aFrame)/5]
+clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf')
 labelsHDBscanAttributesPr = clusterer.fit_predict(attrib_z)
 #labelsHDBscanAttributes = clusterer.fit_predict(aFrame)
 table(labelsHDBscanAttributesPr)
 labelsHDBscanAttributes = [str(x) for  x in labelsHDBscanAttributesPr]
 print(compute_cluster_performance(lbls, labelsHDBscanAttributesPr))
 print(compute_cluster_performance(lbls[lbls!='"unassigned"'], np.array(labelsHDBscanAttributesPr)[lbls!='"unassigned"']))
+print(sklearn.metrics.calinski_harabasz_score(attrib_z, lbls))
 x = prZ[:, 0]
 y = prZ[:, 1]
 zz = prZ[:, 2]
@@ -698,11 +675,11 @@ fig = plot3D_cluster_colors(x=x,y=y,z=zz, lbls=np.asarray(labelsHDBscanAttribute
 fig.show()
 
 # clustering UMAP representation
-mapper = umap.UMAP(n_neighbors=30, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=False).fit(aFrame)
-embedUMAP =  mapper.transform(aFrame)
-#np.savez('Shekhar_' + 'embedUMAP.npz', embedUMAP=embedUMAP)
-embedUMAP = np.load('Shekhar_' + 'embedUMAP.npz')['embedUMAP']
-clusterer = hdbscan.HDBSCAN(min_cluster_size=50, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf') #5,20
+#mapper = umap.UMAP(n_neighbors=30, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=False).fit(aFrame)
+#embedUMAP =  mapper.transform(aFrame)
+#np.savez('LEVINE32_' + 'embedUMAP.npz', embedUMAP=embedUMAP)
+embedUMAP = np.load('LEVINE32_' + 'embedUMAP.npz')['embedUMAP']
+clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf') #5,20
 labelsHDBscanUMAP = clusterer.fit_predict(embedUMAP)
 table(labelsHDBscanUMAP)
 print(compute_cluster_performance(lbls, labelsHDBscanUMAP))
@@ -710,21 +687,21 @@ print(compute_cluster_performance(lbls, labelsHDBscanUMAP))
 fig = plot2D_cluster_colors(x=embedUMAP[:,0],y=embedUMAP[:,1], lbls=lbls)
 fig.show()
 
-attrib_z=np.c_[embedUMAP,(aFrame)[:,0:20]/20]
+attrib_z=np.c_[embedUMAP, np.array(aFrame)/5]
 labelsHDBscanUMAPattr = clusterer.fit_predict(attrib_z)
 table(labelsHDBscanUMAPattr)
 print(compute_cluster_performance(lbls, labelsHDBscanUMAPattr))
+print(sklearn.metrics.calinski_harabasz_score(attrib_z, lbls))
 #labelsHDBscanUMAPattr= [str(x) for  x in labelsHDBscanUMAPattr]
 #fig = plot3D_cluster_colors(x=x,y=y,z=zz, lbls=np.asarray(labelsHDBscanUMAPattr))
 #fig.show()
 
 # cluster with phenograph
 #communities, graph, Q = phenograph.cluster(aFrame)
-#np.savez('Shekhar_Phenograph.npz', communities=communities, graph=graph, Q=Q)
-communities =np.load('Shekhar_Phenograph.npz')['communities']
+#np.savez('Phenograph.npz', communities=communities, graph=graph, Q=Q)
+communities =np.load('Phenograph.npz')['communities']
 print(compute_cluster_performance(lbls, communities))
 print(compute_cluster_performance(lbls[lbls!='"unassigned"'], communities[lbls!='"unassigned"']))
-
 
 ######################################3
 # try SAUCIE
@@ -741,22 +718,22 @@ saucie.train(loadtrain, steps=1000)
 
 loadeval = SAUCIE.Loader(data, shuffle=False)
 embedding = saucie.get_embedding(loadeval)
-#np.savez('Shekhar_' + 'embedSAUCIE.npz', embedding=embedding)
-embedding = np.load('Shekhar_' + 'embedSAUCIE.npz')['embedding']
-number_of_clusters, clusters = saucie.get_clusters(loadeval)
-#np.savez('Shekhar_clusters' + 'embedSAUCIE.npz', number_of_clusters=number_of_clusters, clusters = clusters, embedding=embedding)
-print(compute_cluster_performance(lbls,  clusters))
+#np.savez('LEVINE32_' + 'embedSAUCIE.npz', embedding=embedding)
+embedding = np.load('LEVINE32_' + 'embedSAUCIE.npz')['embedding']
+#number_of_clusters, clusters = saucie.get_clusters(loadeval)
+#print(compute_cluster_performance(lbls,  clusters))
 #clusters= [str(x) for  x in clusters]
 #fig = plot3D_cluster_colors(x=embedding[:, 0],y=embedding[:, 1],z=np.zeros(len(clusters)), lbls=np.asarray(clusters))
 #fig.show()
 fig = plot2D_cluster_colors(x=embedding[:, 0],y=embedding[:, 1], lbls=lbls)
 fig.show()
 
-attrib_z=np.c_[embedding, (aFrame)[:,0:20]/20]
-clusterer = hdbscan.HDBSCAN(min_cluster_size=50, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf') #5,20
+attrib_z=np.c_[embedding, np.array(aFrame)/5]
+clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf') #5,20
 labelsHDBscanSAUCIEattr = clusterer.fit_predict(attrib_z)
 table(labelsHDBscanSAUCIEattr)
 print(compute_cluster_performance(lbls, labelsHDBscanSAUCIEattr))
+print(sklearn.metrics.calinski_harabasz_score(attrib_z, lbls))
 labelsHDBscanSAUCIEattr= [str(x) for  x in labelsHDBscanSAUCIEattr]
 fig = plot2D_cluster_colors(x=embedding[:, 0],y=embedding[:, 1],z=np.zeros(len(labelsHDBscanSAUCIEattr)), lbls=np.asarray(labelsHDBscanSAUCIEattr))
 fig.show()
@@ -765,9 +742,8 @@ fig = plot3D_cluster_colors(x=embedding[:, 0],y=embedding[:, 1],z=np.zeros(len(c
 fig.show()
 
 
-
-
 z_mr =  neighbour_marker_similarity_score(z, aFrame, kmax=90)
+plt.plot(z_mr)
 embedding_mr =  neighbour_marker_similarity_score(embedding, aFrame, kmax=90)
 embedUMAP_mr = neighbour_marker_similarity_score(embedUMAP, aFrame, kmax=90)
 #np.savez(ID + '_marker_similarity.npz', z_mr = z_mr,  embedding_mr=embedding_mr, embedUMAP_mr=embedUMAP_mr)
@@ -784,56 +760,6 @@ plt.plot('k', 'DCAE', data=df, marker='o', markerfacecolor='blue', markersize=2,
 plt.plot('k', 'SAUCIE', data=df, marker='', color='olive', linewidth=2)
 plt.plot('k', 'UMAP', data=df, marker='', color='olive', linewidth=2, linestyle='dashed')
 plt.legend()
-
-
-
-#found in sausie internal metric based on precision and recall highly irrelevant in out settings, lets still
-# try kit and may be modify for subset clustering
-n_neighbors = 30
-discontinuitySAUCIE, manytooneSAUCIE = get_wsd_scores(aFrame, embedding, n_neighbors)
-vmaxSAUCIE = np.percentile(np.hstack(
-    (discontinuitySAUCIE,
-     manytooneSAUCIE)), 95)
-fig = plt.figure()
-plt.hist(discontinuitySAUCIE,500)
-plt.title('discontinuitySAUCIE' + ' mean ' + str(np.mean(discontinuitySAUCIE)))
-plt.show()
-fig2 = plt.figure()
-plt.hist(manytooneSAUCIE,500)
-plt.title('manytooneSAUCIE' + ' mean ' + str(np.mean(manytooneSAUCIE)))
-plt.show()
-
-discontinuityZ, manytooneZ = get_wsd_scores(aFrame, z, n_neighbors)
-vmaxZ = np.percentile(np.hstack(
-    (discontinuityZ,
-     manytooneZ)), 95)
-fig3 = plt.figure()
-plt.hist(discontinuityZ,500)
-plt.title('discontinuityZ' + ' mean ' + str(np.mean(discontinuityZ)))
-plt.show()
-fig4 = plt.figure()
-plt.hist(manytooneZ,500)
-plt.title('manytooneZ' + ' mean ' + str(np.mean(manytooneZ)))
-plt.show()
-
-discontinuityUMAP, manytooneUMAP = get_wsd_scores(aFrame, embedUMAP, n_neighbors)
-vmaxUMAP = np.percentile(np.hstack(
-    (discontinuityUMAP,
-     manytooneUMAP)), 95)
-fig3 = plt.figure()
-plt.hist(discontinuityUMAP,500)
-plt.title('discontinuityUMAP' + ' mean ' + str(np.mean(discontinuityUMAP)))
-plt.show()
-fig4 = plt.figure()
-plt.hist(manytooneUMAP,500)
-plt.title('manytooneUMAP' + ' mean ' + str(np.mean(manytooneUMAP)))
-plt.show()
-
-
-
-
-
-
 
 
 

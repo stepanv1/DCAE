@@ -263,7 +263,7 @@ def find_neighbors(data, k_, metric='manhattan', cores=12):
 # load data
 k = 30
 k3 = k * 3
-coeffCAE = 1
+coeffCAE = 0.1
 epochs = 1500
 ID = 'Pr_sample_008_1_MMD_01_3D_DCAE_h300_h200_hidden_7_layers_CAE'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
 #ID = 'Pr_sample_008_1_MMD_01_3D_DCAE_h128_h63_h32_9_layers'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
@@ -642,9 +642,9 @@ plt.ylabel('Loss')
 plt.xlabel('Epoch')
 plt.legend(['Train', 'Test'], loc='upper right')
 plt.show()
-encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
-autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
-np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
+#encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
+#autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
+#np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
 
 #ID='Levine32_MMD_1_3D_DCAE_5'
 #encoder.load_weights('/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/Levine32_3D_DCAE_10_3D.h5')
@@ -676,6 +676,9 @@ Html_file.close()
 
 
 fig =plot3D_marker_colors(z, data=aFrame, markers=list(markers), sub_s = 20000, lbls=lbls)
+data2 =np.sqrt(1-(aFrame-1)**2)
+fig =plot3D_marker_colors(z, data=data2, markers=list(markers), sub_s = 20000, lbls=lbls)
+fig =plot3D_marker_colors(z, data=aFrame, markers=list(markers), sub_s = 20000, lbls=lbls)
 fig.show()
 html_str=to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                   include_mathjax=False, post_script=None, full_html=True,
@@ -684,6 +687,19 @@ html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_in
 Html_file= open(html_dir + "/"+ID + "_Markers.html","w")
 Html_file.write(html_str)
 Html_file.close()
+
+#smoothed marker distribution
+data2 =np.sqrt(1-(aFrame-1)**2)
+fig =plot3D_marker_colors(z, data=data2, markers=list(markers), sub_s = 20000, lbls=lbls)
+fig.show()
+html_str=to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
+                  include_mathjax=False, post_script=None, full_html=True,
+                  animation_opts=None, default_width='100%', default_height='100%', validate=True)
+html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
+Html_file= open(html_dir + "/"+ID + "_Smoothed_Markers.html","w")
+Html_file.write(html_str)
+Html_file.close()
+
 
 import hdbscan
 # clusteng hidden representation
@@ -815,6 +831,58 @@ plt.plot('k', 'DCAE', data=df, marker='o', markerfacecolor='blue', markersize=2,
 plt.plot('k', 'SAUCIE', data=df, marker='', color='olive', linewidth=2)
 plt.plot('k', 'UMAP', data=df, marker='', color='olive', linewidth=2, linestyle='dashed')
 plt.legend()
+
+
+#found in sausie internal metric based on precision and recall highly irrelevant in out settings, lets still
+# try kit and may be modify for subset clustering
+from utils_evaluation import get_wsd_scores
+embedUMAP = np.load('Pregnancy_'  + 'embedUMAP.npz')['embedUMAP']
+embedding = np.load('Pregnancy_'  + 'embedSAUCIE.npz')['embedding']
+z= np.load(output_dir +'/'+ ID + '_latent_rep_3D.npz')['z']
+n_neighbors = 30
+discontinuitySAUCIE, manytooneSAUCIE = get_wsd_scores(aFrame, embedding, n_neighbors, num_meandist=10000)
+vmaxSAUCIE = np.percentile(np.hstack(
+    (discontinuitySAUCIE,
+     manytooneSAUCIE)), 95)
+fig = plt.figure()
+plt.hist(discontinuitySAUCIE,500)
+plt.title('discontinuitySAUCIE' + ' median ' + str(np.median(discontinuitySAUCIE)))
+plt.show()
+fig2 = plt.figure()
+plt.hist(manytooneSAUCIE,500)
+plt.title('manytooneSAUCIE' + ' median ' + str(np.median(manytooneSAUCIE)))
+plt.show()
+
+discontinuityZ, manytooneZ = get_wsd_scores(aFrame, z, n_neighbors, num_meandist=10000)
+vmaxZ = np.percentile(np.hstack(
+    (discontinuityZ,
+     manytooneZ)), 95)
+fig3 = plt.figure()
+plt.hist(discontinuityZ,500)
+plt.title('discontinuityZ' + ' median ' + str(np.median(discontinuityZ)))
+plt.show()
+fig4 = plt.figure()
+plt.hist(manytooneZ,500)
+plt.title('manytooneZ' + ' median ' + str(np.median(manytooneZ)))
+plt.show()
+
+discontinuityUMAP, manytooneUMAP = get_wsd_scores(aFrame, embedUMAP, n_neighbors, num_meandist=10000)
+vmaxUMAP = np.percentile(np.hstack(
+    (discontinuityUMAP,
+     manytooneUMAP)), 95)
+fig5 = plt.figure()
+plt.hist(discontinuityUMAP,500)
+plt.title('discontinuityUMAP' + ' median ' + str(np.median(discontinuityUMAP)))
+plt.show()
+fig6 = plt.figure()
+plt.hist(manytooneUMAP,500)
+plt.title('manytooneUMAP' + ' median ' + str(np.median(manytooneUMAP)))
+plt.show()
+
+
+
+
+
 
 # compare SAUCIE results and ours using cross-decomposition analysis
 from sklearn.cross_decomposition import PLSCanonical, PLSRegression, CCA
