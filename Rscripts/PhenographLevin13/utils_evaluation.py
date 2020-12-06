@@ -202,6 +202,7 @@ def compare_neighbours(idx1, idx2, kmax=90):
 
 #compare neighbourhoof assignments
 def neighbour_marker_similarity_score(z, data, kmax=30, num_cores=12):
+    kmax = kmax + 1
     neib_z = find_neighbors(z, kmax, metric='euclidean')['idx']
     nrow = data.shape[0]
     match =  np.zeros(kmax, dtype = 'float')
@@ -215,6 +216,7 @@ def neighbour_marker_similarity_score(z, data, kmax=30, num_cores=12):
     return match
 
 def neighbour_onetomany_score(z, idx, kmax=30, num_cores=12):
+    kmax=kmax + 1
     nrow = z.shape[0]
     match =  np.zeros(kmax, dtype = 'float')
     per_cell_match = np.zeros((kmax, nrow), dtype = 'float')
@@ -234,6 +236,7 @@ def neighbour_onetomany_score(z, idx, kmax=30, num_cores=12):
 
 
 def neighbour_marker_similarity_score_per_cell(z, data, kmax=30, num_cores=12):
+    kmax=kmax + 1
     nrow = z.shape[0]
     neib_z = find_neighbors(z, kmax, metric='euclidean')['idx']
     match =  np.zeros(kmax, dtype = 'float')
@@ -474,6 +477,8 @@ def projZ(x):
 
 ####################################
 # functions from https://github.com/jlmelville/quadra
+# Area under the RNX curve.!
+# http://jlmelville.github.io/sneer/analysis.html  - also R code
 # for precision recall measurements
 # functions from pltutils:
 # Copyright (c) 2018-present, Royal Bank of Canada.
@@ -482,6 +487,10 @@ def projZ(x):
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 # slightly modified by SG to allow knn-matrix as input
+#TODO: add above
+#https://github.com/BorealisAI/eval_dr_by_wsd
+#https://www.borealisai.com/en/blog/dimensionality-reduction-finally-has-quantifiable-imperfections/
+#https://www.borealisai.com/media/filer_public/97/35/9735bcc1-635f-40ab-a7e0-3873ced5b1d3/nips_2018.pdf
 import matplotlib.pyplot as plt
 from matplotlib.ticker import NullFormatter
 
@@ -706,5 +715,29 @@ plt.clim(vmin1, vmax4)
 plt.show()
 '''
 
+#TODO: realize global structure measure
+# General idea for paper: on tyeh sphere there can be N fartherst points,
+# while inside circle ~sqrt(M) - -beter preservation of topology
+def k_farthest_neib_sphere():
+    '''
+    build knn tree (kd or ball)
+    find point opposite to given point and
+    quire tree for its knn, they will be fartherst points on the sphere
 
+    '''
+    pass
+def k_farthest_neib_plane():
+    '''
+    similar idea to farthestspoints_sphere
+    instead of convex hull find knn and colsest to
+    the opposite point on the eclosing circle will be the furthers one
+    :return:
+    '''
 
+    pass
+def global_structure_preservation_score():
+    '''
+    find average distance (in x-space) of n-farhest neighbours (in y space) per point
+    average over all points in data set
+    '''
+    pass
