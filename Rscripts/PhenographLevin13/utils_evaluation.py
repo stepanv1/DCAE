@@ -277,7 +277,7 @@ hom_UMAP = hom_k
 '''
 
 #plotly 3D plotting functions
-def plot3D_cluster_colors(z ,lbls):
+def plot3D_cluster_colors(z, lbls, camera=None, legend=True):
     x = z[:, 0]
     y = z[:, 1]
     z1 = z[:, 2]
@@ -311,6 +311,14 @@ def plot3D_cluster_colors(z ,lbls):
                                 hoverinfo='text'))
         fig.update_layout(yaxis=dict(range=[-3, 3]),
                           margin=dict(l=0, r=0, b=0, t=10))
+        if camera == None:
+            camera = dict(
+                up=dict(x=0, y=0., z=1),
+                eye=dict(x=1.25, y=1.25, z=1.25)
+            )
+        fig.update_layout(scene_camera=camera, showlegend=legend)
+        # set colour to white
+        fig.update_layout(dict(xaxis=dict( showgrid=True, gridwidth=1, gridcolor='White')))
 
     return fig
 
@@ -376,6 +384,71 @@ def plot3D_marker_colors(z, data, markers, sub_s = 50000, lbls=None):
     return fig
 
 
+def plot3D_performance_colors(z, perf, lbls=None):
+    nrows = z.shape[0]
+    x = z[:, 0]
+    y = z[:, 1]
+    zz = z[:, 2]
+
+    fig = go.Figure()
+    fig.add_trace(Scatter3d(x=x, y=y, z=zz,
+                            mode='markers',
+                            marker=dict(
+                                size=0.5,
+                                color=perf,  # set color to an array/list of desired values
+                                colorscale='Viridis',  # choose a colorscale
+                                opacity=0.5,
+                                colorbar=dict(xanchor='left', x=-0.05, len=0.5),
+                                showscale=True
+                            ),
+                            text=lbls,
+                            hoverinfo='text',
+                            ))
+    fig.update_layout(scene = dict(
+                      xaxis = dict(visible=True, backgroundcolor='rgba(0,0,0,0)', showgrid = True, gridcolor = "#eee", gridwidth = 1, showline=True, zeroline=True),
+                      yaxis=dict(backgroundcolor='rgba(0,0,0,0)',showgrid=True, gridcolor= "#eee", gridwidth = 1, showline=True, zeroline=True),
+                      zaxis=dict(backgroundcolor='rgba(0,0,0,0)',showgrid=True, gridcolor="#eee", gridwidth=1, showline=True, zeroline=True)
+                      ))
+    #fig.update_layout(
+    #    showlegend=False,
+    #    updatemenus=[go.layout.Updatemenu(
+    #        active=0
+    #    )
+    #   ])
+    return fig
+
+def plot2D_performance_colors(z, perf, lbls=None):
+    nrows = z.shape[0]
+    x = z[:, 0]
+    y = z[:, 1]
+    fig = go.Figure()
+    fig.add_trace(Scatter(x=x, y=y,
+                            mode='markers',
+                            marker=dict(
+                                size=0.5,
+                                color=perf,  # set color to an array/list of desired values
+                                colorscale='Viridis',  # choose a colorscale
+                                opacity=0.5,
+                                colorbar=dict(xanchor='left', x=-0.1, len=0.5),
+                                showscale=True
+                            ),
+                            text=lbls,
+                            hoverinfo='text',
+                            ))
+
+    fig.update_layout(dict(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'),
+                      xaxis = dict(showgrid = True, gridcolor = "#eee", gridwidth = 1, showline=True, zeroline=True),
+                      yaxis=dict(showgrid=True, gridcolor= "#eee", gridwidth = 1, showline=True, zeroline=True)
+                      )
+
+    #fig.update_layout(
+    #    showlegend=False,
+    #    updatemenus=[go.layout.Updatemenu(
+    #        active=0
+    #    )
+    #   ])
+    return fig
+
 def plot2D_cluster_colors(z, lbls):
     x = z[:, 0]
     y = z[:, 1]
@@ -407,6 +480,8 @@ def plot2D_cluster_colors(z, lbls):
                                 # hoverinfo='text')], filename='tmp.html')
                                 hoverinfo='text'))
         fig.update_layout(margin=dict(l=0, r=0, b=0, t=10))
+
+        fig.update_layout(dict(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'))
     return fig
 
 def plot2D_marker_colors(z, data, markers, sub_s = 50000, lbls=None):
@@ -722,18 +797,18 @@ def k_farthest_neib_sphere():
     '''
     build knn tree (kd or ball)
     find point opposite to given point and
-    quire tree for its knn, they will be fartherst points on the sphere
+    query tree for its knn, they will be fartherst points on the sphere
 
     '''
     pass
 def k_farthest_neib_plane():
     '''
     similar idea to farthestspoints_sphere
-    instead of convex hull find knn and colsest to
-    the opposite point on the eclosing circle will be the furthers one
+    instead of convex hull find knn and closest to
+    the opposite point on the eclosing circle will be the fartherst one
+    or just get the hull
     :return:
     '''
-
     pass
 def global_structure_preservation_score():
     '''
@@ -741,3 +816,8 @@ def global_structure_preservation_score():
     average over all points in data set
     '''
     pass
+#TODO: demonstrate this by putting 4 balls on one line and by
+# rreplacing positions of two central bulbs, thus destroing global
+# (topological) structure
+#TODO: for mauscript plot PCA elbow plots to show how variance falls
+# inside first several PC's in single cell (Shekhar and Levine32)

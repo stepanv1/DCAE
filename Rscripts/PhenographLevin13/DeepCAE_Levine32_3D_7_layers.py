@@ -601,7 +601,7 @@ x = z[:, 0]
 y = z[:, 1]
 zz = z[:, 2]
 
-fig = plot3D_cluster_colors(z, lbls=lbls)
+fig = plot3D_cluster_colors(z, camera = dict(eye = dict(x=-0.2,y=0.2,z=1.5)), lbls=lbls)
 fig.show()
 html_str=to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                   include_mathjax=False, post_script=None, full_html=True,
@@ -610,6 +610,13 @@ html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_in
 Html_file= open(html_dir + "/"+ID + "_Buttons.html","w")
 Html_file.write(html_str)
 Html_file.close()
+
+#3 plots for paper
+fig = plot3D_cluster_colors(z[lbls !='"unassigned"', :  ], camera = dict(eye = dict(x=-0.2,y=0.2,z=1.5)), lbls=lbls[lbls !='"unassigned"'])
+fig.show()
+
+
+
 
 
 fig =plot3D_marker_colors(z, data=aFrame, markers=markers, sub_s = 50000, lbls=lbls)
@@ -622,6 +629,10 @@ Html_file= open(html_dir + "/"+ID + "_Markers.html","w")
 Html_file.write(html_str)
 Html_file.close()
 
+#stretch low signal
+aFramesqrt =np.sqrt(aFrame)
+fig =plot3D_marker_colors(z, data=aFramesqrt, markers=markers, sub_s = 50000, lbls=lbls)
+fig.show()
 
 # clusteng hidden representation
 clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf') #5,20
@@ -884,6 +895,50 @@ np.median(discontinuitySAUCIE)
 #0.009914790259467234
 np.median(manytooneSAUCIE)
 #0.17852087116020135
+
+#plot perf
+fig =plot3D_performance_colors(z, perf=discontinuityDCAE, lbls=lbls)
+fig.show()
+fig =plot3D_performance_colors(z, perf=onetomany_scoreDCAE[30,:], lbls=lbls)
+fig.show()
+fig =plot3D_performance_colors(z, perf=manytooneDCAE, lbls=lbls)
+fig.show()
+fig =plot3D_performance_colors(z, perf=marker_similarity_scoreDCAE, lbls=lbls)
+fig.show()
+
+fig =plot2D_performance_colors(embedding, perf=discontinuitySAUCIE, lbls=lbls)
+fig.show()
+fig =plot2D_performance_colors(embedding, perf=onetomany_scoreSAUCIE[30,:], lbls=lbls)
+fig.show()
+fig =plot2D_performance_colors(embedding, perf=manytooneSAUCIE, lbls=lbls)
+fig.show()
+fig =plot2D_performance_colors(embedding, perf=marker_similarity_scoreSAUCIE, lbls=lbls)
+fig.show()
+
+fig =plot2D_performance_colors(embedUMAP, perf=discontinuityUMAP, lbls=lbls)
+fig.show()
+fig =plot2D_performance_colors(embedUMAP, perf=onetomany_scoreSAUCIE[30,:], lbls=lbls)
+fig.show()
+fig =plot2D_performance_colors(embedUMAP, perf=manytooneSAUCIE, lbls=lbls)
+fig.show()
+
+
+
+
+
+# add global metrics
+from scipy.spatial import ConvexHull, convex_hull_plot_2d
+points = np.random.rand(300000, 2)   # 30 random points in 2-D
+hull = ConvexHull(points)
+plt.plot(points[:,0], points[:,1], 'o')
+for simplex in hull.simplices:
+    plt.plot(points[simplex, 0], points[simplex, 1], 'k-')
+#We could also have directly used the vertices of the hull, which for 2-D are guaranteed to be in counterclockwise order:
+plt.plot(points[hull.vertices,0], points[hull.vertices,1], 'r--', lw=2)
+plt.plot(points[hull.vertices[0],0], points[hull.vertices[0],1], 'ro')
+plt.show()
+
+
 
 
 
