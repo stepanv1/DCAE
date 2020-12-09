@@ -816,6 +816,23 @@ fig.show()
 # create performance plots for paper
 embedding = np.load('Pregnancy_' + 'embedSAUCIE.npz')['embedding']
 embedUMAP = np.load('Pregnancy_' + 'embedUMAP.npz')['embedUMAP']
+PAPERPLOTS  = './PAPERPLOTS/'
+#3 plots for paper
+# how to export as png: https://plotly.com/python/static-image-export/ 2D
+fig = plot3D_cluster_colors(z[lbls !='"Unassgined"', :  ], camera = dict(eye = dict(x=-1.5,y=1.5,z=0.3)),
+                            lbls=lbls[lbls !='"Unassgined"'],legend=False)
+fig.show()
+fig.write_image(PAPERPLOTS+ "Pregnancy.png")
+
+fig = plot2D_cluster_colors(embedding[lbls !='"Unassgined"', :  ], lbls=lbls[lbls !='"Unassgined"'],legend=False)
+fig.show()
+fig.write_image(PAPERPLOTS+ "Pregnancy_SAUCIE.png")
+
+fig = plot2D_cluster_colors(embedUMAP[lbls !='"Unassgined"', :  ], lbls=lbls[lbls !='"Unassgined"'],legend=True)
+fig.show()
+fig.write_image(PAPERPLOTS+ "Pregnancy_UMAP.png")
+
+
 #TODO:very importmant!!! scale all the output to be in unite square (or cube)
 scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
 embedding=  scaler.fit_transform(embedding)

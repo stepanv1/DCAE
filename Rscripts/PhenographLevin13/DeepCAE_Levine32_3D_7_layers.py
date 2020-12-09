@@ -593,8 +593,6 @@ autoencoder.load_weights(output_dir +'autoencoder_'+ID + '_3D.h5')
 z = encoder.predict([aFrame, neibF_Tr,  Sigma, weight_neibF])
 
 #- visualisation and pefroramnce metric-----------------------------------------------------------------------------------------------
-
-
 # np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt', x_test_enc)
 # x_test_enc=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt')
 x = z[:, 0]
@@ -610,13 +608,6 @@ html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_in
 Html_file= open(html_dir + "/"+ID + "_Buttons.html","w")
 Html_file.write(html_str)
 Html_file.close()
-
-#3 plots for paper
-fig = plot3D_cluster_colors(z[lbls !='"unassigned"', :  ], camera = dict(eye = dict(x=-0.2,y=0.2,z=1.5)), lbls=lbls[lbls !='"unassigned"'])
-fig.show()
-
-
-
 
 
 fig =plot3D_marker_colors(z, data=aFrame, markers=markers, sub_s = 50000, lbls=lbls)
@@ -763,6 +754,23 @@ plt.legend()
 # create performance plots for paper
 embedding = np.load('LEVINE32_' + 'embedSAUCIE.npz')['embedding']
 embedUMAP = np.load('LEVINE32_' + 'embedUMAP.npz')['embedUMAP']
+PAPERPLOTS  = './PAPERPLOTS/'
+#3 plots for paper
+# how to export as png: https://plotly.com/python/static-image-export/ 2D
+fig = plot3D_cluster_colors(z[lbls !='"unassigned"', :  ], camera = dict(eye = dict(x=-0.2,y=0.2,z=1.5)),
+                            lbls=lbls[lbls !='"unassigned"'],legend=False)
+fig.show()
+fig.write_image(PAPERPLOTS+ "LEVINE32.png")
+
+fig = plot2D_cluster_colors(embedding[lbls !='"unassigned"', :  ], lbls=lbls[lbls !='"unassigned"'],legend=False)
+fig.show()
+fig.write_image(PAPERPLOTS+ "LEVINE32_SAUCIE.png")
+
+fig = plot2D_cluster_colors(embedUMAP[lbls !='"unassigned"', :  ], lbls=lbls[lbls !='"unassigned"'],legend=True)
+fig.show()
+fig.write_image(PAPERPLOTS+ "LEVINE32_UMAP.png")
+
+
 #TODO:very importmant!!! scale all the output to be in unite square (or cube)
 scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
 embedding=  scaler.fit_transform(embedding)
@@ -857,7 +865,6 @@ plt.hist(manytooneUMAP,250)
 
 plt.hist(z,250)
 plt.hist(embedding,250)
-PAPERPLOTS  = './PAPERPLOTS/'
 #build grpahs using above data
 # now build plots and tables. 2 plots: 1 for onetomany_score, 1 marker_similarity_scoreDCAE on 2 methods
 # table: Discontinuity and manytoone (2 columns) with 3 rows, each per method. Save as a table then stack with output on other  data , to create the final table
@@ -939,10 +946,61 @@ plt.plot(points[hull.vertices[0],0], points[hull.vertices[0],1], 'ro')
 plt.show()
 
 
+hull = ConvexHull(aFrame[0:100,:])
+
+for simplex in hull.simplices:
+    plt.plot(points[simplex, 0], points[simplex, 1], 'k-')
+#We could also have directly used the vertices of the hull, which for 2-D are guaranteed to be in counterclockwise order:
+plt.plot(points[hull.vertices,0], points[hull.vertices,1], 'r--', lw=2)
+plt.plot(points[hull.vertices[0],0], points[hull.vertices[0],1], 'ro')
+plt.show()
 
 
+def convex_hull(A):
+    vertices = A.T.tolist()
+    vertices = [ i + [ 1 ] for i in vertices ]
+    poly = PyNormaliz.Cone(vertices = vertices)
+    hull_vertices = np.array([entry[:-1] for entry in poly.VerticesOfPolyhedron()]).T
+    hull_indices = find_column_indices(A, hull_vertices)
+    return hull_indices
+from scipy import spatial
+zzz0= spatial.distance_matrix(aFrame[1000:2001,:], aFrame[1000:2001,:], p=2, threshold=1000000)
+#plt.hist(zzz,100)
+zzz1 =spatial.distance_matrix(z[1000:2001,:], z[1000:2001,:], p=2, threshold=1000000)
+zzz2 =spatial.distance_matrix(embedding[1000:2001,:], embedding[1000:2001,:], p=2, threshold=1000000)
+zzz3 =spatial.distance_matrix(embedUMAP[1000:2001,:], embedUMAP[1000:2001,:], p=2, threshold=1000000)
+#plt.hist(zzz,100)
+from scipy.spatial.distance import pdist
+zzz0 =pdist(aFrame[1000:2001,:])
+zzz1 =pdist(z[1000:2001,:])
+zzz2 =pdist(embedding[1000:2001,:])
+zzz3 =pdist(embedUMAP[1000:2001,:])
+#TODO switch distance here into geodisec on a spheeeeere d_g = 2*arcsin(d/(2r))*r for zzz1
+
+# Tennenbaum [43]
+#http://www.sci.utah.edu/~beiwang/publications/TopoDR_BeiWang_2018.pdf
+from scipy import stats
+1.0-stats.spearmanr(zzz0, zzz1).correlation**2
+1.0-stats.pearsonr(zzz0, zzz2).correlation**2
+1.0-stats.pearsonr(zzz0, zzz3).correlation**2
+from numpy import random
+idx=random.choice(500500,100000)
+
+plt.scatter(zzz0.flatten()[idx], 2*zzz1.flatten()[idx], s=0.01)
+plt.scatter(zzz0.flatten()[idx], zzz2.flatten()[idx], s=0.01)
+plt.scatter(zzz0.flatten()[idx], zzz3.flatten()[idx], s=0.01)
+
+plt.scatter(zzz0.flatten()[:1000], zzz1.flatten()[:1000])
+plt.scatter(zzz0.flatten()[:1000], zzz2.flatten()[:1000])
+plt.scatter(zzz0.flatten()[:1000], zzz3.flatten()[:1000])
 
 
+1.0-stats.spearmanr(zzz0[zzz0>0.5].flatten(), zzz1[zzz0>0.5].flatten()).correlation**2
+1.0-stats.spearmanr(zzz0[zzz0>0.5].flatten(), zzz2[zzz0>0.5].flatten()).correlation**2
+1.0-stats.spearmanr(zzz0[zzz0>0.5].flatten(), zzz3[zzz0>0.5].flatten()).correlation**2
+
+# more measures:
+#file:///home/stepan/Downloads/Agreement_Analysis_of_Quality_Measures_for_Dimensi.pdf
 ###########################################################################
 #viisualization using metric as coulurs, add to supplements later
 # try kit and may be modify for subset clustering (use utils evelauation to improve this)

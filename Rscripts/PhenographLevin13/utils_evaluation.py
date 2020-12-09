@@ -318,7 +318,15 @@ def plot3D_cluster_colors(z, lbls, camera=None, legend=True):
             )
         fig.update_layout(scene_camera=camera, showlegend=legend)
         # set colour to white
-        fig.update_layout(dict(xaxis=dict( showgrid=True, gridwidth=1, gridcolor='White')))
+        fig.update_layout(dict(xaxis=dict( showgrid=True, gridwidth=1, gridcolor="#eee")))
+        fig.update_layout(scene=dict(
+            xaxis=dict(visible=True, backgroundcolor='rgba(0,0,0,0)', showgrid=True, gridcolor="#eee", gridwidth=1,
+                       showline=True, zeroline=True),
+            yaxis=dict(backgroundcolor='rgba(0,0,0,0)', showgrid=True, gridcolor="#eee", gridwidth=1, showline=True,
+                       zeroline=True),
+            zaxis=dict(backgroundcolor='rgba(0,0,0,0)', showgrid=True, gridcolor="#eee", gridwidth=1, showline=True,
+                       zeroline=True)
+        ))
 
     return fig
 
@@ -449,7 +457,7 @@ def plot2D_performance_colors(z, perf, lbls=None):
     #   ])
     return fig
 
-def plot2D_cluster_colors(z, lbls):
+def plot2D_cluster_colors(z, lbls, legend=True):
     x = z[:, 0]
     y = z[:, 1]
     #nrow = len(x)
@@ -480,8 +488,11 @@ def plot2D_cluster_colors(z, lbls):
                                 # hoverinfo='text')], filename='tmp.html')
                                 hoverinfo='text'))
         fig.update_layout(margin=dict(l=0, r=0, b=0, t=10))
-
-        fig.update_layout(dict(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'))
+        fig.update_layout(showlegend=legend)
+        fig.update_layout(dict(paper_bgcolor='white', plot_bgcolor='white'),
+                          xaxis=dict(showgrid=True, gridcolor="#eee", gridwidth=1, showline=True, zeroline=True),
+                          yaxis=dict(showgrid=True, gridcolor="#eee", gridwidth=1, showline=True, zeroline=True)
+                          )
     return fig
 
 def plot2D_marker_colors(z, data, markers, sub_s = 50000, lbls=None):

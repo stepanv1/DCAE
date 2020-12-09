@@ -10,22 +10,9 @@ from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbou
     plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
     get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d
 #get a subsample of Levine data and create artificial data with it
-source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess'
-outfile = source_dir + '/Levine32euclid_scaled.npz'
-npzfile = np.load(outfile)
-data = npzfile['aFrame'];
-color = npzfile['lbls'];
-data= data[color!='"unassigned"']
-color = color[color!='"unassigned"']
-#subsample
-nrows = data.shape[0]
-sub_idx = np.random.choice(range(nrows), 20000, replace=False)
-data= data[sub_idx]
-color = color[sub_idx]
-color=pd.Categorical(pd.factorize(color)[0])
-# example from github
 
-np.random.seed(0)
+
+PAPERPLOTS  = './PAPERPLOTS/'
 #data, color = datasets.make_blobs(n_samples=10000, centers=20, n_features=30,
 #                   random_state=0)
 
@@ -77,9 +64,7 @@ vmin2 = np.percentile(manytoone,5)
 vmin3=np.percentile(onetomany_score[29,:],5)
 vmin4 = np.percentile(marker_similarity_score[29,:],5)
 
-
-
-
+PAPERPLOTS  = './PAPERPLOTS/'
 sz=0.1
 sns.set_style("white")
 fig = plt.figure(figsize=(10, 10))
@@ -101,7 +86,7 @@ plt.colorbar(img)
 plt.clim(vmin1, vmax1)
 
 sbpl4 = plt.subplot(3, 2, 4)
-plt.title("many-to-one")
+plt.title("manytoone")
 img = plt.scatter(y0[:, 0], y0[:, 1], c=manytoone,
                   vmax=vmax2, vmin=vmin2,
                   s=sz, cmap=plt.cm.rainbow)
@@ -109,7 +94,7 @@ plt.colorbar(img)
 plt.clim(vmin1, vmax2)
 
 plt.subplot(3, 2, 5)
-sbpl5 = plt.title("one-to-many")
+sbpl5 = plt.title("onetomany")
 img = plt.scatter(y0[:, 0], y0[:, 1], c=onetomany_score[29,:]
 , vmax=vmax3, vmin=vmin3,
                   s=sz, cmap=plt.cm.rainbow)
@@ -119,8 +104,7 @@ plt.clim(vmin1, vmax3)
 sbpl6 = plt.subplot(3, 2, 6)
 plt.title("marker similarity")
 img = plt.scatter(y0[:, 0], y0[:, 1], c=marker_similarity_score[29,:]
-, vmax=vmax4,  vmin=vmin4,
-                  s=sz, cmap=plt.cm.rainbow)
+, vmax=vmax4,  vmin=vmin4,  s=sz, cmap=plt.cm.rainbow)
 plt.colorbar(img)
 plt.clim(vmin1, vmax4)
 
@@ -129,8 +113,10 @@ plt.clim(vmin1, vmax4)
 #cb.outline.set_linewidth(0.)
 #plt.clim(0., vmax)
 
-
+plt.savefig(PAPERPLOTS  + 'Illustration_' + 'performance_measures.png')
 plt.show()
+
+plt.clf()
 
 plt.hist(onetomany_score[29,:],100)
 plt.hist(discontinuity,100)
