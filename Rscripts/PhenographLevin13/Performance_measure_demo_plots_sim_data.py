@@ -10,7 +10,7 @@ from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbou
     plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
     get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d
 #get a subsample of Levine data and create artificial data with it
-
+import ot_estimators
 
 PAPERPLOTS  = './PAPERPLOTS/'
 #data, color = datasets.make_blobs(n_samples=10000, centers=20, n_features=30,
@@ -124,3 +124,33 @@ plt.hist(discontinuity,100)
 
 plt.hist(marker_similarity_score[29,:],300)
 plt.hist(manytoone,100)
+
+# playing with data
+
+data, color = datasets.make_classification(n_samples=100, n_features=5,  n_informative=5, n_redundant=0, n_repeated=0,
+                n_classes=3, n_clusters_per_class=1, weights=None, flip_y=0.5, class_sep=2.0, hypercube=True, shift=0.0, scale=1.0, shuffle=True, random_state=12345)
+
+
+data2, color2 = datasets.make_classification(n_samples=100, n_features=5,  n_informative=5, n_redundant=0, n_repeated=0,
+                n_classes=3, n_clusters_per_class=1, weights=None, flip_y=0.5, class_sep=2.0, hypercube=True, shift=0.0, scale=1.0, shuffle=True, random_state=1)
+
+
+import ot
+distmat = ot.dist(data, data2)
+a = ot.unif(len(data))
+b = ot.unif(len(data2))
+#this will do
+[ot.emd2(a, b, distmat/np.max(distmat), numItermax = 1000, processes=1 ) for x in range(10000)]# 0.06898100585538322
+
+ot.sinkhorn2(a,b,distmat/np.max(distmat), 0.001, numItermax = 50, processes=1) # entropic regularized OT 0.06783081
+ot.bregman.empirical_sinkhorn2(data/np.max(distmat), data2/np.max(distmat), 0.001, verbose=False, numIterMax=100) #29.15664872
+zzz=ot.bregman.greenkhorn(a, b, distmat/np.max(distmat), 1, numItermax=10000)
+np.sum(zzz*distmat)
+
+from pyemd import emd
+
+first_histogram = np.array([0.0, 1.0])
+second_histogram = np.array([5.0, 3.0])
+emd(first_histogram, second_histogram, distance_matrix)
+
+emd(a, b, distmat)

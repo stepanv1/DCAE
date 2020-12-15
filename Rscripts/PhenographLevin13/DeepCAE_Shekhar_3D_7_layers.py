@@ -732,12 +732,12 @@ sys.path.append("/home/grines02/PycharmProjects/BIOIBFO25L/SAUCIE")
 data = aFrame
 from importlib import reload
 import SAUCIE
-#reload(SAUCIE)
-#import tensorflow.compat.v1 as tf
-#tf.disable_v2_behavior()
+reload(SAUCIE)
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 saucie = SAUCIE.SAUCIE(data.shape[1])
 loadtrain = SAUCIE.Loader(data, shuffle=True)
-saucie.train(loadtrain, steps=1000)
+saucie.train(loadtrain, steps=10000)
 
 loadeval = SAUCIE.Loader(data, shuffle=False)
 embedding = saucie.get_embedding(loadeval)
@@ -749,7 +749,7 @@ print(compute_cluster_performance(lbls,  clusters))
 #clusters= [str(x) for  x in clusters]
 #fig = plot3D_cluster_colors(x=embedding[:, 0],y=embedding[:, 1],z=np.zeros(len(clusters)), lbls=np.asarray(clusters))
 #fig.show()
-fig = plot2D_cluster_colors(x=embedding[:, 0],y=embedding[:, 1], lbls=lbls)
+fig = plot2D_cluster_colors(embedding, lbls=lbls)
 fig.show()
 
 attrib_z=np.c_[embedding, (aFrame)[:,0:20]/20]
@@ -771,16 +771,16 @@ embedUMAP = np.load('Shekhar_' + 'embedUMAP.npz')['embedUMAP']
 PAPERPLOTS  = './PAPERPLOTS/'
 #3 plots for paper
 # how to export as png: https://plotly.com/python/static-image-export/ 2D
-fig = plot3D_cluster_colors(z[lbls !='"Unassgined"', :  ], camera = dict(eye = dict(x=-1.5,y=1.5,z=0.3)),
-                            lbls=lbls[lbls !='"Unassgined"'],legend=False)
+fig = plot3D_cluster_colors(z[lbls !='-1', :  ], camera = dict(eye = dict(x=-1.5,y=1.5,z=0.3)),
+                            lbls=lbls[lbls !='-1'],legend=False)
 fig.show()
 fig.write_image(PAPERPLOTS+ "Shekhar.png")
 
-fig = plot2D_cluster_colors(embedding[lbls !='"Unassgined"', :  ], lbls=lbls[lbls !='"Unassgined"'],legend=False)
+fig = plot2D_cluster_colors(embedding[lbls !='-1', :  ], lbls=lbls[lbls !='-1'],legend=False)
 fig.show()
 fig.write_image(PAPERPLOTS+ "Shekhar_SAUCIE.png")
 
-fig = plot2D_cluster_colors(embedUMAP[lbls !='"Unassgined"', :  ], lbls=lbls[lbls !='"Unassgined"'],legend=True)
+fig = plot2D_cluster_colors(embedUMAP[lbls !='-1', :  ], lbls=lbls[lbls !='-1'],legend=True)
 fig.show()
 fig.write_image(PAPERPLOTS+ "Shekhar_UMAP.png")
 
@@ -833,7 +833,7 @@ np.mean(discontinuityUMAP)
 np.mean(manytooneUMAP)
 np.mean(discontinuitySAUCIE)
 np.mean(manytooneSAUCIE)
-np.mean(onetomany_scoreDCAE[29,:])
+np.mean(onetomany_scoreDCAE[29])
 np.mean(marker_similarity_scoreDCAE[29])
 np.mean(onetomany_scoreUMAP[29,:])
 np.mean(marker_similarity_scoreUMAP[29])
@@ -886,7 +886,8 @@ PAPERPLOTS  = './PAPERPLOTS/'
 #build grpahs using above data
 # now build plots and tables. 2 plots: 1 for onetomany_score, 1 marker_similarity_scoreDCAE on 2 methods
 # table: Discontinuity and manytoone (2 columns) with 3 rows, each per method. Save as a table then stack with output on other  data , to create the final table
-median_marker_similarity_scoreDCAE = np.median(marker_similarity_scoreDCAE, axis=1);median_marker_similarity_scoreSAUCIE = np.median(marker_similarity_scoreSAUCIE, axis=1);
+median_marker_similarity_scoreDCAE = np.median(marker_similarity_scoreDCAE, axis=1);
+median_marker_similarity_scoreSAUCIE = np.median(marker_similarity_scoreSAUCIE, axis=1);
 median_marker_similarity_scoreUMAP = np.median(marker_similarity_scoreUMAP, axis=1);
 df_sim = pd.DataFrame({'k':range(0,91)[1:],  'DCAE': median_marker_similarity_scoreDCAE[1:], 'SAUCIE': median_marker_similarity_scoreSAUCIE[1:], 'UMAP': median_marker_similarity_scoreUMAP[1:]})
 #fig1, fig2 = plt.subplots()
@@ -906,7 +907,7 @@ plt.plot('k', 'UMAP', data=df_otm, marker='x', color='olive', linewidth=2)
 plt.savefig(PAPERPLOTS  + 'Shekhar_' + 'performance_onetomany_score.png')
 plt.show()
 # tables
-df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.5561, 0.5629, 0.6188], 'discontinuity': [0.2767, 0.0320, 0.0619]})
+df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.5582, 0.5482, 0.5630], 'discontinuity': [0.2767, 0.0786, 0.0320]})
 df_BORAI.to_csv(PAPERPLOTS  + 'Shekhar_' + 'Borealis_measures.csv', index=False)
 np.median(discontinuityDCAE)
 #0.01565989388359918

@@ -133,27 +133,27 @@ class CustomEarlyStopping(Callback):
 
 def frange_cycle_linear(start, stop, n_epoch, n_cycle=4, ratio=0.5):
     L = np.ones(n_epoch)
-    period = n_epoch/n_cycle
-    step = (stop-start)/(period*ratio) # linear schedule
+    period = n_epoch / n_cycle
+    step = (stop - start) / (period * ratio)  # linear schedule
 
     for c in range(n_cycle):
-        v , i = start , 0
-        while v <= stop and (int(i+c*period) < n_epoch):
-            L[int(i+c*period)] = v
+        v, i = start, 0
+        while v <= stop and (int(i + c * period) < n_epoch):
+            L[int(i + c * period)] = v
             v += step
             i += 1
     return L
+
 
 class AnnealingCallback(Callback):
     def __init__(self, weight, kl_weight_lst):
         self.weight = weight
         self.kl_weight_lst = kl_weight_lst
-    def on_epoch_end (self, epoch, logs={}):
+
+    def on_epoch_end(self, epoch, logs={}):
         new_weight = K.eval(self.kl_weight_lst[epoch])
         K.set_value(self.weight, new_weight)
-        print ("Current KL Weight is " + str(K.get_value(self.weight)))
-
-
+        print("Current KL Weight is " + str(K.get_value(self.weight)))
 
 
 # import vpsearch as vp
@@ -194,18 +194,14 @@ https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=87506
 '''
 source_dir = "/home/grines02/PycharmProjects/BIOIBFO25L/data/data/"
 '''
-
 #file_list = glob.glob(source_dir + '/*.txt')
 data0 = np.genfromtxt(source_dir + "d_matrix.txt"
 , names=None, dtype=float, skip_header=1)
-aFrame = data0[:,1:] 
+aFrame = data0[:,1:]
 # set negative values to zero
 aFrame[aFrame < 0] = 0
-
 patient_table = np.genfromtxt(source_dir + "label_patient.txt", names=None, dtype='str', skip_header=1, delimiter=" ", usecols = (1, 2, 3))
 lbls=patient_table[:,0]
-
-
 len(lbls)
 scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
 scaler.fit_transform(aFrame)
@@ -216,7 +212,7 @@ data0 = np.genfromtxt(source_dir + "d_matrix.txt"
                       , names=None, dtype=float, skip_header=1)
 clust = np.genfromtxt(source_dir + "label_patient.txt", names=None, dtype='str', skip_header=1, delimiter=" ",
                       usecols=(1, 2, 3))[:, 0]
-outfile = '/home/grines02/PycharmProjects/BIOIBFO25L/data/WeberLabels/Nowicka2017euclid_scaled.npz'
+outfile = outfile = '/home/grines02/PycharmProjects/BIOIBFO25L/data/WeberLabels/Nowicka2017euclid_scaled.npz'
 # np.savez(outfile, Idx=Idx, aFrame=aFrame, lbls=lbls,  Dist=Dist)
 npzfile = np.load(outfile)
 lbls = npzfile['lbls'];
@@ -231,31 +227,94 @@ le = preprocessing.LabelEncoder()
 le.fit(lbls)
 lbls = le.transform(lbls)
 
-
-batch_size = 256
+# lbls2=npzfile['lbls'];Idx2=npzfile['Idx'];aFrame2=npzfile['aFrame'];
+# cutoff2=npzfile['cutoff']; Dist2 =npzfile['Dist']
+cutoff = np.repeat(0.1, 24)
+batch_size = 50
 original_dim = 24
 latent_dim = 3
 intermediate_dim = 12
+nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
 
-
-epochs = 10
+epochs = 120
+# annealing schedule
+kl_weight = K.variable(value=0)
+kl_weight_lst = K.variable(np.array(frange_cycle_linear(0.0, 1.0, epochs, n_cycle=4, ratio=0.95)))
 
 epsilon_std = 1.0
+U = 10  # energy barier
+szr = 0  # number of replicas in training data set
+szv = 10000  # number of replicas in validation data set
 
+# nearest neighbours
+
+# generate neighbours data
 features = aFrame
 IdxF = Idx[:, ]
 nrow = np.shape(features)[0]
+b = 0
+neibALL = np.zeros((nrow, k3, original_dim))
+cnz = np.zeros((original_dim))
+cut_neibF = np.zeros((nrow, original_dim))
+weight_distALL = np.zeros((nrow, k3))
+weight_neibALL = np.zeros((nrow, k3))
 rk = range(k3)
 
+print('compute training sources and targets...')
+from scipy.stats import binom
+
+sigmaBer = np.sqrt(cutoff * (1 - cutoff) / k)
+# precompute pmf for all cutoffs at given kfrange_cycle_linear
+probs = 1 - cutoff
+pmf = np.zeros((original_dim, k + 1))
+for j in range(original_dim):
+    rb = binom(k, probs[j])
+    pmf[j, :] = (1 - rb.cdf(range(k + 1))) ** 10
+
+
+def singleInput(i):
+    nei = features[IdxF[i, :], :]
+    cnz = [np.sum(np.where(nei[:k, j] == 0, 0, 1)) for j in range(original_dim)]
+    # cut_nei= np.array([0 if (cnz[j] >= cutoff[j] or cutoff[j]>0.5) else
+    #                   (U/(cutoff[j]**2)) * ( (cutoff[j] - cnz[j]) / sigmaBer[j] )**2 for j in range(original_dim)])
+    cut_nei = np.array([U * pmf[j, :][cnz[j]] for j in range(original_dim)])
+    # weighted distances computed in L2 metric
+    weight_di = [np.sqrt(sum((np.square(features[i] - nei[k_i,]) / (1 + cut_nei)))) for k_i in rk]
+    return [nei, cut_nei, weight_di, i]
+
+
+'''
+inputs = range(nrow)
+from joblib import Parallel, delayed
+from pathos import multiprocessing
+num_cores = multiprocessing.cpu_count()
+#pool = multiprocessing.Pool(num_cores)
+results = Parallel(n_jobs=num_cores, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
+'''
+
+'''
+for i in range(nrow):
+ neibALL[i,] = results[i][0]
+for i in range(nrow):
+    cut_neibF[i,] = results[i][1]
+for i in range(nrow):
+    weight_distALL[i,] = results[i][2]
+del results
+'''
+#outfile = source_dir + '/Nowicka2017euclidFeatures.npz'
+# np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
+#npzfile = np.load(outfile)
+#weight_distALL = npzfile['weight_distALL'];
+#cut_neibF = npzfile['cut_neibF'];
+#neibALL = npzfile['neibALL']
+#np.sum(cut_neibF != 0)
 # plt.hist(cut_neibF[cut_neibF!=0],50)
 
-# [aFrame, neibF, cut_neibF, weight_neibF]
-# training set
-# targetTr = np.repeat(aFrame, r, axis=0)
+
 targetTr = aFrame
 
+sourceTr = aFrame
 tf.compat.v1.disable_eager_execution()
-
 x = Input(shape=(original_dim,))
 h = Dense(intermediate_dim, activation='relu')(x)
 # h.set_weights(ae.layers[1].get_weights())
@@ -279,20 +338,37 @@ decoder_mean = Dense(original_dim, activation='relu')
 h_decoded = decoder_h(z)
 x_decoded_mean = decoder_mean(h_decoded)
 
+   # return tf.multiply(weightedN, 0.5)
+
+
+# def mean_square_error_NN(y_true, y_pred):
+#    #dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1)) / (tf.expand_dims(cut_neib,1) + 1)), axis=-1)
+#    dst = tf.multiply(K.transpose(1/SigmaTsq), K.mean(K.square(neib - K.expand_dims(y_pred, 1)), axis=-1))
+#    #weightedN = K.dot(dst, K.transpose(weight_neib))
+#    weightedN = K.dot(dst, K.transpose(weight_neib))
+#    #return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
+#    return  tf.multiply(weightedN, 0.5 )
 
 
 def kl_loss(x, x_decoded_mean):
     return -0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
 
-#annealing variables
+
+# annealing variables
 
 # KL weight (to be used by total loss and by annealing scheduler)
-
-
+mse = tf.keras.losses.MeanSquaredError()
+def vae_loss(weight, kl_weight_lst):
+    def loss(x, x_decoded_mean):
+        msew = mse(x, x_decoded_mean)
+        # pen_zero = K.sum(K.square(x*cut_neib), axis=-1)
+        return K.mean(msew + kl_weight * kl_loss(x, x_decoded_mean))
+        # return K.mean(msew)
+    return loss
 
 
 # y = CustomVariationalLayer()([x, x_decoded_mean])
-vae = Model(x, [x_decoded_mean])
+vae = Model([x], x_decoded_mean)
 vae.summary()
 
 # vae.set_weights(trained_weight)
@@ -303,108 +379,54 @@ vae.summary()
 
 ''' this model maps an input to its reconstruction'''
 
+learning_rate = 1e-3
 
-#adam = Adam(lr=learning_rate, epsilon=0.001)
+
+# adam = Adam(lr=learning_rate, epsilon=0.001)
+
 # ae.compile(optimizer=adam, loss=ae_loss)
-mse = tf.keras.losses.MeanSquaredError()
-m = tf.keras.metrics.MeanSquaredError()
-vae.compile(optimizer='adam',  loss= mse, metrics=[m,kl_loss ])
+vae.compile(optimizer='adam', loss=vae_loss(kl_weight, kl_weight_lst), metrics=[kl_loss])
 # ae.get_weights()
 
-#checkpoint = ModelCheckpoint('.', monitor='loss', verbose=1, save_best_only=True, mode='max')
+
 # logger = DBLogger(comment="An example run")
-#def newloss(x, x_decoded_mean):
-#    return mse(x, x_decoded_mean) + kl_loss(x, x_decoded_mean)
 
-class LossCallback(tf.keras.callbacks.Callback):
-  def on_epoch_end(self, epoch,  logs=None):
-    if (epoch < 10):
-      vae.add_loss(mse(x, x_decoded_mean))
-    else:
-      print(epoch)
-      def custom_loss(x, x_decoded_mean):
-            def _custom_loss():
-                loss= mse(x, x_decoded_mean)+ epoch * kl_loss(x, x_decoded_mean)
-                return  loss
-            return _custom_loss
-      vae.add_loss(lambda: custom_loss(x, x_decoded_mean))
-'''
-class NewCallback(Callback):
-    def __init__(self, current_epoch):
-        self.current_epoch = current_epoch
-
-    def on_epoch_end(self, epoch, logs={}):
-        K.set_value(self.current_epoch, epoch)
-
-def loss_wrapper(t_change, current_epoch):
-    def custom_loss(y_true, y_pred):
-        # compute loss_1 and loss_2
-        bool_case_1=K.less(current_epoch,t_change)
-        num_case_1=K.cast(bool_case_1,"float32")
-        loss = (num_case_1)*loss_1 + (1-num_case_1)*loss_2
-        return loss
-    return custom_loss
-'''
-#https://colab.research.google.com/github/SachsLab/IntracranialNeurophysDL/blob/master/notebooks/05_04_betaVAE_TFP.ipynb#scrollTo=8DiCpDslah5W
-K.clear_session()
-K.set_floatx('float32')
-tf.random.set_seed(42)
-
-kl_beta = K.variable(1.0, name="kl_beta")
-if self.kl_warmup:
-    kl_warmup_callback = LambdaCallback(
-        on_epoch_begin=lambda epoch, logs: K.set_value(
-            kl_beta, K.min([epoch / self.kl_warmup, 1])
-        )
-    )
-
-
-
-
-
-z_mean, z_log_sigma = KLDivergenceLayer(beta=kl_beta)([z_mean, z_log_sigma])
-
-vae.compile(optimizer='adam',  loss= Kloss, metrics=[m,kl_loss ])
-
-N_EPOCHS = 20
-history = vae.fit(x=aFrame, y=aFrame,
-                        epochs=N_EPOCHS,
-                        callbacks=[kl_beta_cb],
-                        verbose=1)
-
-
-
+start = timeit.default_timer()
 
 # here to set weights ti uniform , by default they are perplexity weighted
-history = vae.fit(x=aFrame, y=aFrame,
+weight_neibF = np.full((nrow, k), 1 / k)
+history = vae.fit([sourceTr], targetTr,
                   batch_size=batch_size,
-                  epochs=15,
+                  epochs=epochs,
                   shuffle=True,
-                  callbacks=[LossCallback()], verbose=2)
+                  callbacks=[AnnealingCallback(kl_weight, kl_weight_lst)])
 stop = timeit.default_timer()
 # vae.save('WEBERCELLS3D32lambdaPerpCorr0.01h5')
-#vae.load('WEBERCELLS3D.h5')
+# vae.load('WEBERCELLS3D.h5')
 
 # ae=load_model('Wang0_modell1.h5', custom_objects={'mean_square_error_weighted':mean_square_error_weighted, 'ae_loss':
 #  ae_loss, 'mean_square_error_weightedNN' : mean_square_error_weightedNN})
 # ae = load_model('Wang0_modell1.h5')
 
-fig03 = plt.figure();
+print(stop - start)
+fig0 = plt.figure();
+plt.plot(history.history['kl_loss'][:]);
+
+fig02 = plt.figure();
 plt.plot(history.history['loss']);
-plt.plot(history.history['kl_loss']);
 
 # encoder = Model([x, neib, cut_neib], encoded2)
-encoder = Model(x, z_mean)
+encoder = Model([x], z_mean)
 print(encoder.summary())
 
 # predict and extract latent variables
 
 # gen_pred = generatorNN(aFrame, aFrame, Idx, Dists, batch_size=batch_size,  k_=k, shuffle = False)
-x_test_vae = vae.predict([sourceTr, neibF_Tr, cut_neibF_Tr, Sigma, weight_neibF])
+x_test_vae = vae.predict([sourceTr])
 len(x_test_vae)
 # np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_vaeMoeWeights.txt', x_test_vae)
 # x_test_vae=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_ae001Pert.txt.txt')
-x_test_enc = encoder.predict(aFrame)
+x_test_enc = encoder.predict([sourceTr])
 
 cl = 4;
 bw = 0.02
@@ -432,45 +454,6 @@ unique0, counts0 = np.unique(lbls, return_counts=True)
 print('%d %d', np.asarray((unique0, counts0)).T)
 num_clus = len(counts0)
 
-from scipy import stats
-
-conn = [sum((stats.itemfreq(lbls[Idx[x, :k]])[:, 1] / k) ** 2) for x in range(len(aFrame))]
-
-plt.figure();
-plt.hist(conn, 50);
-plt.show()
-
-nb = find_neighbors(x_test_vae, k3, metric='manhattan', cores=12)
-
-connClean = [sum((stats.itemfreq(lbls[nb['idx'][x, :k]])[:, 6] / k) ** 2) for x in range(len(aFrame))]
-plt.figure();
-plt.hist(connClean, 50);
-plt.show()
-
-scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
-scaler.fit_transform(aFrame)
-nb2 = find_neighbors(x_test_enc, k, metric='manhattan', cores=12)
-connClean2 = [sum((stats.itemfreq(lbls[nb2['idx'][x, :]])[:, 1] / k) ** 2) for x in range(len(aFrame))]
-plt.figure();
-plt.hist(connClean2, 50);
-plt.show()
-# print(np.mean(connNoNoise))
-
-for cl in unique0:
-    # print(np.mean(np.array(connNoNoise)[lbls==cl]))
-    print(cl)
-    print(np.mean(np.array(conn)[lbls == cl]))
-    print(np.mean(np.array(connClean)[lbls == cl]))
-    print(np.mean(np.array(connClean)[lbls == cl]) - np.mean(np.array(conn)[lbls == cl]))
-    print(np.mean(np.array(connClean2)[lbls == cl]) - np.mean(np.array(conn)[lbls == cl]))
-
-print(np.mean(np.array([np.mean(np.array(conn)[lbls == cl]) for cl in unique0])))
-print(np.mean(np.array([np.mean(np.array(connClean)[lbls == cl]) for cl in unique0])))
-print(np.mean(np.array([np.mean(np.array(connClean2)[lbls == cl]) for cl in unique0])))
-
-# plotly in 3d
-
-from plotly import __version__
 from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
 from plotly.graph_objs import Scatter3d, Figure, Layout, Scatter
 
@@ -510,15 +493,12 @@ plot([Scatter3d(x=x, y=y, z=z,
                 text=clust,
                 hoverinfo='text')])
 
-
-
 # umap graph to compare
 
 # np.savetxt('/home/grines02/PycharmProjects/BIOIBFO25L/data/data/umap_embedding.txt', standard_embedding)
-standard_embedding=np.loadtxt('/home/grines02/PycharmProjects/BIOIBFO25L/data/data/umap_embedding.txt')
+standard_embedding = np.loadtxt('/home/grines02/PycharmProjects/BIOIBFO25L/data/data/umap_embedding.txt')
 '''
 import umap
-
 standard_embedding = umap.UMAP(n_neighbors=30, n_components=3).fit_transform(aFrame)
 '''
 x = standard_embedding[:, 0]
@@ -536,8 +516,6 @@ plot([Scatter3d(x=x, y=y, z=z,
                 text=clust,
                 hoverinfo='text')])
 
-
-
 plot([Scatter3d(x=x, y=y, z=z,
                 mode='markers',
                 marker=dict(
@@ -548,9 +526,6 @@ plot([Scatter3d(x=x, y=y, z=z,
                 ),
                 text=clust,
                 hoverinfo='text')])
-
-
-
 
 cl = 2
 plot([Scatter3d(x=x, y=y, z=z,

@@ -4,5 +4,7 @@
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/Clibs/kmcuda" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/SAUCIE" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/ot_estimators" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/ot_estimators/native/external/eigen" vcs="Git" />
   </component>
 </project>

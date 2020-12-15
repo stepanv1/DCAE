@@ -5,7 +5,10 @@ data : http://127.0.0.1:27955/library/HDCytoData/doc/Examples_and_use_cases.html
 # watcg cd 4 separated into
 cd4  cd7+- cd15+
 compare with tsne there
-TODO ?? pretraining
+TODO: can we make it much faster:https://github.com/gknilsen/pyhessian
+#https://stackoverflow.com/questions/56772362/derivative-of-neural-network-with-respect-to-input
+https://www.tensorflow.org/api_docs/python/tf/GradientTape
+that might be the way to generalize for CNN
 Now with entropic weighting of neibourhoods
 Innate‐like CD8+ T‐cells and NK cells: converging functions and phenotypes
 Ayako Kurioka,corresponding author 1 , 2 Paul Klenerman, 1 , 2 and Christian B. Willbergcorresponding author 1 , 2
@@ -230,7 +233,7 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 # load data
 k = 30
 k3 = k * 3
-coeffCAE = 1
+coeffCAE = 5
 epochs = 1500
 ID = 'Levine32_MMD_01_3D_DCAE_h96_h32_hidden_7_layers'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
 source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess'
@@ -589,7 +592,7 @@ plt.show()
 #ID = 'Levine32_MMD_01_3D_DCAE_5_3500_kernelInit'
 encoder.load_weights(output_dir +''+ID + '_3D.h5')
 autoencoder.load_weights(output_dir +'autoencoder_'+ID + '_3D.h5')
-
+encoder.summary()
 z = encoder.predict([aFrame, neibF_Tr,  Sigma, weight_neibF])
 
 #- visualisation and pefroramnce metric-----------------------------------------------------------------------------------------------
@@ -705,18 +708,18 @@ import SAUCIE
 #tf.disable_v2_behavior()
 saucie = SAUCIE.SAUCIE(data.shape[1])
 loadtrain = SAUCIE.Loader(data, shuffle=True)
-saucie.train(loadtrain, steps=1000)
+saucie.train(loadtrain, steps=100000)
 
 loadeval = SAUCIE.Loader(data, shuffle=False)
 embedding = saucie.get_embedding(loadeval)
-#np.savez('LEVINE32_' + 'embedSAUCIE.npz', embedding=embedding)
+#np.savez('LEVINE32_' + 'embedSAUCIE_100000.npz', embedding=embedding)
 embedding = np.load('LEVINE32_' + 'embedSAUCIE.npz')['embedding']
 #number_of_clusters, clusters = saucie.get_clusters(loadeval)
 #print(compute_cluster_performance(lbls,  clusters))
 #clusters= [str(x) for  x in clusters]
 #fig = plot3D_cluster_colors(x=embedding[:, 0],y=embedding[:, 1],z=np.zeros(len(clusters)), lbls=np.asarray(clusters))
 #fig.show()
-fig = plot2D_cluster_colors(x=embedding[:, 0],y=embedding[:, 1], lbls=lbls)
+fig = plot2D_cluster_colors(embedding, lbls=lbls)
 fig.show()
 
 attrib_z=np.c_[embedding, np.array(aFrame)/5]
@@ -800,7 +803,7 @@ onetomany_scoreSAUCIE= neighbour_onetomany_score(embedding, Idx, kmax=90, num_co
 marker_similarity_scoreSAUCIE = neighbour_marker_similarity_score_per_cell(embedding, aFrame, kmax=90, num_cores=12)
 
 outfile2 = source_dir + '/' + ID+ '_PerformanceMeasures.npz'
-#np.savez(outfile2, discontinuityDCAE = discontinuityDCAE, manytooneDCAE= manytooneDCAE, onetomany_scoreDCAE= onetomany_scoreDCAE, marker_similarity_scoreDCAE= marker_similarity_scoreDCAE[1],
+#p.savez(outfile2, discontinuityDCAE = discontinuityDCAE, manytooneDCAE= manytooneDCAE, onetomany_scoreDCAE= onetomany_scoreDCAE, marker_similarity_scoreDCAE= marker_similarity_scoreDCAE[1],
 #         discontinuityUMAP= discontinuityUMAP, manytooneUMAP= manytooneUMAP, onetomany_scoreUMAP= onetomany_scoreUMAP, marker_similarity_scoreUMAP= marker_similarity_scoreUMAP[1],
 #         discontinuitySAUCIE= discontinuitySAUCIE, manytooneSAUCIE= manytooneSAUCIE, onetomany_scoreSAUCIE= onetomany_scoreSAUCIE, marker_similarity_scoreSAUCIE= marker_similarity_scoreSAUCIE[1])
 
@@ -876,7 +879,7 @@ plt.plot('k', 'DCAE', data=df_sim, marker='o',  markersize=5, color='skyblue', l
 plt.plot('k', 'SAUCIE', data=df_sim, marker='v', color='orange', linewidth=2)
 plt.plot('k', 'UMAP', data=df_sim, marker='x', color='olive', linewidth=2)
 plt.legend()
-plt.savefig(PAPERPLOTS  + 'LEVINE32_' + 'performance_marker_similarity_score.png')
+plt.savefig(PAPERPLOTS  + 'LEVINE32_' + ID+ 'performance_marker_similarity_score.png')
 plt.show()
 plt.clf()
 median_onetomany_scoreDCAE = np.median(onetomany_scoreDCAE, axis=1);median_onetomany_scoreSAUCIE = np.median(onetomany_scoreSAUCIE, axis=1);
@@ -885,11 +888,11 @@ df_otm = pd.DataFrame({'k':range(0,91)[1:],  'DCAE': median_onetomany_scoreDCAE[
 plt.plot('k', 'DCAE', data=df_otm, marker='o',  markersize=5, color='skyblue', linewidth=3)
 plt.plot('k', 'SAUCIE', data=df_otm, marker='v', color='orange', linewidth=2)
 plt.plot('k', 'UMAP', data=df_otm, marker='x', color='olive', linewidth=2)
-plt.savefig(PAPERPLOTS  + 'LEVINE32_' + 'performance_onetomany_score.png')
+plt.savefig(PAPERPLOTS  + 'LEVINE32_' + ID+'_performance_onetomany_score.png')
 plt.show()
 # tables
-df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.1061, 0.1785, 0.1177], 'discontinuity': [0.0157, 0.0099, 0.0013]})
-df_BORAI.to_csv(PAPERPLOTS  + 'LEVINE32_' + 'Borealis_measures.csv', index=False)
+df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.1064, 0.1785, 0.1177], 'discontinuity': [0.0008, 0.0099, 0.0013]})
+df_BORAI.to_csv(PAPERPLOTS  + 'LEVINE32_' + ID+ 'Borealis_measures.csv', index=False)
 np.median(discontinuityDCAE)
 #0.01565989388359918
 np.median(manytooneDCAE)

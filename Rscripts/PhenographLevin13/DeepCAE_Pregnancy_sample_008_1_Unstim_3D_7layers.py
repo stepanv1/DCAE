@@ -264,7 +264,7 @@ def find_neighbors(data, k_, metric='manhattan', cores=12):
 # load data
 k = 30
 k3 = k * 3
-coeffCAE = 0.1
+coeffCAE = 5
 epochs = 1500
 ID = 'Pr_sample_008_1_MMD_01_3D_DCAE_h300_h200_hidden_7_layers_CAE'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
 #ID = 'Pr_sample_008_1_MMD_01_3D_DCAE_h128_h63_h32_9_layers'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
@@ -357,7 +357,6 @@ outfile = source_dir + '/Pr_008_1_Unstim_euclid_scaled.npz'
 np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
          neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma, markers=markers)
 '''
-
 outfile = source_dir + '/Pr_008_1_Unstim_euclid_scaled.npz'
 k=30
 #markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
@@ -620,7 +619,8 @@ def custom_loss(x, x_decoded_mean):
 autoencoder.compile(optimizer='adam', loss=custom_loss)
 print(autoencoder.summary())
 print(encoder.summary())
-
+import matplotlib
+matplotlib.use( 'tkagg' )
 
 
 #callbacks = [EarlyStoppingByLossVal( monitor='loss', value=0.01, verbose=0
@@ -648,7 +648,6 @@ plt.show()
 #autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
 #np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
 
-#ID='Levine32_MMD_1_3D_DCAE_5'
 #encoder.load_weights('/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/Levine32_3D_DCAE_10_3D.h5')
 #autoencoder.load_weights('/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/autoencoder_Levine32_MMD_1_3D_DCAE_freezing_experiment5_3D.h5')
 #ID = 'Levine32_MMD_01_3D_DCAE_5_3500_kernelInit'
@@ -662,9 +661,6 @@ z= np.load(output_dir +'/'+ ID + '_latent_rep_3D.npz')['z']
 
 # np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt', x_test_enc)
 # x_test_enc=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt')
-x = z[:, 0]
-y = z[:, 1]
-zz = z[:, 2]
 
 fig = plot3D_cluster_colors(z, lbls=lbls)
 fig.show()
@@ -864,8 +860,8 @@ marker_similarity_scoreSAUCIE = neighbour_marker_similarity_score_per_cell(embed
 source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/pregnancy'
 outfile2 = source_dir + '/' + ID+ '_PerformanceMeasures.npz'
 #np.savez(outfile2, discontinuityDCAE = discontinuityDCAE, manytooneDCAE= manytooneDCAE, onetomany_scoreDCAE= onetomany_scoreDCAE, marker_similarity_scoreDCAE= marker_similarity_scoreDCAE[1],
- #        discontinuityUMAP= discontinuityUMAP, manytooneUMAP= manytooneUMAP, onetomany_scoreUMAP= onetomany_scoreUMAP, marker_similarity_scoreUMAP= marker_similarity_scoreUMAP[1],
- #        discontinuitySAUCIE= discontinuitySAUCIE, manytooneSAUCIE= manytooneSAUCIE, onetomany_scoreSAUCIE= onetomany_scoreSAUCIE, marker_similarity_scoreSAUCIE= marker_similarity_scoreSAUCIE[1])
+#        discontinuityUMAP= discontinuityUMAP, manytooneUMAP= manytooneUMAP, onetomany_scoreUMAP= onetomany_scoreUMAP, marker_similarity_scoreUMAP= marker_similarity_scoreUMAP[1],
+#     discontinuitySAUCIE= discontinuitySAUCIE, manytooneSAUCIE= manytooneSAUCIE, onetomany_scoreSAUCIE= onetomany_scoreSAUCIE, marker_similarity_scoreSAUCIE= marker_similarity_scoreSAUCIE[1])
 
 npzfile = np.load(outfile2)
 discontinuityDCAE = npzfile['discontinuityDCAE']; manytooneDCAE= npzfile['manytooneDCAE']; onetomany_scoreDCAE= npzfile['onetomany_scoreDCAE']; marker_similarity_scoreDCAE= npzfile['marker_similarity_scoreDCAE'];

@@ -832,3 +832,36 @@ def global_structure_preservation_score():
 # (topological) structure
 #TODO: for mauscript plot PCA elbow plots to show how variance falls
 # inside first several PC's in single cell (Shekhar and Levine32)
+#modified cosde for LC-WMD
+def get_distance_matrix(point_id):
+    dm = dataset_dn[point_id] + queries_qn - 2.0 * np.dot(dataset_prep[point_id], qt)
+    dm[dm < 0.0] = 0.0
+    dm = np.sqrt(dm)
+    return dm
+
+def lc_wmd_cost(dist, k): #apparently distance matrix between vocalbulary and query, done by multiplication (modify fun get_distance_matrix as required
+    # when s1  = s2 )
+    if dist.shape[0] > dist.shape[1]:
+        dist = dist.T
+    s1 = dist.shape[0]
+    s2 = dist.shape[1]
+    cost1 = np.mean(dist.min(axis=0))
+    if s1 == s2:
+        cost2 = np.mean(dist.min(axis=1))
+        return max(cost1, cost2)
+    k = min(k, int(np.floor(s2/s1)), s2-1)
+    remainder = (1./s1) - k*(1./s2)
+    pdist = np.partition(dist, k, axis=1)
+    cost2 = (np.sum(pdist[:,:k]) * 1./s2) + (np.sum(pdist[:,k]) * remainder)
+    return max(cost1, cost2)
+
+def lc_wmd(query, ids, id_result, score_result, to_sort, k_param=1):
+    load_query(query)
+    k1 = ids.shape[0]
+    k2 = result.shape[0]
+    for i in range(k1):
+        dm = get_distance_matrix(ids[i])# compute actual disctance matrix
+        scores[i] = lc_wmd_cost(dm, k_param)
+    solver.select_topk(ids, scores, id_result, score_result, to_sort)# most likely do not need this line, since i just need distance not list of closest
+    # documents
+
