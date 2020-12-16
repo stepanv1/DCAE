@@ -10,7 +10,7 @@ from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbou
     plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
     get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d
 #get a subsample of Levine data and create artificial data with it
-import ot_estimators
+#import ot_estimators
 
 PAPERPLOTS  = './PAPERPLOTS/'
 #data, color = datasets.make_blobs(n_samples=10000, centers=20, n_features=30,

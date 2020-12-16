@@ -823,18 +823,28 @@ def k_farthest_neib_plane():
     '''
     pass
 
+data, color = datasets.make_classification(n_samples=200000, n_features=40,  n_informative=10, n_redundant=0, n_repeated=0,
+                n_classes=10, n_clusters_per_class=1, weights=None, flip_y=0.5, class_sep=100.0, hypercube=True, shift=0.0, scale=1.0, shuffle=True, random_state=12345)
+
+#https://www.ratml.org/pub/pdf/2017exploiting.pdf
+query = data[100000:,:]
+data.shape
 def k_farthest_neib_HD_mlpack(query, data, knnIdx, k, exact = False):
     '''
     using malpack to find furthest neighbour an return ot knn
+    return farthest neighbour + its knn =k
     :return:
     '''
     if exact == False :
-        approx_kfn(algorithm='ds', calculate_error=True, #using DrusillaSlect approach
+        zzz=approx_kfn(algorithm='ds', calculate_error=False, #usingDrusillaSelect approach
                    exact_distances=np.empty([0, 0]), input_model=None, k=1,
-                   num_projections=5, num_tables=5, query=query,
+                   num_projections=100, num_tables=100, query=query,
                    reference=data)
     pass
 
+plt.hist(zzz['distances'],50)
+#TODO: find mean per cluster and distances between means and compare with this histogram
+#TDOD: compute exact for small data and compare
 def k_farthest_neib_HD_samples(query, data, sample=10000):
     '''
     similar idea to farthestspoints_sphere
