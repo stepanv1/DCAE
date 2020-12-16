@@ -41,7 +41,7 @@ import glob
 import sklearn
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.layers import Input, Dense, Lambda, Layer, Dropout, BatchNormalization
-from kerassurgeon.operations import delete_layer, insert_layer, delete_channels
+#from kerassurgeon.operations import delete_layer, insert_layer, delete_channels
 #from tensorflow.keras.utils import np_utils
 #import np_utils
 from tensorflow.keras import Model

@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
-    <content url="file://$MODULE_DIR$" />
     <content url="file://$MODULE_DIR$/Clibs" />
-    <orderEntry type="jdk" jdkName="Python 3.7 (BIOIBFO25L)" jdkType="Python SDK" />
+    <content url="file://$MODULE_DIR$/Rscripts/PhenographLevin13">
+      <sourceFolder url="file://$MODULE_DIR$/Rscripts/PhenographLevin13" isTestSource="false" />
+    </content>
+    <orderEntry type="jdk" jdkName="Python 3.7.6 (/media/grines02/vol2/anaconda3/bin/python)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="R Skeletons" level="application" />
     <orderEntry type="library" name="R User Library" level="project" />

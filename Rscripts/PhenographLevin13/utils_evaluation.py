@@ -1,6 +1,7 @@
 #wrapper requires rpy2 installed (use pip install and restart pyhton)
 #https://github.com/lmweber/cytometry-clustering-comparison/blob/master/helpers/helper_match_evaluate_multiple.R
 #labels should be incoded as naturals 1,2, 3
+
 import rpy2
 from rpy2.robjects.packages import SignatureTranslatedAnonymousPackage
 import numpy as np
@@ -12,6 +13,9 @@ from matplotlib.colors import rgb2hex
 import seaborn as sns
 from joblib import Parallel, delayed
 from pathos import multiprocessing
+from mlpack import approx_kfn, kfn
+import ot
+import faiss
 
 
 def compute_f1(lblsT, lblsP):
@@ -614,9 +618,6 @@ import numpy as np
 from scipy.spatial.distance import pdist
 from scipy.spatial.distance import squareform
 
-import ot
-import faiss
-
 
 def get_self_knn_idx(data, k):
     dim = data.shape[1]
@@ -821,10 +822,39 @@ def k_farthest_neib_plane():
     :return:
     '''
     pass
-def global_structure_preservation_score():
+
+def k_farthest_neib_HD_mlpack(query, data, knnIdx, k, exact = False):
+    '''
+    using malpack to find furthest neighbour an return ot knn
+    :return:
+    '''
+    if exact == False :
+        approx_kfn(algorithm='ds', calculate_error=True, #using DrusillaSlect approach
+                   exact_distances=np.empty([0, 0]), input_model=None, k=1,
+                   num_projections=5, num_tables=5, query=query,
+                   reference=data)
+    pass
+
+def k_farthest_neib_HD_samples(query, data, sample=10000):
+    '''
+    similar idea to farthestspoints_sphere
+    instead of convex hull find knn and closest to
+    the opposite point on the eclosing circle will be the fartherst one
+    or just get the hull
+    :return:
+    '''
+    pass
+
+def global_structure_preservation_scores_mean():
     '''
     find average distance (in x-space) of n-farhest neighbours (in y space) per point
     average over all points in data set
+    '''
+    pass
+
+def global_structure_preservation_scores_emd():
+    '''
+    same as above nut uses arth mover distance
     '''
     pass
 #TODO: demonstrate this by putting 4 balls on one line and by
