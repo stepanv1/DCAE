@@ -827,20 +827,33 @@ data, color = datasets.make_classification(n_samples=200000, n_features=40,  n_i
                 n_classes=10, n_clusters_per_class=1, weights=None, flip_y=0.5, class_sep=100.0, hypercube=True, shift=0.0, scale=1.0, shuffle=True, random_state=12345)
 
 #https://www.ratml.org/pub/pdf/2017exploiting.pdf
-query = data[100000:,:]
+query = data[:,:]
 data.shape
-def k_farthest_neib_HD_mlpack(query, data, knnIdx, k, exact = False):
+nb = find_neighbors(data = data, k_=90, metric = 'euclidean')
+
+def k_farthest_neib_HD_mlpack(query, data, knnIdx, k, exact = True, percentage=1.0):
     '''
-    using malpack to find furthest neighbour an return ot knn
+    using mlpack to find furthest neighbour an return ot knn
     return farthest neighbour + its knn =k
+    https://www.ratml.org/pub/pdf/2017exploiting.pdf Exploiting the structure of furthest neighbor search for
+fast approximate results
+    unlike tru kfn this function returns furhtest point index and indexes of its k closest neighbours
     :return:
     '''
-    if exact == False :
-        zzz=approx_kfn(algorithm='ds', calculate_error=False, #usingDrusillaSelect approach
+    if exact == False:
+        kf1=approx_kfn(algorithm='ds', calculate_error=False, #using DrusillaSelect approach
                    exact_distances=np.empty([0, 0]), input_model=None, k=1,
                    num_projections=100, num_tables=100, query=query,
                    reference=data)
-    pass
+    else:
+        #query = data[:10, :]
+        kf1 = kfn(algorithm='dual_tree',  k=1,
+        leaf_size=20, percentage=percentage, query=query, random_basis=False,
+        reference=data, seed=0, tree_type="kd")
+        plt.scatter(kf1['neighbors'], kf1['distances'])
+    return kf1
+
+
 
 plt.hist(zzz['distances'],50)
 #TODO: find mean per cluster and distances between means and compare with this histogram

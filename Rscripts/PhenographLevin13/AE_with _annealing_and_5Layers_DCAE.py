@@ -150,6 +150,16 @@ def frange_cycle_linear(start, stop, n_epoch, n_cycle=4, ratio=0.5):
             i += 1
     return L
 
+def frange_anneal(n_epoch, ratio=0.25):
+    L = np.ones(n_epoch)
+    for c in range(n_epoch):
+        if c <= np.floor(n_epoch*ratio):
+            norm = np.sqrt(np.floor(n_epoch*ratio))
+            L[c] = np.sqrt(c)/norm
+        else:
+            L[c]=1
+    return L
+
 
 class AnnealingCallback(Callback):
     def __init__(self, weight, kl_weight_lst):
@@ -159,7 +169,7 @@ class AnnealingCallback(Callback):
     def on_epoch_end(self, epoch, logs={}):
         new_weight = K.eval(self.kl_weight_lst[epoch])
         K.set_value(self.weight, new_weight)
-        print("Current KL Weight is " + str(K.get_value(self.weight)))
+        print("  Current DCAE Weight is " + str(K.get_value(self.weight)))
 
 
 # import vpsearch as vp
@@ -193,6 +203,7 @@ def find_neighbors(data, k_, metric='manhattan', cores=12):
 k = 30
 perp = k
 k3 = k * 3
+coeffCAE = 5
 ID = 'Nowicka2017'
 '''
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
@@ -225,6 +236,7 @@ lbls = npzfile['lbls'];
 Idx = npzfile['Idx'];
 aFrame = npzfile['aFrame'];
 Dist = npzfile['Dist']
+Sigma = npzfile['Sigma']
 # transform labels into natural numbers
 patient_table = lbls
 from sklearn import preprocessing
@@ -244,8 +256,8 @@ nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim
 
 epochs = 120
 # annealing schedule
-kl_weight = K.variable(value=0)
-kl_weight_lst = K.variable(np.array(frange_cycle_linear(0.0, 1.0, epochs, n_cycle=4, ratio=0.95)))
+DCAE_weight = K.variable(value=0)
+DCAE_weight_lst = K.variable(np.array(frange_anneal(epochs, ratio=0.25)))
 
 epsilon_std = 1.0
 U = 10  # energy barier
@@ -320,29 +332,33 @@ del results
 targetTr = aFrame
 
 sourceTr = aFrame
-tf.compat.v1.disable_eager_execution()
-x = Input(shape=(original_dim,))
-h = Dense(intermediate_dim, activation='relu')(x)
-# h.set_weights(ae.layers[1].get_weights())
-z_mean = Dense(latent_dim)(h)
-z_log_var = Dense(latent_dim)(h)
 
+nrow = aFrame.shape[0]
+batch_size = 256
+original_dim = 24
+latent_dim = 3
+intermediate_dim = 72
+intermediate_dim2=72
+nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
 
-def sampling(args):
-    z_mean, z_log_var = args
-    epsilon = K.random_normal(shape=(K.shape(z_mean)[0], latent_dim), mean=0.,
-                              stddev=epsilon_std)
-    return z_mean + K.exp(z_log_var / 2) * epsilon
+SigmaTsq = Input(shape=(1,))
+neib = Input(shape=(k, original_dim,))
+# var_dims = Input(shape = (original_dim,))
+#
+initializer = tf.keras.initializers.he_normal(12345)
+#initializer = None
+x = Input(shape=(original_dim, ))
+h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer = initializer)(x)
+z_mean =  Dense(latent_dim, activation=None, name='z_mean', kernel_initializer = initializer)(h)
 
+encoder = Model([x, SigmaTsq], z_mean, name='encoder')
 
-# note that "output_shape" isn't necessary with the TensorFlow backend
-z = Lambda(sampling, output_shape=(latent_dim,))([z_mean, z_log_var])
-
-# we instantiate these layers separately so as to reuse them later
-decoder_h = Dense(intermediate_dim, activation='relu')
-decoder_mean = Dense(original_dim, activation='relu')
-h_decoded = decoder_h(z)
+decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate2', kernel_initializer = initializer)
+decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer = initializer)
+h_decoded = decoder_h(z_mean)
 x_decoded_mean = decoder_mean(h_decoded)
+#autoencoder = Model(inputs=[x ], outputs=x_decoded_mean)
+autoencoder = Model(inputs=[x, SigmaTsq], outputs=x_decoded_mean)
 
    # return tf.multiply(weightedN, 0.5)
 
@@ -356,26 +372,76 @@ x_decoded_mean = decoder_mean(h_decoded)
 #    return  tf.multiply(weightedN, 0.5 )
 
 
-def kl_loss(x, x_decoded_mean):
-    return -0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
-
+#def kl_loss(x, x_decoded_mean):
+#    return -0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
+normSigma = nrow / sum(1 / Sigma)
+lam=1e-4
+def DCAE_loss(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
+    W = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
+    Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
+    W = K.transpose(W);
+    Z = K.transpose(Z);  # N_hidden x N
+    m = encoder.get_layer('intermediate').output
+    dm = tf.linalg.diag((tf.math.sign(m)+1)/2)  # N_batch x N_hidden
+    s = encoder.get_layer('z_mean').output
+    #ds = K.sqrt(tf.linalg.diag(s * (1 - s)))  # N_batch x N_hidden
+    #ds = tf.linalg.diag(tf.math.sign(s*(1-s) ** 2 +0.1))
+    #bs = np.shape(s)[0]
+    #tf.print(bs)  # [None, 120]
+    r = tf.linalg.einsum('aj->a', s**2)
+    #tf.print(r.shape)
+    #b_i = tf.eye(latent_dim)
+    #tf.print(tf.shape(b_i))
+    #ds = tf.einsum('alk,a ->alk', b_i,r)
+    ds  = -2 * r + 1.5*r **2 + 1.5
+    #tf.print(ds.shape)
+    # return 1 / normSigma * (SigmaTsq) * lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axi0s=1)
+    S_1W = tf.einsum('akl,lj->akj', dm, W)  # N_batch x N_input ??
+    # tf.print((S_1W).shape) #[None, 120]
+    S_2Z = tf.einsum('a,lj->alj', ds, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
+    # tf.print((S_2Z).shape)
+    diff_tens = tf.einsum('akl,alj->akj', S_2Z,
+                          S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
+    # tf.Print(K.sum(diff_tens ** 2))
+    return 1 / normSigma * (SigmaTsq) * lam * K.sum(diff_tens ** 2)
+    #return  lam * K.sum(diff_tens ** 2)
 
 # annealing variables
 
 # KL weight (to be used by total loss and by annealing scheduler)
 mse = tf.keras.losses.MeanSquaredError()
-def vae_loss(weight, kl_weight_lst):
+
+#mmd staff TODO: try approximation for this
+def compute_kernel(x,y):
+    x_size = tf.shape(x)[0]
+    y_size = tf.shape(y)[0]
+    dim = tf.shape(x)[1]
+    tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, y_size, 1]))
+    tiled_y = tf.tile(tf.reshape(y, tf.stack([1, y_size, dim])), tf.stack([x_size, 1, 1]))
+    return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
+def compute_mmd(x, y):   # [batch_size, z_dim] [batch_size, z_dim]
+    x_kernel = compute_kernel(x, x)
+    y_kernel = compute_kernel(y, y)
+    xy_kernel = compute_kernel(x, y)
+    return tf.reduce_mean(x_kernel) + tf.reduce_mean(y_kernel) - 2 * tf.reduce_mean(xy_kernel)
+def loss_mmd(x, x_decoded_mean):
+    batch_size = K.shape(z_mean)[0]
+    latent_dim = K.int_shape(z_mean)[1]
+    true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0., stddev=1.)
+    return compute_mmd(true_samples, z_mean)
+
+def vae_loss(weight, DCAE_weight_lst):
     def loss(x, x_decoded_mean):
         msew = mse(x, x_decoded_mean)
         # pen_zero = K.sum(K.square(x*cut_neib), axis=-1)
-        return K.mean(msew + kl_weight * kl_loss(x, x_decoded_mean))
+        return K.mean(msew +  loss_mmd(x, x_decoded_mean) + coeffCAE * DCAE_weight * DCAE_loss(x, x_decoded_mean))
         # return K.mean(msew)
     return loss
 
 
 # y = CustomVariationalLayer()([x, x_decoded_mean])
-vae = Model([x], x_decoded_mean)
-vae.summary()
+
+autoencoder.summary()
 
 # vae.set_weights(trained_weight)
 
@@ -387,14 +453,7 @@ vae.summary()
 
 learning_rate = 1e-3
 
-
-# adam = Adam(lr=learning_rate, epsilon=0.001)
-#import tensorflow.compat.v1 as tf
-#tf.disable_v2_behavior()
-#tf.compat.v1.enable_eager_execution()
-
-# ae.compile(optimizer=adam, loss=ae_loss)
-vae.compile(optimizer='adam', loss=vae_loss(kl_weight, kl_weight_lst), metrics=[kl_loss])
+autoencoder.compile(optimizer='adam', loss=vae_loss(DCAE_weight, DCAE_weight_lst), metrics=[DCAE_loss])
 # ae.get_weights()
 
 
@@ -404,12 +463,13 @@ start = timeit.default_timer()
 
 # here to set weights ti uniform , by default they are perplexity weighted
 weight_neibF = np.full((nrow, k), 1 / k)
-history = vae.fit([sourceTr], targetTr,
+history = autoencoder.fit([sourceTr, Sigma], targetTr,
                   batch_size=batch_size,
                   epochs=epochs,
                   shuffle=True,
-                  callbacks=[AnnealingCallback(kl_weight, kl_weight_lst)])
+                  callbacks=[AnnealingCallback(DCAE_weight, DCAE_weight_lst)])
 stop = timeit.default_timer()
+z = encoder.predict([aFrame,  Sigma])
 # vae.save('WEBERCELLS3D32lambdaPerpCorr0.01h5')
 # vae.load('WEBERCELLS3D.h5')
 
