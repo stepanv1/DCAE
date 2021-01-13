@@ -1,7 +1,5 @@
-'''This script to visualise cytoff data using deep variational autoencoder with neighbourhood denoising and
-contracting
-TODO ?? pretraining
-Now with entropic weighting of neibourhoods
+'''This script is a summary of DCAE model with annealing
+This code should be repeatred on all other data sets
 Innate‐like CD8+ T‐cells and NK cells: converging functions and phenotypes
 Ayako Kurioka,corresponding author 1 , 2 Paul Klenerman, 1 , 2 and Christian B. Willbergcorresponding author 1 , 2
 CD8+ T Cells and NK Cells: Parallel and Complementary Soldiers of Immunotherapy
@@ -11,151 +9,59 @@ Jillian Rosenberg1 and Jun Huang1,2
 #import keras
 import tensorflow as tf
 tf.compat.v1.disable_eager_execution()
-#from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
-#    plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
-#    get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d
+from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
+    plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
+    get_wsd_scores, neighbour_marker_similarity_score_per_cell, plot3D_performance_colors, plot2D_performance_colors
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.stats import norm
-import glob
-#from keras.layers import Input, Dense, Lambda, Layer, Dropout, BatchNormalization
-from tensorflow.keras.layers import Input, Dense, Lambda, Layer, Dropout, BatchNormalization
-
-#from keras.utils import np_utils
+from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
 from tensorflow.keras import metrics
 import random
 # from keras.utils import multi_gpu_model
 import timeit
-from tensorflow.keras.optimizers import SGD
-from tensorflow.keras.optimizers import Adagrad
-from tensorflow.keras.optimizers import Adadelta
 from tensorflow.keras.optimizers import Adam
 #from tensorflow.keras.constraints import maxnorm
-# import readline
-# mport rpy2
-# from rpy2.robjects.packages import importr
-# import rpy2.robjects.numpy2ri
-# rpy2.robjects.numpy2ri.activate()
-# stsne = importr('stsne')
-# subspace = importr('subspace')
 import sklearn
 from sklearn.preprocessing import MinMaxScaler
+from plotly.io import to_html
+import plotly.io as pio
+pio.renderers.default = "browser"
 # from kerasvis import DBLogger
 # Start the keras visualization server with
 # export FLASK_APP=kerasvis.runserver
 # flask run
 import seaborn as sns
 import warnings
-from tensorflow.keras.callbacks import Callback, EarlyStopping, ModelCheckpoint
+from tensorflow.keras.callbacks import Callback
 
-from tensorflow.keras.regularizers import l2, l1
 from tensorflow.keras.models import load_model
 from tensorflow.keras import regularizers
-# import champ
-# import ig
-# import metric
-# import dill
 from tensorflow.keras.callbacks import TensorBoard
-
-# from GetBest import GetBest
-
 tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0,
-                          write_graph=True, write_images=True)
-
+                        write_graph=True, write_images=True)
 
 def table(labels):
     unique, counts = np.unique(labels, return_counts=True)
     print('%d %d', np.asarray((unique, counts)).T)
     return {'unique': unique, 'counts': counts}
 
-
 markers = ["CD3", "CD45", "pNFkB", "pp38", "CD4", "CD20", "CD33", "pStat5", "CD123", "pAkt", "pStat1", "pSHP2",
            "pZap70",
            "pStat3", "CD14", "pSlp76", "pBtk", "pPlcg2", "pErk", "pLat", "IgM", "pS6", "HLA-DR", "CD7"]
 
 
-def naive_power(m, n):
-    m = np.asarray(m)
-    res = m.copy()
-    for i in range(1, n):
-        res *= m
-    return res
-
-
-class CustomMetrics(Callback):
-    def on_epoch_end(self, epoch, logs=None):
-        for k in logs:
-            if k.endswith('mse'):
-                print
-                logs[k]
-            if k.endswith('mean_squared_error_weighted'):
-                print
-                logs[k]
-            if k.endswith('pen_zero'):
-                print
-                logs[k]
-            if k.endswith('kl_l'):
-                print
-                logs[k]
-
-
-class CustomEarlyStopping(Callback):
-    def __init__(self, criterion=0.001,
-                 patience=0, verbose=0):
-        super(EarlyStopping, self).__init__()
-
-        self.criterion = criterion
-        self.patience = patience
-        self.verbose = verbose
-        self.wait = 0
-        self.stopped_epoch = 0
-        self.monitor_op = np.lesser
-
-    def on_train_begin(self, logs=None):
-        self.wait = 0  # Allow instances to be re-used
-
-    def on_epoch_end(self, epoch, logs=None):
-        current_train = logs.get('val_loss')
-        # current_train = logs.get('loss')
-        if current_train is None:
-            warnings.warn('Early stopping requires %s available!' %
-                          (self.monitor), RuntimeWarning)
-
-        # If ratio current_loss / current_val_loss > self.ratio
-        if self.monitor_op(current_train, self.criterion):
-            self.wait = 0
-        else:
-            if self.wait >= self.patience:
-                self.stopped_epoch = epoch
-                self.model.stop_training = True
-            self.wait += 1
-
-    def on_train_end(self, logs=None):
-        if self.stopped_epoch > 0 and self.verbose > 0:
-            print('Epoch %05d: early stopping' % (self.stopped_epoch))
-
-
-def frange_cycle_linear(start, stop, n_epoch, n_cycle=4, ratio=0.5):
-    L = np.ones(n_epoch)
-    period = n_epoch / n_cycle
-    step = (stop - start) / (period * ratio)  # linear schedule
-
-    for c in range(n_cycle):
-        v, i = start, 0
-        while v <= stop and (int(i + c * period) < n_epoch):
-            L[int(i + c * period)] = v
-            v += step
-            i += 1
-    return L
-
-def frange_anneal(n_epoch, ratio=0.25):
+def frange_anneal(n_epoch, ratio=0.25, shape='sin'):
     L = np.ones(n_epoch)
     for c in range(n_epoch):
         if c <= np.floor(n_epoch*ratio):
-            norm = np.sqrt(np.floor(n_epoch*ratio))
-            L[c] = np.sqrt(c)/norm
+            if shape=='sqrt':
+                norm = np.sqrt(np.floor(n_epoch*ratio))
+                L[c] = np.sqrt(c)/norm
+            if shape=='sin':
+                Om = (np.pi/2/(n_epoch*ratio))
+                L[c] =  np.sin(Om*c)
         else:
             L[c]=1
     return L
@@ -172,18 +78,6 @@ class AnnealingCallback(Callback):
         print("  Current DCAE Weight is " + str(K.get_value(self.weight)))
 
 
-# import vpsearch as vp
-# def find_neighbors(data, k_, metric='manhattan', cores=12):
-#   res = vp.find_nearest_neighbors(data, k_, cores, metric)
-#   return {'dist':np.array(res[1]), 'idx': np.int32(np.array(res[0]))}
-
-
-# from libKMCUDA import kmeans_cuda, knn_cuda
-# def find_neighbors(data, k_, metric='euclidean', cores=12):
-#    ca = kmeans_cuda(np.float32(data), 25, metric="euclidean", verbosity=1, seed=3, device=0)
-#    neighbors = knn_cuda(k_, np.float32(data), *ca, metric=metric, verbosity=1, device=0)
-#    return {'dist':0, 'idx': np.int32(neighbors)}
-
 from sklearn.neighbors import NearestNeighbors
 from joblib import Parallel, delayed
 from pathos import multiprocessing
@@ -191,20 +85,16 @@ from pathos import multiprocessing
 
 # results = Parallel(n_jobs=12, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in range(100))
 
-def find_neighbors(data, k_, metric='manhattan', cores=12):
-    tree = NearestNeighbors(n_neighbors=k_, algorithm="ball_tree", leaf_size=30, metric=metric, metric_params=None,
-                            n_jobs=cores)
-    tree.fit(data)
-    dist, ind = tree.kneighbors(return_distance=True)
-    return {'dist': np.array(dist), 'idx': np.array(ind)}
-
-
 # load data
 k = 30
 perp = k
 k3 = k * 3
 coeffCAE = 5
-ID = 'Nowicka2017'
+epochs = 10000
+ID = 'Nowizk24_MMD_01_3D_DCAE_h120_hidden_5_layers_anneal'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
+source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess'
+output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/'
+epsilon_std = 1.0
 '''
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
@@ -237,116 +127,28 @@ Idx = npzfile['Idx'];
 aFrame = npzfile['aFrame'];
 Dist = npzfile['Dist']
 Sigma = npzfile['Sigma']
-# transform labels into natural numbers
-patient_table = lbls
-from sklearn import preprocessing
-
-le = preprocessing.LabelEncoder()
-le.fit(lbls)
-lbls = le.transform(lbls)
 
 # lbls2=npzfile['lbls'];Idx2=npzfile['Idx'];aFrame2=npzfile['aFrame'];
 # cutoff2=npzfile['cutoff']; Dist2 =npzfile['Dist']
-cutoff = np.repeat(0.1, 24)
-batch_size = 50
-original_dim = 24
-latent_dim = 3
-intermediate_dim = 12
-nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
 
-epochs = 120
+
+epochs = 10000
 # annealing schedule
 DCAE_weight = K.variable(value=0)
-DCAE_weight_lst = K.variable(np.array(frange_anneal(epochs, ratio=0.25)))
-
-epsilon_std = 1.0
-U = 10  # energy barier
-szr = 0  # number of replicas in training data set
-szv = 10000  # number of replicas in validation data set
-
-# nearest neighbours
-
-# generate neighbours data
-features = aFrame
-IdxF = Idx[:, ]
-nrow = np.shape(features)[0]
-b = 0
-neibALL = np.zeros((nrow, k3, original_dim))
-cnz = np.zeros((original_dim))
-cut_neibF = np.zeros((nrow, original_dim))
-weight_distALL = np.zeros((nrow, k3))
-weight_neibALL = np.zeros((nrow, k3))
-rk = range(k3)
-
-print('compute training sources and targets...')
-from scipy.stats import binom
-
-sigmaBer = np.sqrt(cutoff * (1 - cutoff) / k)
-# precompute pmf for all cutoffs at given kfrange_cycle_linear
-probs = 1 - cutoff
-pmf = np.zeros((original_dim, k + 1))
-for j in range(original_dim):
-    rb = binom(k, probs[j])
-    pmf[j, :] = (1 - rb.cdf(range(k + 1))) ** 10
-
-
-def singleInput(i):
-    nei = features[IdxF[i, :], :]
-    cnz = [np.sum(np.where(nei[:k, j] == 0, 0, 1)) for j in range(original_dim)]
-    # cut_nei= np.array([0 if (cnz[j] >= cutoff[j] or cutoff[j]>0.5) else
-    #                   (U/(cutoff[j]**2)) * ( (cutoff[j] - cnz[j]) / sigmaBer[j] )**2 for j in range(original_dim)])
-    cut_nei = np.array([U * pmf[j, :][cnz[j]] for j in range(original_dim)])
-    # weighted distances computed in L2 metric
-    weight_di = [np.sqrt(sum((np.square(features[i] - nei[k_i,]) / (1 + cut_nei)))) for k_i in rk]
-    return [nei, cut_nei, weight_di, i]
-
-
-'''
-inputs = range(nrow)
-from joblib import Parallel, delayed
-from pathos import multiprocessing
-num_cores = multiprocessing.cpu_count()
-#pool = multiprocessing.Pool(num_cores)
-results = Parallel(n_jobs=num_cores, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
-'''
-
-'''
-for i in range(nrow):
- neibALL[i,] = results[i][0]
-for i in range(nrow):
-    cut_neibF[i,] = results[i][1]
-for i in range(nrow):
-    weight_distALL[i,] = results[i][2]
-del results
-'''
-#outfile = source_dir + '/Nowicka2017euclidFeatures.npz'
-# np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
-#npzfile = np.load(outfile)
-#weight_distALL = npzfile['weight_distALL'];
-#cut_neibF = npzfile['cut_neibF'];
-#neibALL = npzfile['neibALL']
-#np.sum(cut_neibF != 0)
-# plt.hist(cut_neibF[cut_neibF!=0],50)
-
-
-targetTr = aFrame
-
-sourceTr = aFrame
+DCAE_weight_lst = K.variable(np.array(frange_anneal(epochs, ratio=0.5)))
+# number of replicas in validation data set
 
 nrow = aFrame.shape[0]
 batch_size = 256
 original_dim = 24
 latent_dim = 3
-intermediate_dim = 72
-intermediate_dim2=72
+intermediate_dim = 120
+intermediate_dim2=120
 nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
 
+#define the model
 SigmaTsq = Input(shape=(1,))
-neib = Input(shape=(k, original_dim,))
-# var_dims = Input(shape = (original_dim,))
-#
 initializer = tf.keras.initializers.he_normal(12345)
-#initializer = None
 x = Input(shape=(original_dim, ))
 h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer = initializer)(x)
 z_mean =  Dense(latent_dim, activation=None, name='z_mean', kernel_initializer = initializer)(h)
@@ -360,23 +162,9 @@ x_decoded_mean = decoder_mean(h_decoded)
 #autoencoder = Model(inputs=[x ], outputs=x_decoded_mean)
 autoencoder = Model(inputs=[x, SigmaTsq], outputs=x_decoded_mean)
 
-   # return tf.multiply(weightedN, 0.5)
-
-
-# def mean_square_error_NN(y_true, y_pred):
-#    #dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1)) / (tf.expand_dims(cut_neib,1) + 1)), axis=-1)
-#    dst = tf.multiply(K.transpose(1/SigmaTsq), K.mean(K.square(neib - K.expand_dims(y_pred, 1)), axis=-1))
-#    #weightedN = K.dot(dst, K.transpose(weight_neib))
-#    weightedN = K.dot(dst, K.transpose(weight_neib))
-#    #return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
-#    return  tf.multiply(weightedN, 0.5 )
-
-
-#def kl_loss(x, x_decoded_mean):
-#    return -0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
 normSigma = nrow / sum(1 / Sigma)
 lam=1e-4
-def DCAE_loss(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
+def DCAE_loss(x, x_decoded_mean):  # 5 layers case
     W = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
     Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
     W = K.transpose(W);
@@ -384,32 +172,17 @@ def DCAE_loss(x, x_decoded_mean):  # attempt to avoid vanishing derivative of si
     m = encoder.get_layer('intermediate').output
     dm = tf.linalg.diag((tf.math.sign(m)+1)/2)  # N_batch x N_hidden
     s = encoder.get_layer('z_mean').output
-    #ds = K.sqrt(tf.linalg.diag(s * (1 - s)))  # N_batch x N_hidden
-    #ds = tf.linalg.diag(tf.math.sign(s*(1-s) ** 2 +0.1))
-    #bs = np.shape(s)[0]
-    #tf.print(bs)  # [None, 120]
     r = tf.linalg.einsum('aj->a', s**2)
-    #tf.print(r.shape)
-    #b_i = tf.eye(latent_dim)
-    #tf.print(tf.shape(b_i))
-    #ds = tf.einsum('alk,a ->alk', b_i,r)
-    ds  = -2 * r + 1.5*r **2 + 1.5
-    #tf.print(ds.shape)
-    # return 1 / normSigma * (SigmaTsq) * lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axi0s=1)
-    S_1W = tf.einsum('akl,lj->akj', dm, W)  # N_batch x N_input ??
-    # tf.print((S_1W).shape) #[None, 120]
-    S_2Z = tf.einsum('a,lj->alj', ds, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
+    ds  = DCAE_weight * (-2 * r + 1.5*r **2) + 1.5 + 1.2*(DCAE_weight-1)
+
+    S_1W = tf.einsum('akl,lj->akj', dm, W)
+    S_2Z = tf.einsum('a,lj->alj', ds, Z)
     # tf.print((S_2Z).shape)
-    diff_tens = tf.einsum('akl,alj->akj', S_2Z,
-                          S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
+    diff_tens = tf.einsum('akl,alj->akj', S_2Z, S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
     # tf.Print(K.sum(diff_tens ** 2))
     return 1 / normSigma * (SigmaTsq) * lam * K.sum(diff_tens ** 2)
     #return  lam * K.sum(diff_tens ** 2)
 
-# annealing variables
-
-# KL weight (to be used by total loss and by annealing scheduler)
-mse = tf.keras.losses.MeanSquaredError()
 
 #mmd staff TODO: try approximation for this
 def compute_kernel(x,y):
@@ -427,43 +200,29 @@ def compute_mmd(x, y):   # [batch_size, z_dim] [batch_size, z_dim]
 def loss_mmd(x, x_decoded_mean):
     batch_size = K.shape(z_mean)[0]
     latent_dim = K.int_shape(z_mean)[1]
-    true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0., stddev=1.)
+    #true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0., stddev=1.)
+    true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval = -1., maxval = 1.0)
     return compute_mmd(true_samples, z_mean)
 
-def vae_loss(weight, DCAE_weight_lst):
+
+def mean_square_error_NN(y_true, y_pred):
+    # dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1)) / (tf.expand_dims(cut_neib,1) + 1)), axis=-1)
+    msew = tf.keras.losses.mean_squared_error(y_true, y_pred)
+    # return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
+    return  tf.multiply(msew, normSigma * 1/SigmaTsq ) # TODO Sigma -denomiator or nominator? try reverse, schek hpw sigma computed in UMAP
+
+def ae_loss(weight, DCAE_weight_lst):
     def loss(x, x_decoded_mean):
-        msew = mse(x, x_decoded_mean)
-        # pen_zero = K.sum(K.square(x*cut_neib), axis=-1)
-        return K.mean(msew +  loss_mmd(x, x_decoded_mean) + coeffCAE * DCAE_weight * DCAE_loss(x, x_decoded_mean))
+        msew = mean_square_error_NN(x, x_decoded_mean)
+        return msew + loss_mmd(x, x_decoded_mean) + coeffCAE * DCAE_loss(x, x_decoded_mean)
         # return K.mean(msew)
     return loss
 
-
-# y = CustomVariationalLayer()([x, x_decoded_mean])
-
 autoencoder.summary()
-
-# vae.set_weights(trained_weight)
-
-
-# from keras.utils import plot_model
-# plot_model(vae, to_file='/mnt/f/Brinkman group/current/Stepan/PyCharm/PhenographLevin13/model.png')
-
-''' this model maps an input to its reconstruction'''
-
-learning_rate = 1e-3
-
-autoencoder.compile(optimizer='adam', loss=vae_loss(DCAE_weight, DCAE_weight_lst), metrics=[DCAE_loss])
-# ae.get_weights()
-
-
-# logger = DBLogger(comment="An example run")
+autoencoder.compile(optimizer='adam', loss=ae_loss(DCAE_weight, DCAE_weight_lst), metrics=[DCAE_loss, loss_mmd])
 
 start = timeit.default_timer()
-
-# here to set weights ti uniform , by default they are perplexity weighted
-weight_neibF = np.full((nrow, k), 1 / k)
-history = autoencoder.fit([sourceTr, Sigma], targetTr,
+history = autoencoder.fit([aFrame, Sigma], aFrame,
                   batch_size=batch_size,
                   epochs=epochs,
                   shuffle=True,
@@ -479,144 +238,299 @@ z = encoder.predict([aFrame,  Sigma])
 
 print(stop - start)
 fig0 = plt.figure();
-plt.plot(history.history['kl_loss'][:]);
+plt.plot(history.history['DCAE_loss'][1200:]);
 
-fig02 = plt.figure();
-plt.plot(history.history['loss']);
+fig01 = plt.figure();
+plt.plot(history.history['loss'][1200:]);
 
-# encoder = Model([x, neib, cut_neib], encoded2)
-encoder = Model([x], z_mean)
-print(encoder.summary())
+fig03 = plt.figure();
+plt.plot(history.history['loss_mmd'][1200:]);
 
+#encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
+#autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
+#np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
+
+encoder.load_weights(output_dir +''+ID + '_3D.h5')
+autoencoder.load_weights(output_dir +'autoencoder_'+ID + '_3D.h5')
+encoder.summary()
+z = encoder.predict([aFrame, Sigma])
+
+
+
+fig = plot3D_cluster_colors(z, camera = dict(eye = dict(x=-0.2,y=0.2,z=1.5)), lbls=lbls)
+fig.write_html('temp.html', auto_open=True)
+fig =plot3D_marker_colors(z, data=aFrame, markers=markers, sub_s = 50000, lbls=lbls)
+fig.write_html('temp2.html', auto_open=True)
+# sretch low values
+scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
+aFrame_scaled=  scaler.fit_transform(aFrame)
+z=np.sqrt(z)
+fig =plot3D_marker_colors(z, data=aFrame_scaled, markers=markers, sub_s = 50000, lbls=lbls)
+fig.write_html('temp2.html', auto_open=True)
 # predict and extract latent variables
+fig = plot3D_cluster_colors(z, camera = dict(eye = dict(x=-0.2,y=0.2,z=1.5)), lbls=lbls)
+fig.show()
+html_str=to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
+                  include_mathjax=False, post_script=None, full_html=True,
+                  animation_opts=None, default_width='100%', default_height='100%', validate=True)
+html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
+Html_file= open(html_dir + "/"+ID + "_Buttons.html","w")
+Html_file.write(html_str)
+Html_file.close()
 
-# gen_pred = generatorNN(aFrame, aFrame, Idx, Dists, batch_size=batch_size,  k_=k, shuffle = False)
-x_test_vae = vae.predict([sourceTr])
-len(x_test_vae)
-# np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_vaeMoeWeights.txt', x_test_vae)
-# x_test_vae=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_ae001Pert.txt.txt')
-x_test_enc = encoder.predict([sourceTr])
 
-cl = 4;
-bw = 0.02
-fig1 = plt.figure();
-ax = sns.violinplot(data=x_test_vae[lbls == cl, :], bw=bw);
-plt.plot(cutoff)
-plt.show();
-# ax.set_xticklabels(rs[cl-1, ]);
-fig2 = plt.figure();
-plt.plot(cutoff)
-bx = sns.violinplot(data=aFrame[lbls == cl, :], bw=bw);
-plt.show();
+fig =plot3D_marker_colors(z, data=aFrame, markers=markers, sub_s = 50000, lbls=lbls)
+fig.show()
+html_str=to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
+                  include_mathjax=False, post_script=None, full_html=True,
+                  animation_opts=None, default_width='100%', default_height='100%', validate=True)
+html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
+Html_file= open(html_dir + "/"+ID + "_Markers.html","w")
+Html_file.write(html_str)
+Html_file.close()
 
-cl = 1
-fig4 = plt.figure();
-b0 = sns.violinplot(data=x_test_vae[lbls == cl, :], bw=bw, color='skyblue');
-b0 = sns.violinplot(data=aFrame[lbls == cl, :], bw=bw, color='black');
-# b0.set_xticklabels(rs[cl-1, ]);
-fig5 = plt.figure();
-b0 = sns.violinplot(data=x_test_vae[lbls == cl, :], bw=bw, color='skyblue');
-# b0.set_xticklabels(np.round(cutoff,2));
+#stretch low signal
+aFramesqrt =np.sqrt(aFrame)
+fig =plot3D_marker_colors(z, data=aFramesqrt, markers=markers, sub_s = 50000, lbls=lbls)
+fig.show()
+
+
+
+
+
+# clustering UMAP representation
+#mapper = umap.UMAP(n_neighbors=30, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=False).fit(aFrame)
+#embedUMAP =  mapper.transform(aFrame)
+#np.savez('LEVINE32_' + 'embedUMAP.npz', embedUMAP=embedUMAP)
+embedUMAP = np.load('LEVINE32_' + 'embedUMAP.npz')['embedUMAP']
+
+
+
+# cluster with phenograph
+#communities, graph, Q = phenograph.cluster(aFrame)
+#np.savez('Phenograph.npz', communities=communities, graph=graph, Q=Q)
+communities =np.load('Phenograph.npz')['communities']
+print(compute_cluster_performance(lbls, communities))
+print(compute_cluster_performance(lbls[lbls!='"unassigned"'], communities[lbls!='"unassigned"']))
+
+######################################3
+# try SAUCIE
+sys.path.append("/home/grines02/PycharmProjects/BIOIBFO25L/SAUCIE")
+data = aFrame
+from importlib import reload
+import SAUCIE
+#reload(SAUCIE)
+#import tensorflow.compat.v1 as tf
+#tf.disable_v2_behavior()
+saucie = SAUCIE.SAUCIE(data.shape[1])
+loadtrain = SAUCIE.Loader(data, shuffle=True)
+saucie.train(loadtrain, steps=100000)
+
+loadeval = SAUCIE.Loader(data, shuffle=False)
+embedding = saucie.get_embedding(loadeval)
+#np.savez('LEVINE32_' + 'embedSAUCIE_100000.npz', embedding=embedding)
+embedding = np.load('LEVINE32_' + 'embedSAUCIE.npz')['embedding']
+#number_of_clusters, clusters = saucie.get_clusters(loadeval)
+#print(compute_cluster_performance(lbls,  clusters))
+#clusters= [str(x) for  x in clusters]
+#fig = plot3D_cluster_colors(x=embedding[:, 0],y=embedding[:, 1],z=np.zeros(len(clusters)), lbls=np.asarray(clusters))
+#fig.show()
+fig = plot2D_cluster_colors(embedding, lbls=lbls)
+fig.show()
+
+
+z_mr =  neighbour_marker_similarity_score(z, aFrame, kmax=90)
+embedding_mr =  neighbour_marker_similarity_score(embedding, aFrame, kmax=90)
+embedUMAP_mr = neighbour_marker_similarity_score(embedUMAP, aFrame, kmax=90)
+#np.savez(ID + '_marker_similarity.npz', z_mr = z_mr,  embedding_mr=embedding_mr, embedUMAP_mr=embedUMAP_mr)
+npobj =  np.load(ID + '_marker_similarity.npz')
+z_mr,embedding_mr,embedUMAP_mr  = npobj ['z_mr'] , npobj['embedding_mr'],  npobj['embedUMAP_mr'],
+z_mr[89]
+embedding_mr[89]
+embedUMAP_mr[89]
+# plot
+df = pd.DataFrame({'k':range(0,90)[2:],  'DCAE': z_mr[2:], 'SAUCIE': embedding_mr[2:], 'UMAP': embedUMAP_mr[2:]})
+
+# multiple line plot
+plt.plot('k', 'DCAE', data=df, marker='o', markerfacecolor='blue', markersize=2, color='skyblue', linewidth=4)
+plt.plot('k', 'SAUCIE', data=df, marker='', color='olive', linewidth=2)
+plt.plot('k', 'UMAP', data=df, marker='', color='olive', linewidth=2, linestyle='dashed')
+plt.legend()
+
+# create performance plots for paper
+embedding = np.load('LEVINE32_' + 'embedSAUCIE.npz')['embedding']
+embedUMAP = np.load('LEVINE32_' + 'embedUMAP.npz')['embedUMAP']
+PAPERPLOTS  = './PAPERPLOTS/'
+#3 plots for paper
+# how to export as png: https://plotly.com/python/static-image-export/ 2D
+fig = plot3D_cluster_colors(z[lbls !='"unassigned"', :  ], camera = dict(eye = dict(x=-0.2,y=0.2,z=1.5)),
+                            lbls=lbls[lbls !='"unassigned"'],legend=False)
+fig.show()
+fig.write_image(PAPERPLOTS+ "LEVINE32.png")
+
+fig = plot2D_cluster_colors(embedding[lbls !='"unassigned"', :  ], lbls=lbls[lbls !='"unassigned"'],legend=False)
+fig.show()
+fig.write_image(PAPERPLOTS+ "LEVINE32_SAUCIE.png")
+
+fig = plot2D_cluster_colors(embedUMAP[lbls !='"unassigned"', :  ], lbls=lbls[lbls !='"unassigned"'],legend=True)
+fig.show()
+fig.write_image(PAPERPLOTS+ "LEVINE32_UMAP.png")
+
+
+#TODO:very importmant!!! scale all the output to be in unite square (or cube)
+scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
+embedding=  scaler.fit_transform(embedding)
+embedUMAP= scaler.fit_transform(embedUMAP)
+z= scaler.fit_transform(z)
+z = z/np.sqrt(3.1415)
+prZ = projZ(z)
+prZ = scaler.fit_transform(prZ)
+prZ =prZ/np.sqrt(3.1415)
+#DCAE
+discontinuityDCAE, manytooneDCAE = get_wsd_scores(aFrame, z, 90, num_meandist=10000, compute_knn_x=False, x_knn=Idx)
+onetomany_scoreDCAE = neighbour_onetomany_score(z, Idx, kmax=90, num_cores=12)[1]
+marker_similarity_scoreDCAE = neighbour_marker_similarity_score_per_cell(z, aFrame, kmax=90, num_cores=12)
+
+#discontinuityDCAE_prZ, manytooneDCAE_prZ = get_wsd_scores(aFrame, prZ, 90, num_meandist=10000, compute_knn_x=False, x_knn=Idx)
+#onetomany_scoreDCAE_prZ = neighbour_onetomany_score(prZ, Idx, kmax=90, num_cores=12)[1]
+#marker_similarity_scoreDCAE_prZ = neighbour_marker_similarity_score_per_cell(prZ, aFrame, kmax=90, num_cores=12)
+
+#UMAP
+discontinuityUMAP, manytooneUMAP = get_wsd_scores(aFrame, embedUMAP, 90, num_meandist=10000, compute_knn_x=False, x_knn=Idx)
+onetomany_scoreUMAP= neighbour_onetomany_score(embedUMAP, Idx, kmax=90, num_cores=12)[1]
+marker_similarity_scoreUMAP = neighbour_marker_similarity_score_per_cell(embedUMAP, aFrame, kmax=90, num_cores=12)
+
+#SAUCIE
+discontinuitySAUCIE, manytooneSAUCIE = get_wsd_scores(aFrame, embedding, 90, num_meandist=10000, compute_knn_x=False, x_knn=Idx)
+onetomany_scoreSAUCIE= neighbour_onetomany_score(embedding, Idx, kmax=90, num_cores=12)[1]
+marker_similarity_scoreSAUCIE = neighbour_marker_similarity_score_per_cell(embedding, aFrame, kmax=90, num_cores=12)
+
+outfile2 = source_dir + '/' + ID+ '_PerformanceMeasures.npz'
+#p.savez(outfile2, discontinuityDCAE = discontinuityDCAE, manytooneDCAE= manytooneDCAE, onetomany_scoreDCAE= onetomany_scoreDCAE, marker_similarity_scoreDCAE= marker_similarity_scoreDCAE[1],
+#         discontinuityUMAP= discontinuityUMAP, manytooneUMAP= manytooneUMAP, onetomany_scoreUMAP= onetomany_scoreUMAP, marker_similarity_scoreUMAP= marker_similarity_scoreUMAP[1],
+#         discontinuitySAUCIE= discontinuitySAUCIE, manytooneSAUCIE= manytooneSAUCIE, onetomany_scoreSAUCIE= onetomany_scoreSAUCIE, marker_similarity_scoreSAUCIE= marker_similarity_scoreSAUCIE[1])
+
+npzfile = np.load(outfile2)
+discontinuityDCAE = npzfile['discontinuityDCAE']; manytooneDCAE= npzfile['manytooneDCAE']; onetomany_scoreDCAE= npzfile['onetomany_scoreDCAE']; marker_similarity_scoreDCAE= npzfile['marker_similarity_scoreDCAE'];
+discontinuityUMAP= npzfile['discontinuityUMAP']; manytooneUMAP= npzfile['manytooneUMAP']; onetomany_scoreUMAP= npzfile['onetomany_scoreUMAP']; marker_similarity_scoreUMAP= npzfile['marker_similarity_scoreUMAP'];
+discontinuitySAUCIE= npzfile['discontinuitySAUCIE']; manytooneSAUCIE= npzfile['manytooneSAUCIE']; onetomany_scoreSAUCIE= npzfile['onetomany_scoreSAUCIE']; marker_similarity_scoreSAUCIE=  npzfile['marker_similarity_scoreSAUCIE']
+#Quick look into results
+# TODO: data normalization by normalize_data_by_mean_pdist in y space
+np.mean(discontinuityDCAE)
+np.mean(manytooneDCAE)
+np.mean(discontinuityUMAP)
+np.mean(manytooneUMAP)
+np.mean(discontinuitySAUCIE)
+np.mean(manytooneSAUCIE)
+np.mean(onetomany_scoreDCAE[29,:])
+np.mean(marker_similarity_scoreDCAE[29])
+np.mean(onetomany_scoreUMAP[29,:])
+np.mean(marker_similarity_scoreUMAP[29])
+np.mean(onetomany_scoreSAUCIE[29,:])
+np.mean(marker_similarity_scoreSAUCIE[29])
+
+np.mean(discontinuityDCAE_prZ)
+np.mean(manytooneDCAE_prZ)
+np.mean(onetomany_scoreDCAE_prZ[29,:])
+np.mean(marker_similarity_scoreDCAE_prZ[1][29])
+
+np.median(discontinuityDCAE)
+np.median(manytooneDCAE)
+np.median(discontinuityUMAP)
+np.median(manytooneUMAP)
+np.median(discontinuitySAUCIE)
+np.median(manytooneSAUCIE)
+np.median(onetomany_scoreDCAE[29,:])
+np.median(marker_similarity_scoreDCAE[29])
+np.median(onetomany_scoreUMAP[29,:])
+np.median(marker_similarity_scoreUMAP[29])
+np.median(onetomany_scoreSAUCIE[29,:])
+np.median(marker_similarity_scoreSAUCIE[29])
+
+np.median(discontinuityDCAE_prZ)
+np.median(manytooneDCAE_prZ)
+np.median(onetomany_scoreDCAE_prZ[29,:])
+np.median(marker_similarity_scoreDCAE_prZ[29])
+
+
+plt.hist(onetomany_scoreSAUCIE[90,:],250)
+plt.hist(onetomany_scoreDCAE[90,:],250)
+plt.hist(onetomany_scoreUMAP[90,:],250)
+plt.hist(discontinuityDCAE,250)
+plt.hist(discontinuitySAUCIE,250)
+plt.hist(discontinuityUMAP,250)
+
+plt.hist(marker_similarity_scoreSAUCIE[29],250)
+plt.hist(marker_similarity_scoreDCAE[29],250)
+plt.hist(marker_similarity_scoreUMAP[29],250)
+plt.hist(manytooneSAUCIE,250)
+plt.hist(manytooneDCAE,250)
+plt.hist(manytooneUMAP,250)
+
+
+
+plt.hist(z,250)
+plt.hist(embedding,250)
+#build grpahs using above data
+# now build plots and tables. 2 plots: 1 for onetomany_score, 1 marker_similarity_scoreDCAE on 2 methods
+# table: Discontinuity and manytoone (2 columns) with 3 rows, each per method. Save as a table then stack with output on other  data , to create the final table
+median_marker_similarity_scoreDCAE = np.median(marker_similarity_scoreDCAE, axis=1);median_marker_similarity_scoreSAUCIE = np.median(marker_similarity_scoreSAUCIE, axis=1);
+median_marker_similarity_scoreUMAP = np.median(marker_similarity_scoreUMAP, axis=1);
+df_sim = pd.DataFrame({'k':range(0,91)[1:],  'DCAE': median_marker_similarity_scoreDCAE[1:], 'SAUCIE': median_marker_similarity_scoreSAUCIE[1:], 'UMAP': median_marker_similarity_scoreUMAP[1:]})
+#fig1, fig2 = plt.subplots()
+plt.plot('k', 'DCAE', data=df_sim, marker='o',  markersize=5, color='skyblue', linewidth=3)
+plt.plot('k', 'SAUCIE', data=df_sim, marker='v', color='orange', linewidth=2)
+plt.plot('k', 'UMAP', data=df_sim, marker='x', color='olive', linewidth=2)
+plt.legend()
+plt.savefig(PAPERPLOTS  + 'LEVINE32_' + ID+ 'performance_marker_similarity_score.png')
 plt.show()
+plt.clf()
+median_onetomany_scoreDCAE = np.median(onetomany_scoreDCAE, axis=1);median_onetomany_scoreSAUCIE = np.median(onetomany_scoreSAUCIE, axis=1);
+median_onetomany_scoreUMAP = np.median(onetomany_scoreUMAP, axis=1);
+df_otm = pd.DataFrame({'k':range(0,91)[1:],  'DCAE': median_onetomany_scoreDCAE[1:], 'SAUCIE': median_onetomany_scoreSAUCIE[1:], 'UMAP': median_onetomany_scoreUMAP[1:]})
+plt.plot('k', 'DCAE', data=df_otm, marker='o',  markersize=5, color='skyblue', linewidth=3)
+plt.plot('k', 'SAUCIE', data=df_otm, marker='v', color='orange', linewidth=2)
+plt.plot('k', 'UMAP', data=df_otm, marker='x', color='olive', linewidth=2)
+plt.savefig(PAPERPLOTS  + 'LEVINE32_' + ID+'_performance_onetomany_score.png')
+plt.show()
+# tables
+df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.1064, 0.1785, 0.1177], 'discontinuity': [0.0008, 0.0099, 0.0013]})
+df_BORAI.to_csv(PAPERPLOTS  + 'LEVINE32_' + ID+ 'Borealis_measures.csv', index=False)
+np.median(discontinuityDCAE)
+#0.01565989388359918
+np.median(manytooneDCAE)
+#0.10611877287197075
+np.median(discontinuityUMAP)
+#0.0013421323564317491
+np.median(manytooneUMAP)
+#0.11770417201150978
+np.median(discontinuitySAUCIE)
+#0.009914790259467234
+np.median(manytooneSAUCIE)
+#0.17852087116020135
 
-unique0, counts0 = np.unique(lbls, return_counts=True)
-print('%d %d', np.asarray((unique0, counts0)).T)
-num_clus = len(counts0)
+#plot perf
+fig =plot3D_performance_colors(z, perf=discontinuityDCAE, lbls=lbls)
+fig.show()
+fig =plot3D_performance_colors(z, perf=onetomany_scoreDCAE[30,:], lbls=lbls)
+fig.show()
+fig =plot3D_performance_colors(z, perf=manytooneDCAE, lbls=lbls)
+fig.show()
+fig =plot3D_performance_colors(z, perf=marker_similarity_scoreDCAE, lbls=lbls)
+fig.show()
 
-from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
-from plotly.graph_objs import Scatter3d, Figure, Layout, Scatter
+fig =plot2D_performance_colors(embedding, perf=discontinuitySAUCIE, lbls=lbls)
+fig.show()
+fig =plot2D_performance_colors(embedding, perf=onetomany_scoreSAUCIE[30,:], lbls=lbls)
+fig.show()
+fig =plot2D_performance_colors(embedding, perf=manytooneSAUCIE, lbls=lbls)
+fig.show()
+fig =plot2D_performance_colors(embedding, perf=marker_similarity_scoreSAUCIE, lbls=lbls)
+fig.show()
 
-# np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt', x_test_enc)
-# x_test_enc=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt')
-
-nrow = np.shape(x_test_enc)[0]
-# subsIdx=np.random.choice(nrow,  500000)
-
-x = x_test_enc[:, 0]
-y = x_test_enc[:, 1]
-z = x_test_enc[:, 2]
-# analog of tsne plot fig15 from Nowizka 2015, also see fig21
-plot([Scatter3d(x=x, y=y, z=z,
-                mode='markers',
-                marker=dict(
-                    size=1,
-                    color=lbls,  # set color to an array/list of desired values
-                    colorscale='Viridis',  # choose a colorscale
-                    opacity=0.5,
-                ),
-                text=clust,
-                hoverinfo='text')])
-
-x = x_test_enc[:, 0]
-y = x_test_enc[:, 1]
-z = x_test_enc[:, 2]
-# analog of tsne plot fig15 from Nowizka 2015, also see fig21
-plot([Scatter3d(x=x, y=y, z=z,
-                mode='markers',
-                marker=dict(
-                    size=1,
-                    color=aFrame[:, 0],  # set color to an array/list of desired values
-                    colorscale='Viridis',  # choose a colorscale
-                    opacity=0.5,
-                ),
-                text=clust,
-                hoverinfo='text')])
-
-# umap graph to compare
-
-# np.savetxt('/home/grines02/PycharmProjects/BIOIBFO25L/data/data/umap_embedding.txt', standard_embedding)
-standard_embedding = np.loadtxt('/home/grines02/PycharmProjects/BIOIBFO25L/data/data/umap_embedding.txt')
-'''
-import umap
-standard_embedding = umap.UMAP(n_neighbors=30, n_components=3).fit_transform(aFrame)
-'''
-x = standard_embedding[:, 0]
-y = standard_embedding[:, 1]
-z = standard_embedding[:, 2]
-# analog of tsne plot fig15 from Nowizka 2015, also see fig21
-plot([Scatter3d(x=x, y=y, z=z,
-                mode='markers',
-                marker=dict(
-                    size=1,
-                    color=lbls,  # set color to an array/list of desired values
-                    colorscale='Viridis',  # choose a colorscale
-                    opacity=0.5,
-                ),
-                text=clust,
-                hoverinfo='text')])
-
-plot([Scatter3d(x=x, y=y, z=z,
-                mode='markers',
-                marker=dict(
-                    size=1,
-                    color=aFrame[:, 0],  # set color to an array/list of desired values
-                    colorscale='Viridis',  # choose a colorscale
-                    opacity=0.5,
-                ),
-                text=clust,
-                hoverinfo='text')])
-
-cl = 2
-plot([Scatter3d(x=x, y=y, z=z,
-                mode='markers',
-                marker=dict(
-                    size=[2 if x == cl else 0.5 for x in lbls],
-                    color=['red' if x == cl else 'green' for x in lbls],  # set color to an array/list of desired values
-                    colorscale='Viridis',  # choose a colorscale
-                    opacity=0.5,
-                ),
-                text=patient_table[:, 0],
-                hoverinfo='text')])
-
-x = x_test_enc[:, 0]
-y = x_test_enc[:, 1]
-plot([Scatter(x=x, y=y,
-              mode='markers',
-              marker=dict(
-                  size=1,
-                  color=lbls / 5,  # set color to an array/list of desired values
-                  colorscale='Viridis',  # choose a colorscale
-                  opacity=1,
-              ),
-              text=patient_table[:, 0],
-              hoverinfo='text')])
+fig =plot2D_performance_colors(embedUMAP, perf=discontinuityUMAP, lbls=lbls)
+fig.show()
+fig =plot2D_performance_colors(embedUMAP, perf=onetomany_scoreSAUCIE[30,:], lbls=lbls)
+fig.show()
+fig =plot2D_performance_colors(embedUMAP, perf=manytooneSAUCIE, lbls=lbls)
+fig.show()
