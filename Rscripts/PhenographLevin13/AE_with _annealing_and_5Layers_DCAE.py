@@ -9,14 +9,12 @@ Jillian Rosenberg1 and Jun Huang1,2
 #import keras
 import tensorflow as tf
 tf.compat.v1.disable_eager_execution()
-from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
-    plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
-    get_wsd_scores, neighbour_marker_similarity_score_per_cell, plot3D_performance_colors, plot2D_performance_colors
 import numpy as np
 import matplotlib.pyplot as plt
 from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
+import sys
 from tensorflow.keras import metrics
 import random
 # from keras.utils import multi_gpu_model
@@ -42,6 +40,13 @@ from tensorflow.keras.callbacks import TensorBoard
 tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0,
                         write_graph=True, write_images=True)
 
+from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
+    plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
+    get_wsd_scores, neighbour_marker_similarity_score_per_cell, plot3D_performance_colors, plot2D_performance_colors
+
+
+
+import umap.umap_ as umap
 def table(labels):
     unique, counts = np.unique(labels, return_counts=True)
     print('%d %d', np.asarray((unique, counts)).T)
@@ -92,7 +97,7 @@ k3 = k * 3
 coeffCAE = 5
 epochs = 10000
 ID = 'Nowizk24_MMD_01_3D_DCAE_h120_hidden_5_layers_anneal'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
-source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess'
+source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/'
 output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/'
 epsilon_std = 1.0
 '''
@@ -115,11 +120,11 @@ scaler.fit_transform(aFrame)
 nb=find_neighbors(aFrame, k3, metric='euclidean', cores=12)
 Idx = nb['idx']; Dist = nb['dist']
 '''
-data0 = np.genfromtxt(source_dir + "d_matrix.txt"
-                      , names=None, dtype=float, skip_header=1)
-clust = np.genfromtxt(source_dir + "label_patient.txt", names=None, dtype='str', skip_header=1, delimiter=" ",
-                      usecols=(1, 2, 3))[:, 0]
-outfile = outfile = '/home/grines02/PycharmProjects/BIOIBFO25L/data/WeberLabels/Nowicka2017euclid_scaled.npz'
+#data0 = np.genfromtxt(source_dir + "d_matrix.txt"
+                 #######     , names=None, dtype=float, skip_header=1)
+#clust = np.genfromtxt(source_dir + "label_patient.txt", names=None, dtype='str', skip_header=1, delimiter=" ",
+#                      usecols=(1, 2, 3))[:, 0]
+outfile = '/home/grines02/PycharmProjects/BIOIBFO25L/data/WeberLabels/Nowicka2017euclid_scaled.npz'
 # np.savez(outfile, Idx=Idx, aFrame=aFrame, lbls=lbls,  Dist=Dist)
 npzfile = np.load(outfile)
 lbls = npzfile['lbls'];
@@ -258,13 +263,13 @@ z = encoder.predict([aFrame, Sigma])
 
 
 fig = plot3D_cluster_colors(z, camera = dict(eye = dict(x=-0.2,y=0.2,z=1.5)), lbls=lbls)
-fig.write_html('temp.html', auto_open=True)
+fig.show()
 fig =plot3D_marker_colors(z, data=aFrame, markers=markers, sub_s = 50000, lbls=lbls)
-fig.write_html('temp2.html', auto_open=True)
+fig.show()
 # sretch low values
 scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
 aFrame_scaled=  scaler.fit_transform(aFrame)
-z=np.sqrt(z)
+#z=np.sqrt(z)
 fig =plot3D_marker_colors(z, data=aFrame_scaled, markers=markers, sub_s = 50000, lbls=lbls)
 fig.write_html('temp2.html', auto_open=True)
 # predict and extract latent variables
@@ -294,14 +299,10 @@ aFramesqrt =np.sqrt(aFrame)
 fig =plot3D_marker_colors(z, data=aFramesqrt, markers=markers, sub_s = 50000, lbls=lbls)
 fig.show()
 
-
-
-
-
 # clustering UMAP representation
 #mapper = umap.UMAP(n_neighbors=30, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=False).fit(aFrame)
 #embedUMAP =  mapper.transform(aFrame)
-#np.savez('LEVINE32_' + 'embedUMAP.npz', embedUMAP=embedUMAP)
+#np.savez('Nowizka_' + 'embedUMAP.npz', embedUMAP=embedUMAP)
 embedUMAP = np.load('LEVINE32_' + 'embedUMAP.npz')['embedUMAP']
 
 
@@ -315,6 +316,7 @@ print(compute_cluster_performance(lbls[lbls!='"unassigned"'], communities[lbls!=
 
 ######################################3
 # try SAUCIE
+sys.path.append("/home/grines02/SAUCIE")
 sys.path.append("/home/grines02/PycharmProjects/BIOIBFO25L/SAUCIE")
 data = aFrame
 from importlib import reload
@@ -328,8 +330,8 @@ saucie.train(loadtrain, steps=100000)
 
 loadeval = SAUCIE.Loader(data, shuffle=False)
 embedding = saucie.get_embedding(loadeval)
-#np.savez('LEVINE32_' + 'embedSAUCIE_100000.npz', embedding=embedding)
-embedding = np.load('LEVINE32_' + 'embedSAUCIE.npz')['embedding']
+np.savez('Nowizka_' + 'embedSAUCIE_100000.npz', embedding=embedding)
+embedding = np.load('Nowizka_' + 'embedSAUCIE.npz')['embedding'] #TODO redo LEVINE32
 #number_of_clusters, clusters = saucie.get_clusters(loadeval)
 #print(compute_cluster_performance(lbls,  clusters))
 #clusters= [str(x) for  x in clusters]
