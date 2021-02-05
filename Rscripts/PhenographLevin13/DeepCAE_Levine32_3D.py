@@ -45,7 +45,7 @@ import glob
 import sklearn
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.layers import Input, Dense, Lambda, Layer, Dropout, BatchNormalization
-from kerassurgeon.operations import delete_layer, insert_layer, delete_channels
+#from kerassurgeon.operations import delete_layer, insert_layer, delete_channels
 #from tensorflow.keras.utils import np_utils
 #import np_utils
 from tensorflow.keras import Model
@@ -239,7 +239,7 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 k = 30
 k3 = k * 3
 coeffCAE = 5
-epochs = 15000
+epochs = 50
 ID = 'Levine32_MMD_01_3D_DCAE_1200_hidden_'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
 '''
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
@@ -555,6 +555,8 @@ def custom_loss(x, x_decoded_mean):
 #################################################################################################
 #loss = custom_loss(x, x_decoded_mean)
 #autoencoder.add_loss(loss)
+import tensorflow_addons as tfa
+opt = tfa.optimizers.RectifiedAdam(lr=1e-3)
 autoencoder.compile(optimizer='adam', loss=custom_loss)
 print(autoencoder.summary())
 print(encoder.summary())

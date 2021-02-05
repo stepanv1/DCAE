@@ -60,6 +60,8 @@ markers = ["CD3", "CD45", "pNFkB", "pp38", "CD4", "CD20", "CD33", "pStat5", "CD1
 
 def frange_anneal(n_epoch, ratio=0.25, shape='sin'):
     L = np.ones(n_epoch)
+    if ratio ==0:
+        return L
     for c in range(n_epoch):
         if c <= np.floor(n_epoch*ratio):
             if shape=='sqrt':
@@ -96,8 +98,8 @@ k = 30
 perp = k
 k3 = k * 3
 coeffCAE = 5
-epochs = 1000
-ID = 'Nowizk24_MMD_01_3D_DCAE_h120_hidden_5_layers_anneal'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
+epochs = 4000
+ID = 'Nowizk24_MMD_01_3D_DCAE_h72_hidden_24_7_layers_NO_anneal'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
 source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/'
 output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/'
 epsilon_std = 1.0
@@ -139,53 +141,79 @@ Sigma = npzfile['Sigma']
 
 # annealing schedule
 DCAE_weight = K.variable(value=0)
-DCAE_weight_lst = K.variable(np.array(frange_anneal(epochs, ratio=0.5)))
+DCAE_weight_lst = K.variable(np.array(frange_anneal(epochs, ratio=0.0)))
 # number of replicas in validation data set
 
 nrow = aFrame.shape[0]
 batch_size = 256
 original_dim = 24
 latent_dim = 3
-intermediate_dim = 120
-intermediate_dim2=120
+intermediate_dim = 72
+intermediate_dim2=24
 nb_hidden_layers = [original_dim, intermediate_dim, latent_dim, intermediate_dim, original_dim]
 
+initializer = tf.keras.initializers.he_normal(12345)
 #define the model
 SigmaTsq = Input(shape=(1,))
-initializer = tf.keras.initializers.he_normal(12345)
 x = Input(shape=(original_dim, ))
 h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer = initializer)(x)
-z_mean =  Dense(latent_dim, activation=None, name='z_mean', kernel_initializer = initializer)(h)
+h1 = Dense(intermediate_dim2, activation='relu', name='intermediate2', kernel_initializer = initializer)(h)
+z_mean =  Dense(latent_dim, activation=None, name='z_mean', kernel_initializer = initializer)(h1)
+
 
 encoder = Model([x, SigmaTsq], z_mean, name='encoder')
 
-decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate2', kernel_initializer = initializer)
+decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer = initializer)
+decoder_h1 = Dense(intermediate_dim, activation='relu', name='intermediate4', kernel_initializer = initializer)
 decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer = initializer)
 h_decoded = decoder_h(z_mean)
-x_decoded_mean = decoder_mean(h_decoded)
-#autoencoder = Model(inputs=[x ], outputs=x_decoded_mean)
+h_decoded2 = decoder_h1(h_decoded)
+x_decoded_mean = decoder_mean(h_decoded2)
 autoencoder = Model(inputs=[x, SigmaTsq], outputs=x_decoded_mean)
 
+# Loss and optimizer ------------------------------------------------------
+# rewrite this based on recommendations here
+# https://www.tensorflow.org/guide/keras/train_and_evaluate
+
 normSigma = nrow / sum(1 / Sigma)
+
 lam=1e-4
-def DCAE_loss(x, x_decoded_mean):  # 5 layers case
-    W = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
+
+def DCAE_loss(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
+    U = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
+    W = K.variable(value=encoder.get_layer('intermediate2').get_weights()[0])  # N x N_hidden
     Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
+    U = K.transpose(U);
     W = K.transpose(W);
     Z = K.transpose(Z);  # N_hidden x N
-    m = encoder.get_layer('intermediate').output
+
+    u = encoder.get_layer('intermediate').output
+    du = tf.linalg.diag((tf.math.sign(u) + 1) / 2)
+    m = encoder.get_layer('intermediate2').output
     dm = tf.linalg.diag((tf.math.sign(m)+1)/2)  # N_batch x N_hidden
     s = encoder.get_layer('z_mean').output
+    #ds = K.sqrt(tf.linalg.diag(s * (1 - s)))  # N_batch x N_hidden
+    #ds = tf.linalg.diag(tf.math.sign(s*(1-s) ** 2 +0.1))
+    #bs = np.shape(s)[0]
+    #tf.print(bs)  # [None, 120]
     r = tf.linalg.einsum('aj->a', s**2)
-    ds  = DCAE_weight * (-2 * r + 1.5*r **2) + 1.5 + 1.2*(DCAE_weight-1)
-
-    S_1W = tf.einsum('akl,lj->akj', dm, W)
-    S_2Z = tf.einsum('a,lj->alj', ds, Z)
+    #tf.print(r.shape)
+    #b_i = tf.eye(latent_dim)
+    #tf.print(tf.shape(b_i))
+    #ds = tf.einsum('alk,a ->alk', b_i,r)
+    ds = DCAE_weight * (-2 * r + 1.5 * r ** 2) + 1.5 + 1.2 * (DCAE_weight - 1)
+    #tf.print(ds.shape)
+    # return 1 / normSigma * (SigmaTsq) * lam * K.sum(dm ** 2 * K.sum(W ** 2, axis=1), axi0s=1)
+    # grow one level in front
+    S_0W = tf.einsum('akl,lj->akj', du, U)
+    S_1W = tf.einsum('akl,lj->akj', dm, W)  # N_batch x N_input ??
+    # tf.print((S_1W).shape) #[None, 120]
+    S_2Z = tf.einsum('a,lj->alj', ds, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
     # tf.print((S_2Z).shape)
-    diff_tens = tf.einsum('akl,alj->akj', S_2Z, S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
+    diff_tens = tf.einsum('akl,alj->akj', S_2Z,  S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
+    diff_tens = tf.einsum('akl,alj->akj', diff_tens, S_0W)
     # tf.Print(K.sum(diff_tens ** 2))
-    return 1 / normSigma * (SigmaTsq) * lam * K.sum(diff_tens ** 2)
-    #return  lam * K.sum(diff_tens ** 2)
+    return 1 / normSigma * (SigmaTsq) * lam *(K.sum(diff_tens ** 2))
 
 
 #mmd staff TODO: try approximation for this
@@ -242,13 +270,13 @@ z = encoder.predict([aFrame,  Sigma])
 
 print(stop - start)
 fig0 = plt.figure();
-plt.plot(history.history['DCAE_loss'][1200:]);
+plt.plot(history.history['DCAE_loss'][100:]);
 
 fig01 = plt.figure();
-plt.plot(history.history['loss'][1200:]);
+plt.plot(history.history['loss'][100:]);
 
 fig03 = plt.figure();
-plt.plot(history.history['loss_mmd'][1200:]);
+plt.plot(history.history['loss_mmd'][100:]);
 
 encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
 autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
@@ -343,17 +371,26 @@ fig = plot2D_cluster_colors(embedding, lbls=lbls)
 fig.show()
 
 
+import os
+os.chdir('/home/grines02/PycharmProjects/BIOIBFO25L')
+os.getcwd()
+# create performance plots for paper
+embedding = np.load('LEVINE32_' + 'embedSAUCIE.npz')['embedding']
+embedUMAP = np.load('LEVINE32_' + 'embedUMAP.npz')['embedUMAP']
+PAPERPLOTS  = './PAPERPLOTS/'
+
+
 z_mr =  neighbour_marker_similarity_score(z, aFrame, kmax=90)
 embedding_mr =  neighbour_marker_similarity_score(embedding, aFrame, kmax=90)
 embedUMAP_mr = neighbour_marker_similarity_score(embedUMAP, aFrame, kmax=90)
-#np.savez(ID + '_marker_similarity.npz', z_mr = z_mr,  embedding_mr=embedding_mr, embedUMAP_mr=embedUMAP_mr)
+np.savez(ID + '_marker_similarity.npz', z_mr = z_mr,  embedding_mr=embedding_mr, embedUMAP_mr=embedUMAP_mr)
 npobj =  np.load(ID + '_marker_similarity.npz')
 z_mr,embedding_mr,embedUMAP_mr  = npobj ['z_mr'] , npobj['embedding_mr'],  npobj['embedUMAP_mr'],
 z_mr[89]
 embedding_mr[89]
 embedUMAP_mr[89]
 # plot
-df = pd.DataFrame({'k':range(0,90)[2:],  'DCAE': z_mr[2:], 'SAUCIE': embedding_mr[2:], 'UMAP': embedUMAP_mr[2:]})
+df = pd.DataFrame({'k':range(0,91)[2:],  'DCAE': z_mr[2:], 'SAUCIE': embedding_mr[2:], 'UMAP': embedUMAP_mr[2:]})
 
 # multiple line plot
 plt.plot('k', 'DCAE', data=df, marker='o', markerfacecolor='blue', markersize=2, color='skyblue', linewidth=4)
@@ -362,7 +399,7 @@ plt.plot('k', 'UMAP', data=df, marker='', color='olive', linewidth=2, linestyle=
 plt.legend()
 
 # create performance plots for paper
-embedding = np.load('Nowizka_' + 'embedSAUCIE.npz')['embedding']
+embedding = np.load('Nowizka_' + 'embedSAUCIE_100000.npz')['embedding']
 embedUMAP = np.load('Nowizka_' + 'embedUMAP.npz')['embedUMAP']
 PAPERPLOTS  = './PAPERPLOTS/'
 #3 plots for paper
@@ -370,15 +407,15 @@ PAPERPLOTS  = './PAPERPLOTS/'
 fig = plot3D_cluster_colors(z[lbls !='"unassigned"', :  ], camera = dict(eye = dict(x=-0.2,y=0.2,z=1.5)),
                             lbls=lbls[lbls !='"unassigned"'],legend=False)
 fig.show()
-fig.write_image(PAPERPLOTS+ "Nowizka.png")
+#fig.write_image(PAPERPLOTS+ "Nowizka.png")
 
 fig = plot2D_cluster_colors(embedding[lbls !='"unassigned"', :  ], lbls=lbls[lbls !='"unassigned"'],legend=False)
 fig.show()
-fig.write_image(PAPERPLOTS+ "Nowizka_SAUCIE.png")
+#fig.write_image(PAPERPLOTS+ "Nowizka_SAUCIE.png")
 
 fig = plot2D_cluster_colors(embedUMAP[lbls !='"unassigned"', :  ], lbls=lbls[lbls !='"unassigned"'],legend=True)
 fig.show()
-fig.write_image(PAPERPLOTS+ "Nowizka_UMAP.png")
+#fig.write_image(PAPERPLOTS+ "Nowizka_UMAP.png")
 
 
 #TODO:very importmant!!! scale all the output to be in unite square (or cube)
@@ -410,9 +447,9 @@ onetomany_scoreSAUCIE= neighbour_onetomany_score(embedding, Idx, kmax=90, num_co
 marker_similarity_scoreSAUCIE = neighbour_marker_similarity_score_per_cell(embedding, aFrame, kmax=90, num_cores=12)
 
 outfile2 = source_dir + '/' + ID+ '_PerformanceMeasures.npz'
-#np.savez(outfile2, discontinuityDCAE = discontinuityDCAE, manytooneDCAE= manytooneDCAE, onetomany_scoreDCAE= onetomany_scoreDCAE, marker_similarity_scoreDCAE= marker_similarity_scoreDCAE[1],
-#         discontinuityUMAP= discontinuityUMAP, manytooneUMAP= manytooneUMAP, onetomany_scoreUMAP= onetomany_scoreUMAP, marker_similarity_scoreUMAP= marker_similarity_scoreUMAP[1],
-#         discontinuitySAUCIE= discontinuitySAUCIE, manytooneSAUCIE= manytooneSAUCIE, onetomany_scoreSAUCIE= onetomany_scoreSAUCIE, marker_similarity_scoreSAUCIE= marker_similarity_scoreSAUCIE[1])
+np.savez(outfile2, discontinuityDCAE = discontinuityDCAE, manytooneDCAE= manytooneDCAE, onetomany_scoreDCAE= onetomany_scoreDCAE, marker_similarity_scoreDCAE= marker_similarity_scoreDCAE[1],
+         discontinuityUMAP= discontinuityUMAP, manytooneUMAP= manytooneUMAP, onetomany_scoreUMAP= onetomany_scoreUMAP, marker_similarity_scoreUMAP= marker_similarity_scoreUMAP[1],
+         discontinuitySAUCIE= discontinuitySAUCIE, manytooneSAUCIE= manytooneSAUCIE, onetomany_scoreSAUCIE= onetomany_scoreSAUCIE, marker_similarity_scoreSAUCIE= marker_similarity_scoreSAUCIE[1])
 
 npzfile = np.load(outfile2)
 discontinuityDCAE = npzfile['discontinuityDCAE']; manytooneDCAE= npzfile['manytooneDCAE']; onetomany_scoreDCAE= npzfile['onetomany_scoreDCAE']; marker_similarity_scoreDCAE= npzfile['marker_similarity_scoreDCAE'];
@@ -499,15 +536,15 @@ plt.plot('k', 'UMAP', data=df_otm, marker='x', color='olive', linewidth=2)
 plt.savefig(PAPERPLOTS  + 'Nowizka_' + ID+'_performance_onetomany_score.png')
 plt.show()
 # tables
-df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.2669, 0.1785, 0.2227], 'discontinuity': [0.0977, 0.0394, 0.0189]})
+df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.2445, 0.2234, 0.2717], 'discontinuity': [0.13469, 0.038737, 0.0189]})
 df_BORAI.to_csv(PAPERPLOTS  + 'Nowizka_' + ID+ 'Borealis_measures.csv', index=False)
 np.median(discontinuityDCAE)
 #0.09765345785352922
 np.median(manytooneDCAE)
 #0.2668933639802134
 np.median(discontinuityUMAP)
-0.018923290570576994
-#np.median(manytooneUMAP)
+#0.018923290570576994
+np.median(manytooneUMAP)
 #0.26798
 np.median(discontinuitySAUCIE)
 #0.009914790259467234
@@ -538,4 +575,6 @@ fig.show()
 fig =plot2D_performance_colors(embedUMAP, perf=onetomany_scoreSAUCIE[30,:], lbls=lbls)
 fig.show()
 fig =plot2D_performance_colors(embedUMAP, perf=manytooneSAUCIE, lbls=lbls)
+fig.show()
+fig =plot2D_performance_colors(embedUMAP, perf=marker_similarity_scoreSAUCIE, lbls=lbls)
 fig.show()

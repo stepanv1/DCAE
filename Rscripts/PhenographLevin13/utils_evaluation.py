@@ -293,7 +293,7 @@ def plot3D_cluster_colors(z, lbls, camera=None, legend=True):
     lbls_list = np.unique(lbls)
     nM = len(np.unique(lbls))
 
-    palette = sns.color_palette(None, nM)
+    palette = sns.color_palette("husl", nM)
     colors = np.array([rgb2hex(palette[i]) for i in range(len(palette))])
 
     fig = go.Figure()
@@ -334,6 +334,43 @@ def plot3D_cluster_colors(z, lbls, camera=None, legend=True):
 
     return fig
 
+def plot2D_cluster_colors(z, lbls, legend=True):
+    x = z[:, 0]
+    y = z[:, 1]
+    #nrow = len(x)
+    # subsIdx=np.random.choice(nrow,  500000)
+    num_lbls = (np.unique(lbls, return_inverse=True)[1])
+    # analog of tsne plot fig15 from Nowizka 2015, also see fig21
+
+    lbls_list = np.unique(lbls)
+    nM = len(np.unique(lbls))
+
+    palette = sns.color_palette('husl', nM)
+    colors = np.array([rgb2hex(palette[i]) for i in range(len(palette))])
+
+    fig = go.Figure()
+    for m in range(nM):
+        IDX = [x == lbls_list[m] for x in lbls]
+        xs = x[IDX];
+        ys = y[IDX];
+        fig.add_trace(Scatter(x=xs, y=ys,
+                                name=lbls_list[m],
+                                mode='markers',
+                                marker=dict(
+                                    size=1,
+                                    color=colors[m],  # set color to an array/list of desired values
+                                    opacity=0.5,
+                                ),
+                                text=lbls[IDX],
+                                # hoverinfo='text')], filename='tmp.html')
+                                hoverinfo='text'))
+        fig.update_layout(margin=dict(l=0, r=0, b=0, t=10))
+        fig.update_layout(showlegend=legend)
+        fig.update_layout(dict(paper_bgcolor='white', plot_bgcolor='white'),
+                          xaxis=dict(showgrid=True, gridcolor="#eee", gridwidth=1, showline=True, zeroline=True),
+                          yaxis=dict(showgrid=True, gridcolor="#eee", gridwidth=1, showline=True, zeroline=True)
+                          )
+    return fig
 #overlap with markers
 def plot3D_marker_colors(z, data, markers, sub_s = 50000, lbls=None):
     nrows = z.shape[0]
@@ -461,43 +498,6 @@ def plot2D_performance_colors(z, perf, lbls=None):
     #   ])
     return fig
 
-def plot2D_cluster_colors(z, lbls, legend=True):
-    x = z[:, 0]
-    y = z[:, 1]
-    #nrow = len(x)
-    # subsIdx=np.random.choice(nrow,  500000)
-    num_lbls = (np.unique(lbls, return_inverse=True)[1])
-    # analog of tsne plot fig15 from Nowizka 2015, also see fig21
-
-    lbls_list = np.unique(lbls)
-    nM = len(np.unique(lbls))
-
-    palette = sns.color_palette(None, nM)
-    colors = np.array([rgb2hex(palette[i]) for i in range(len(palette))])
-
-    fig = go.Figure()
-    for m in range(nM):
-        IDX = [x == lbls_list[m] for x in lbls]
-        xs = x[IDX];
-        ys = y[IDX];
-        fig.add_trace(Scatter(x=xs, y=ys,
-                                name=lbls_list[m],
-                                mode='markers',
-                                marker=dict(
-                                    size=1,
-                                    color=colors[m],  # set color to an array/list of desired values
-                                    opacity=0.5,
-                                ),
-                                text=lbls[IDX],
-                                # hoverinfo='text')], filename='tmp.html')
-                                hoverinfo='text'))
-        fig.update_layout(margin=dict(l=0, r=0, b=0, t=10))
-        fig.update_layout(showlegend=legend)
-        fig.update_layout(dict(paper_bgcolor='white', plot_bgcolor='white'),
-                          xaxis=dict(showgrid=True, gridcolor="#eee", gridwidth=1, showline=True, zeroline=True),
-                          yaxis=dict(showgrid=True, gridcolor="#eee", gridwidth=1, showline=True, zeroline=True)
-                          )
-    return fig
 
 def plot2D_marker_colors(z, data, markers, sub_s = 50000, lbls=None):
     nrows = z.shape[0]
@@ -678,6 +678,64 @@ def get_wsd_scores(x, y, k, num_meandist=None, compute_knn_x=False, x_knn=None):
     )
 
     return discontiuity, manytoone
+
+# get
+#neib_data = find_neighbors(data, 30, metric='euclidean')
+#x=data
+#dist=neib_data['dist']
+#idx=neib_data['idx']
+def delta_wsd_scores(x, y, idx,  kmax=30, num_cores=12):
+    #wsd scores with optimal transportation to delta function
+    def d_dis_score(y=y, idx=idx, kmax=kmax, num_cores=num_cores):
+        kmax = kmax + 1
+        nrow = y.shape[0]
+        match = np.zeros(kmax, dtype='float')
+        per_cell_match = np.zeros((kmax, nrow), dtype='float')
+
+        def score_per_i(i):
+            print(i)
+            per_cell = np.array(
+                [np.mean(np.sqrt(np.sum( (y[idx[j, :i], :] - y[j, :]) **2, axis=1))) for j in range(nrow)])
+            match_k = np.sum(per_cell)
+            return [match_k / nrow, per_cell]
+
+        results = Parallel(n_jobs=num_cores, verbose=0, backend="threading")(
+            delayed(score_per_i)(i) for i in range(1, kmax))
+        for i in range(1, kmax):
+            match[i] = results[i - 1][0]
+        for i in range(1, kmax):
+            per_cell_match[i, :] = results[i - 1][1]
+        return [match, per_cell_match]
+
+    def d_ms_score(y=y, x=x, kmax=kmax, num_cores=num_cores):
+        kmax = kmax + 1
+        nrow = y.shape[0]
+        neib_y = find_neighbors(y, kmax, metric='euclidean')['idx']
+        match = np.zeros(kmax, dtype='float')
+        per_cell_match = np.zeros((kmax, nrow), dtype='float')
+
+        def score_per_i(i):
+            print(i)
+            per_cell = np.array(
+                [np.mean(np.sqrt(np.sum((x[neib_y[j, :i], :] - x[j, :]) ** 2, axis=1))) for j in range(nrow)])
+            match_k = np.sum(per_cell)
+            return [match_k / nrow, per_cell]
+
+        results = Parallel(n_jobs=num_cores, verbose=0, backend="threading")(
+            delayed(score_per_i)(i) for i in range(1, kmax))
+        for i in range(1, kmax):
+            match[i] = results[i - 1][0]
+        for i in range(1, kmax):
+            per_cell_match[i, :] = results[i - 1][1]
+        return [match, per_cell_match]
+
+    # call both functions
+    d_dis = d_dis_score(y=y, idx=idx, kmax=kmax, num_cores=num_cores)
+    d_ms = d_ms_score(y=y, x=x, kmax=kmax, num_cores=num_cores)
+    return d_dis, d_ms
+
+
+
 
 '''
 import pandas as pd

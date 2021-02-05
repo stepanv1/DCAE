@@ -53,7 +53,7 @@ original_dim = 30
 cl1_center = np.zeros(original_dim)
 cl2_center = np.concatenate((np.ones(20),  np.zeros(10)), axis=0 )
 ncl1 =ncl2=100000
-'''
+
 cl1_center = np.zeros(original_dim)
 cl2_center = np.concatenate((np.ones(20),  np.zeros(10)), axis=0 )
 
@@ -181,7 +181,7 @@ filepath = 'session_ArtdataGeneration.pkl'
 dill.dump_session(filepath) # Save the session
 dill.load_session(filepath)
 
-'''
+
 
 outfile = './data/ArtBulbz.npz'
 npzfile = np.load(outfile)
