@@ -161,14 +161,14 @@ cl7 = cl7_center +  np.concatenate([y7, np.zeros((ncl1,original_dim - d))], axis
 #noise_sig2 = np.concatenate((np.ones(10), np.zeros(20)), axis=0 )
 # add noise to orthogonal dimensions
 noise_scale =0.2
-cl1_noisy = cl1 + np.concatenate([np.zeros((ncl1,d)), np.random.normal(loc=0, scale = noise_scale, size=(ncl1,original_dim - d))], axis=1 )
-cl2_noisy = cl2 + np.concatenate([np.zeros((ncl2,d)), np.random.normal(loc=0, scale = noise_scale, size=(ncl2,original_dim - d))], axis=1 )
-cl3_noisy = cl3 + np.concatenate([np.zeros((ncl3,d)), np.random.normal(loc=0, scale = noise_scale, size=(ncl3,original_dim - d))], axis=1 )
-cl4_noisy = cl4 + np.concatenate([np.zeros((ncl4,d)), np.random.normal(loc=0, scale = noise_scale, size=(ncl4,original_dim - d))], axis=1 )
-cl5_noisy = cl5 + np.concatenate([np.zeros((ncl5,d)), np.random.normal(loc=0, scale = noise_scale, size=(ncl5,original_dim - d))], axis=1 )
+cl1_noisy = cl1 + np.concatenate([np.zeros((ncl1,d)), np.abs(np.random.normal(loc=0, scale = noise_scale, size=(ncl1,original_dim - d)))], axis=1 )
+cl2_noisy = cl2 + np.concatenate([np.zeros((ncl2,d)), np.abs(np.random.normal(loc=0, scale = noise_scale, size=(ncl2,original_dim - d)))], axis=1 )
+cl3_noisy = cl3 + np.concatenate([np.zeros((ncl3,d)), np.abs(np.random.normal(loc=0, scale = noise_scale, size=(ncl3,original_dim - d)))], axis=1 )
+cl4_noisy = cl4 + np.concatenate([np.zeros((ncl4,d)), np.abs(np.random.normal(loc=0, scale = noise_scale, size=(ncl4,original_dim - d)))], axis=1 )
+cl5_noisy = cl5 + np.concatenate([np.zeros((ncl5,d)), np.abs(np.random.normal(loc=0, scale = noise_scale, size=(ncl5,original_dim - d)))], axis=1 )
 
-cl6_noisy = cl6 + np.concatenate([np.zeros((ncl6,d)), np.random.normal(loc=0, scale = noise_scale, size=(ncl6,original_dim - d))], axis=1 )
-cl7_noisy = cl7 + np.concatenate([np.zeros((ncl7,d)), np.random.normal(loc=0, scale = noise_scale, size=(ncl7,original_dim - d))], axis=1 )
+cl6_noisy = cl6 + np.concatenate([np.zeros((ncl6,d)), np.abs(np.random.normal(loc=0, scale = noise_scale, size=(ncl6,original_dim - d)))], axis=1 )
+cl7_noisy = cl7 + np.concatenate([np.zeros((ncl7,d)), np.abs(np.random.normal(loc=0, scale = noise_scale, size=(ncl7,original_dim - d)))], axis=1 )
 
 
 
@@ -220,10 +220,10 @@ aFrame.shape
 # set negative values to zero
 #aFrame[aFrame < 0] = 0
 #randomize order
-IDX = np.random.choice(aFrame.shape[0], aFrame.shape[0], replace=False)
+#IDX = np.random.choice(aFrame.shape[0], aFrame.shape[0], replace=False)
 #patient_table = patient_table[IDX,:]
-aFrame= aFrame[IDX,:]
-lbls = lbls[IDX]
+#aFrame= aFrame[IDX,:]
+#lbls = lbls[IDX]
 len(lbls)
 scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
 scaler.fit_transform(aFrame)
@@ -305,7 +305,7 @@ tf.compat.v1.disable_eager_execution()
 # targetTr = np.repeat(aFrame, r, axis=0)
 k = 30
 k3 = k * 3
-coeffCAE = 5
+coeffCAE = 15
 epochs = 2000
 ID = 'Art7'+ str(coeffCAE) + '_' + str(epochs) + '_210000samples_correlated'
 
@@ -434,13 +434,13 @@ z = encoder.predict([aFrame,  Sigma])
 
 print(stop - start)
 fig01 = plt.figure();
-plt.plot(history.history['loss'][2:]);
+plt.plot(history.history['loss'][1000:]);
 
 fig0 = plt.figure();
-plt.plot(history.history['DCAE_loss'][2:]);
+plt.plot(history.history['DCAE_loss'][1000:]);
 
 fig03 = plt.figure();
-plt.plot(history.history['loss_mmd'][2:]);
+plt.plot(history.history['loss_mmd'][1000:]);
 
 encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
 autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
@@ -466,3 +466,7 @@ html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_in
 Html_file= open(html_dir + "/"+ID + "_Buttons.html","w")
 Html_file.write(html_str)
 Html_file.close()
+
+# cluster toplogy
+# 0 1 2 3 4
+#       5 6
