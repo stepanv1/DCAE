@@ -332,6 +332,8 @@ def plot3D_cluster_colors(z, lbls, camera=None, legend=True):
                        zeroline=True)
         ))
 
+    fig.update_layout(legend=dict(font=dict(family="Courier", size=20, color="black"),itemsizing='constant' ),
+                      legend_title=dict(font=dict(family="Courier", size=30, color="blue" )) )
     return fig
 
 def plot2D_cluster_colors(z, lbls, legend=True):
@@ -370,6 +372,8 @@ def plot2D_cluster_colors(z, lbls, legend=True):
                           xaxis=dict(showgrid=True, gridcolor="#eee", gridwidth=1, showline=True, zeroline=True),
                           yaxis=dict(showgrid=True, gridcolor="#eee", gridwidth=1, showline=True, zeroline=True)
                           )
+    fig.update_layout(legend=dict(font=dict(family="Courier", size=20, color="black"), itemsizing='constant'),
+                      legend_title=dict(font=dict(family="Courier", size=30, color="blue")))
     return fig
 #overlap with markers
 def plot3D_marker_colors(z, data, markers, sub_s = 50000, lbls=None):
@@ -404,6 +408,7 @@ def plot3D_marker_colors(z, data, markers, sub_s = 50000, lbls=None):
                                 mode='markers',
                                 visible="legendonly",
                                 marker=dict(
+                                    symbol="circle",
                                     size=0.5,
                                     color=sFrame[:, m],  # set color to an array/list of desired values
                                     colorscale='Viridis',  # choose a colorscale
@@ -458,6 +463,7 @@ def plot3D_performance_colors(z, perf, lbls=None):
                       yaxis=dict(backgroundcolor='rgba(0,0,0,0)',showgrid=True, gridcolor= "#eee", gridwidth = 1, showline=True, zeroline=True),
                       zaxis=dict(backgroundcolor='rgba(0,0,0,0)',showgrid=True, gridcolor="#eee", gridwidth=1, showline=True, zeroline=True)
                       ))
+
     #fig.update_layout(
     #    showlegend=False,
     #    updatemenus=[go.layout.Updatemenu(
