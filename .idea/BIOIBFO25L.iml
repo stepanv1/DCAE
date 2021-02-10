@@ -5,9 +5,7 @@
     <content url="file://$MODULE_DIR$/Rscripts/PhenographLevin13">
       <sourceFolder url="file://$MODULE_DIR$/Rscripts/PhenographLevin13" isTestSource="false" />
     </content>
-    <content url="file://$USER_HOME$/SAUCIE">
-      <sourceFolder url="file://$USER_HOME$/SAUCIE" isTestSource="false" />
-    </content>
+    <content url="file://$MODULE_DIR$/SAUCIE" />
     <orderEntry type="jdk" jdkName="Python 3.7.6 (/media/grines02/vol2/anaconda3/bin/python)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="R Skeletons" level="application" />

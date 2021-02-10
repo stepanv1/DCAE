@@ -113,7 +113,7 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 # load data
 k = 30
 k3 = k * 3
-coeffCAE = 1
+coeffCAE = 5
 epochs = 2000
 ID = 'Pr_sample_008_1_MMD_01_3D_DCAE_h300_h200_hidden_7_layers_CAE_sgd'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
 #ID = 'Pr_sample_008_1_MMD_01_3D_DCAE_h128_h63_h32_9_layers'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
@@ -365,7 +365,7 @@ autoencoder.summary()
 import tensorflow_addons as tfa
 #opt = tfa.optimizers.RectifiedAdam(lr=1e-3)
 opt = tf.keras.optimizers.SGD(learning_rate=0.001, decay=0, momentum=0.01, nesterov =False)
-autoencoder.compile(optimizer=opt, loss=ae_loss(DCAE_weight, DCAE_weight_lst), metrics=[DCAE_loss, loss_mmd])
+autoencoder.compile(optimizer=opt, loss=ae_loss(DCAE_weight, DCAE_weight_lst), metrics=[DCAE_loss, loss_mmd, mean_square_error_NN])
 #epochs=10
 start = timeit.default_timer()
 history = autoencoder.fit([aFrame, Sigma], aFrame,
@@ -377,14 +377,16 @@ stop = timeit.default_timer()
 z = encoder.predict([aFrame,  Sigma])
 
 print(stop - start)
-fig0 = plt.figure();
-plt.plot(history.history['DCAE_loss'][2:]);
 
 fig01 = plt.figure();
-plt.plot(history.history['loss'][2:]);
+plt.plot(history.history['loss'][200:]);
+
+fig0 = plt.figure();
+plt.plot(history.history['DCAE_loss'][200:]);
+
 
 fig03 = plt.figure();
-plt.plot(history.history['loss_mmd'][2:]);
+plt.plot(history.history['loss_mmd'][200:]);
 
 encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
 autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')

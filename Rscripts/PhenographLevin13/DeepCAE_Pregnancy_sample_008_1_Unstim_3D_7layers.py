@@ -26,7 +26,7 @@ import glob
 import sklearn
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.layers import Input, Dense, Lambda, Layer, Dropout, BatchNormalization
-from kerassurgeon.operations import delete_layer, insert_layer, delete_channels
+#from kerassurgeon.operations import delete_layer, insert_layer, delete_channels
 #from tensorflow.keras.utils import np_utils
 #import np_utils
 from tensorflow.keras import Model
@@ -269,10 +269,7 @@ epochs = 1500
 ID = 'Pr_sample_008_1_MMD_01_3D_DCAE_h300_h200_hidden_7_layers_CAE'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
 #ID = 'Pr_sample_008_1_MMD_01_3D_DCAE_h128_h63_h32_9_layers'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
 #ID = 'Pr_sample_008_1_Unstim_3D'
-'''
-data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
-https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
-'''
+
 source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/pregnancy'
 output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/pregnancy/output'
 '''
@@ -377,6 +374,8 @@ neibALL = neibALL[:, 0:30, :]
 # plt.hist(cut_neibF[cut_neibF!=0],50)
 Sigma = npzfile['Sigma']
 lbls = npzfile['lbls'];
+table(lbls)
+len(lbls[lbls=='"Unassgined"'])/len(lbls)
 neib_weight = npzfile['neib_weight']
 markers = list(npzfile['markers'])
 # [aFrame, neibF, cut_neibF, weight_neibF]

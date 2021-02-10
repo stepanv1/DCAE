@@ -281,7 +281,7 @@ hom_UMAP = hom_k
 '''
 
 #plotly 3D plotting functions
-def plot3D_cluster_colors(z, lbls, camera=None, legend=True):
+def plot3D_cluster_colors(z, lbls, camera=None, legend=True, msize=1):
     x = z[:, 0]
     y = z[:, 1]
     z1 = z[:, 2]
@@ -306,7 +306,7 @@ def plot3D_cluster_colors(z, lbls, camera=None, legend=True):
                                 name=lbls_list[m],
                                 mode='markers',
                                 marker=dict(
-                                    size=1,
+                                    size=msize,
                                     color=colors[m],  # set color to an array/list of desired values
                                     opacity=0.5,
                                 ),
@@ -336,7 +336,7 @@ def plot3D_cluster_colors(z, lbls, camera=None, legend=True):
                       legend_title=dict(font=dict(family="Courier", size=30, color="blue" )) )
     return fig
 
-def plot2D_cluster_colors(z, lbls, legend=True):
+def plot2D_cluster_colors(z, lbls, legend=True, msize=1):
     x = z[:, 0]
     y = z[:, 1]
     #nrow = len(x)
@@ -359,7 +359,7 @@ def plot2D_cluster_colors(z, lbls, legend=True):
                                 name=lbls_list[m],
                                 mode='markers',
                                 marker=dict(
-                                    size=1,
+                                    size=msize,
                                     color=colors[m],  # set color to an array/list of desired values
                                     opacity=0.5,
                                 ),
@@ -376,7 +376,7 @@ def plot2D_cluster_colors(z, lbls, legend=True):
                       legend_title=dict(font=dict(family="Courier", size=30, color="blue")))
     return fig
 #overlap with markers
-def plot3D_marker_colors(z, data, markers, sub_s = 50000, lbls=None):
+def plot3D_marker_colors(z, data, markers, sub_s = 50000, lbls=None, msize=1):
     nrows = z.shape[0]
     sub_idx = np.random.choice(range(nrows), sub_s, replace=False)
     x = z[sub_idx, 0]
@@ -392,7 +392,7 @@ def plot3D_marker_colors(z, data, markers, sub_s = 50000, lbls=None):
     fig.add_trace(Scatter3d(x=x, y=y, z=zz,
                             mode='markers',
                             marker=dict(
-                                size=0.5,
+                                size=msize,
                                 color=data[:, m],  # set color to an array/list of desired values
                                 colorscale='Viridis',  # choose a colorscale
                                 opacity=0.5,
@@ -409,7 +409,7 @@ def plot3D_marker_colors(z, data, markers, sub_s = 50000, lbls=None):
                                 visible="legendonly",
                                 marker=dict(
                                     symbol="circle",
-                                    size=0.5,
+                                    size=msize,
                                     color=sFrame[:, m],  # set color to an array/list of desired values
                                     colorscale='Viridis',  # choose a colorscale
                                     opacity=0.5,
@@ -437,8 +437,66 @@ def plot3D_marker_colors(z, data, markers, sub_s = 50000, lbls=None):
         ])
     return fig
 
+def plot2D_marker_colors(z, data, markers, sub_s = 50000, lbls=None, msize=1):
+    nrows = z.shape[0]
+    sub_idx = np.random.choice(range(nrows), sub_s, replace=False)
+    x = z[sub_idx, 0]
+    y = z[sub_idx, 1]
+    lbls_s = lbls[sub_idx]
+    sFrame = data[sub_idx, :]
+    result = [markers.index(i) for i in markers]
+    sFrame = sFrame[:, result]
+    nM = len(markers)
+    m = 0
+    fig = go.Figure()
+    fig.add_trace(Scatter(x=x, y=y,
+                            mode='markers',
+                            marker=dict(
+                                size=msize,
+                                color=data[:, m],  # set color to an array/list of desired values
+                                colorscale='Viridis',  # choose a colorscale
+                                opacity=0.5,
+                                colorbar=dict(xanchor='left', x=-0.05, len=0.5),
+                                showscale=True
+                            ),
+                            text=lbls_s,
+                            hoverinfo='text',
+                            ))
+    for m in range(1, nM):
+        # for m in range(1,3):
+        fig.add_trace(Scatter3d(x=x, y=y,
+                                mode='markers',
+                                visible="legendonly",
+                                marker=dict(
+                                    size=msize,
+                                    color=sFrame[:, m],  # set color to an array/list of desired values
+                                    colorscale='Viridis',  # choose a colorscale
+                                    opacity=0.5,
+                                    colorbar=dict(xanchor='left', x=-0.05, len=0.5),
+                                    showscale=True
+                                ),
+                                text=lbls_s,
+                                hoverinfo='text'
+                                ))
 
-def plot3D_performance_colors(z, perf, lbls=None):
+    vis_mat = np.zeros((nM, nM), dtype=bool)
+    np.fill_diagonal(vis_mat, True)
+
+    button_list = list([dict(label=markers[m],
+                             method='update',
+                             args=[{'visible': vis_mat[m, :]},
+                                   # {'title': markers[m],
+                                   {'showlegend': False}]) for m in range(len(markers))])
+    fig.update_layout(
+        showlegend=False,
+        updatemenus=[go.layout.Updatemenu(
+            active=0,
+            buttons=button_list
+        )
+        ])
+    return fig
+
+def plot3D_performance_colors(z, perf, lbls=None, msize=1):
     nrows = z.shape[0]
     x = z[:, 0]
     y = z[:, 1]
@@ -448,7 +506,7 @@ def plot3D_performance_colors(z, perf, lbls=None):
     fig.add_trace(Scatter3d(x=x, y=y, z=zz,
                             mode='markers',
                             marker=dict(
-                                size=0.5,
+                                size=msize,
                                 color=perf,  # set color to an array/list of desired values
                                 colorscale='Viridis',  # choose a colorscale
                                 opacity=0.5,
@@ -472,7 +530,7 @@ def plot3D_performance_colors(z, perf, lbls=None):
     #   ])
     return fig
 
-def plot2D_performance_colors(z, perf, lbls=None):
+def plot2D_performance_colors(z, perf, lbls=None, msize=1):
     nrows = z.shape[0]
     x = z[:, 0]
     y = z[:, 1]
@@ -480,7 +538,7 @@ def plot2D_performance_colors(z, perf, lbls=None):
     fig.add_trace(Scatter(x=x, y=y,
                             mode='markers',
                             marker=dict(
-                                size=0.5,
+                                size=msize,
                                 color=perf,  # set color to an array/list of desired values
                                 colorscale='Viridis',  # choose a colorscale
                                 opacity=0.5,
@@ -505,64 +563,7 @@ def plot2D_performance_colors(z, perf, lbls=None):
     return fig
 
 
-def plot2D_marker_colors(z, data, markers, sub_s = 50000, lbls=None):
-    nrows = z.shape[0]
-    sub_idx = np.random.choice(range(nrows), sub_s, replace=False)
-    x = z[sub_idx, 0]
-    y = z[sub_idx, 1]
-    lbls_s = lbls[sub_idx]
-    sFrame = data[sub_idx, :]
-    result = [markers.index(i) for i in markers]
-    sFrame = sFrame[:, result]
-    nM = len(markers)
-    m = 0
-    fig = go.Figure()
-    fig.add_trace(Scatter(x=x, y=y,
-                            mode='markers',
-                            marker=dict(
-                                size=0.5,
-                                color=data[:, m],  # set color to an array/list of desired values
-                                colorscale='Viridis',  # choose a colorscale
-                                opacity=0.5,
-                                colorbar=dict(xanchor='left', x=-0.05, len=0.5),
-                                showscale=True
-                            ),
-                            text=lbls_s,
-                            hoverinfo='text',
-                            ))
-    for m in range(1, nM):
-        # for m in range(1,3):
-        fig.add_trace(Scatter3d(x=x, y=y,
-                                mode='markers',
-                                visible="legendonly",
-                                marker=dict(
-                                    size=0.5,
-                                    color=sFrame[:, m],  # set color to an array/list of desired values
-                                    colorscale='Viridis',  # choose a colorscale
-                                    opacity=0.5,
-                                    colorbar=dict(xanchor='left', x=-0.05, len=0.5),
-                                    showscale=True
-                                ),
-                                text=lbls_s,
-                                hoverinfo='text'
-                                ))
 
-    vis_mat = np.zeros((nM, nM), dtype=bool)
-    np.fill_diagonal(vis_mat, True)
-
-    button_list = list([dict(label=markers[m],
-                             method='update',
-                             args=[{'visible': vis_mat[m, :]},
-                                   # {'title': markers[m],
-                                   {'showlegend': False}]) for m in range(len(markers))])
-    fig.update_layout(
-        showlegend=False,
-        updatemenus=[go.layout.Updatemenu(
-            active=0,
-            buttons=button_list
-        )
-        ])
-    return fig
 
 #project on mean radius
 def projZ(x):

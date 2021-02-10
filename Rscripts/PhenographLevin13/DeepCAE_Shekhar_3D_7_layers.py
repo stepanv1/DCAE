@@ -130,10 +130,7 @@ k3 = k * 3
 coeffCAE = 1
 epochs = 2000
 ID = 'Shekhar_MMD_01_3D_DCAE_h300_h200_hidden_7_layers_CAE'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
-'''
-data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
-https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
-'''
+
 source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess'
 output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/'
 
@@ -252,6 +249,8 @@ neibALL = npzfile['neibALL']
 Sigma = npzfile['Sigma']
 # call load_data with allow_pickle implicitly set to true
 lbls = npzfile['lbls'];
+table(lbls)
+1-len(lbls[lbls=='-1'])/len(lbls)
 neib_weight = npzfile['neib_weight']
 # restore np.load for future normal usage
 np.load = np_load_old
