@@ -118,10 +118,10 @@ neibALL = npzfile['neibALL']
 Sigma = npzfile['Sigma']
 
 # session set up
-
-tf.config.threading.set_inter_op_parallelism_threads(0)
-tf.config.threading.set_intra_op_parallelism_threads(0)
-tf.compat.v1.disable_eager_execution()
+if tf.__version__ == '2.3.0':
+    tf.config.threading.set_inter_op_parallelism_threads(0)
+    tf.config.threading.set_intra_op_parallelism_threads(0)
+    tf.compat.v1.disable_eager_execution()
 
 
 # Model-------------------------------------------------------------------------
@@ -133,8 +133,8 @@ k3 = k * 3
 
 
 coeffCAE = 5
-epochs = 200
-ID = 'Art8_positive_signal_15D' + str(coeffCAE) + '_' + str(epochs) + '_corrected_correlated_weighted_CAE_weighted_MMD'
+epochs = 100
+ID = 'Art8_positive_signal_15D' + str(coeffCAE) + '_' + str(epochs) + '_2stages_MMD'
 # TODO try downweight mmd to the end of computation
 #DCAE_weight = K.variable(value=0)
 #DCAE_weight_lst = K.variable(np.array(frange_anneal(epochs, ratio=0)))
@@ -142,13 +142,9 @@ ID = 'Art8_positive_signal_15D' + str(coeffCAE) + '_' + str(epochs) + '_correcte
 # check for possible discontinuities/singularities o last epochs, is shape of potenatial  to narroe at the end?
 
 MMD_weight = K.variable(value=0)
-spl = 2.0
-MMD_weight_lst = K.variable(np.concatenate(( np.array(frange_anneal(int(epochs/spl), ratio=0.2)),
-                                             np.array(frange_anneal(int((spl-1.0)*epochs/spl), ratio=0.2))), axis=0 ))
-epochs  = int(epochs/spl) + int((spl-1.0)*epochs/spl)
-Epoch_count = K.variable(value=0)
-Epoch_count_lst = K.variable(np.array(np.arange(epochs)))
-switch_count = int(epochs/spl)
+
+MMD_weight_lst = K.variable( np.array(frange_anneal(int(epochs), ratio=0.95)) )
+
 
 nrow = aFrame.shape[0]
 batch_size = 256
@@ -232,17 +228,7 @@ def DCAE_loss(x, x_decoded_mean):  # attempt to avoid vanishing derivative of si
 
     r = tf.linalg.einsum('aj->a', s**2)
 
-    #f = tf.case({tf.less(tf.abs(x), alp): lambda: 10,
-    #             tf.math.logical_and(tf.greater_equal(x, alp), tf.math.less(x, alp)): lambda: 0,
-    #             tf.greater(x, alp): lambda: 10},
-    #                            exclusive=True)
-
-    #ds = MMD_weight * (-2 * r + 1.5 * r ** 2) + 1.5 + 1.2 * (MMD_weight - 1)
-
-    #tf.where([(tf.less(tf.abs(x), alp): lambda: 10,
-    #             tf.math.logical_and(tf.greater_equal(x, alp), tf.math.less(x, alp)): lambda: 0,
-    #             tf.greater(x, alp): lambda: 10], [10, 0, 10]
-    ds= (20/alp**2 * tf.math.square(alp-r) + 20) *  tf.dtypes.cast(tf.less(r, alp)  , tf.float32) + \
+    ds= 500*tf.math.square(tf.math.abs(alp-r)) *  tf.dtypes.cast(tf.less(r, alp)  , tf.float32) + \
                 (r**2-1)  * tf.dtypes.cast(tf.greater_equal(r, 1), tf.float32) + 0.1
     #0 * tf.dtypes.cast(tf.math.logical_and(tf.greater_equal(r, alp), tf.less(r, 1)), tf.float32) + \
     #ds = pot(0.1, r)
@@ -255,44 +241,6 @@ def DCAE_loss(x, x_decoded_mean):  # attempt to avoid vanishing derivative of si
     diff_tens = tf.einsum('akl,alj->akj', diff_tens, S_0W)
     # tf.Print(K.sum(diff_tens ** 2))
     return 1 / normSigma * (SigmaTsq) * lam *(K.sum(diff_tens ** 2))
-
-def DCAE2D_loss(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
-    U = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
-    W = K.variable(value=encoder.get_layer('intermediate2').get_weights()[0])  # N x N_hidden
-    Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
-    U = K.transpose(U);
-    W = K.transpose(W);
-    Z = K.transpose(Z);  # N_hidden x N
-
-    u = encoder.get_layer('intermediate').output
-    du = tf.linalg.diag((tf.math.sign(u) + 1) / 2)
-    m = encoder.get_layer('intermediate2').output
-    dm = tf.linalg.diag((tf.math.sign(m)+1)/2)  # N_batch x N_hidden
-    s = encoder.get_layer('z_mean').output
-
-    r = tf.linalg.einsum('aj->a', s**2)
-
-
-    x1 =  (1- alp-0.1)/(epochs - switch_count) * (Epoch_count - switch_count) + alp+0.1
-    well = tf.dtypes.cast(tf.math.logical_and(tf.greater_equal(r, alp), tf.math.less(r, x1)), tf.float32)
-
-    ds = (20/alp**2 * tf.math.square(alp-r) + 20) *  tf.dtypes.cast(tf.less(r, alp)  , tf.float32) + \
-                (r**2-1)  * tf.dtypes.cast(tf.greater_equal(r, 1), tf.float32) + \
-                well*( 10*tf.math.cos(np.pi * (r-alp)/(x1-alp)) + 10) + 0.1
-
-    #0 * tf.dtypes.cast(tf.math.logical_and(tf.greater_equal(r, alp), tf.less(r, 1)), tf.float32) + \
-    #ds = pot(0.1, r)
-    S_0W = tf.einsum('akl,lj->akj', du, U)
-    S_1W = tf.einsum('akl,lj->akj', dm, W)  # N_batch x N_input ??
-    # tf.print((S_1W).shape) #[None, 120]
-    S_2Z = tf.einsum('a,lj->alj', ds, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
-    # tf.print((S_2Z).shape)
-    diff_tens = tf.einsum('akl,alj->akj', S_2Z,  S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
-    diff_tens = tf.einsum('akl,alj->akj', diff_tens, S_0W)
-    # tf.Print(K.sum(diff_tens ** 2))
-    return 1 / normSigma * (SigmaTsq) * lam *(K.sum(diff_tens ** 2))
-
-
 
 
 #1000.0*  np.less(r, alp).astype(int)  + \
@@ -329,18 +277,11 @@ def mean_square_error_NN(y_true, y_pred):
     return  tf.multiply(msew, normSigma * 1/SigmaTsq ) # TODO Sigma -denomiator or nominator? try reverse, schek hpw sigma computed in UMAP
 
 
-def ae_loss(weight, MMD_weight_lst, epoch, Epoch_count_lst):
+def ae_loss(weight, MMD_weight_lst):
     def loss(x, x_decoded_mean):
-        def loss1(x, x_decoded_mean):
-             msew = mean_square_error_NN(x, x_decoded_mean)
-        # return msew + (2-MMD_weight) * loss_mmd(x, x_decoded_mean) + coeffCAE * DCAE_loss(x, x_decoded_mean)
-             return msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + coeffCAE * DCAE_loss(x, x_decoded_mean)
-
-        def loss2(x, x_decoded_mean):
-            msew = mean_square_error_NN(x, x_decoded_mean)
-            # return msew + (2-MMD_weight) * loss_mmd(x, x_decoded_mean) + coeffCAE * DCAE_loss(x, x_decoded_mean)
-            return msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + coeffCAE * DCAE2D_loss(x, x_decoded_mean)
-        return K.switch(tf.equal(Epoch_count, switch_count), loss1(x, x_decoded_mean), loss2(x, x_decoded_mean))
+        msew = mean_square_error_NN(x, x_decoded_mean)
+        return msew + 1*(1-MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean) #TODO: try 1-MMD insted 2-MMD
+        # return K.mean(msew)
     return loss
     #return K.switch(tf.equal(Epoch_count, 10),  loss1(x, x_decoded_mean), loss1(x, x_decoded_mean))
 
@@ -348,10 +289,12 @@ def ae_loss(weight, MMD_weight_lst, epoch, Epoch_count_lst):
 opt=tf.keras.optimizers.Adam(
     learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False
 )
-autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst,
-                            Epoch_count, Epoch_count_lst), metrics=[DCAE_loss, DCAE2D_loss, loss_mmd,  mean_square_error_NN])
 
+autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst), metrics=[DCAE_loss, loss_mmd,  mean_square_error_NN])
 
+autoencoder.summary()
+import tensorflow_addons as tfa
+#opt = tfa.optimizers.RectifiedAdam(lr=1e-3)
 #opt=tf.keras.optimizers.Adam(
 #    learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False
 #)
@@ -380,20 +323,17 @@ history_multiple = autoencoder.fit([aFrame, Sigma], aFrame,
                   epochs=epochs,
                   shuffle=True,
                   callbacks=[AnnealingCallback(MMD_weight, MMD_weight_lst),
-                             EpochCounterCallback(Epoch_count, Epoch_count_lst),callPlot], verbose=2)
+                             callPlot], verbose=2)
 stop = timeit.default_timer()
 z = encoder.predict([aFrame,  Sigma])
 print(stop - start)
-st=5; stp=200
+st=0; stp=100
 fig01 = plt.figure();
 plt.plot(history_multiple.history['loss'][st:stp]);
 plt.title('loss')
 fig02 = plt.figure();
 plt.plot(history_multiple.history['DCAE_loss'][st:stp]);
 plt.title('DCAE_loss')
-fig021 = plt.figure();
-plt.plot(history_multiple.history['DCAE2D_loss'][st:stp]);
-plt.title('DCAE2D_loss')
 fig03 = plt.figure();
 plt.plot(history_multiple.history['loss_mmd'][st:stp]);
 plt.title('loss_mmd')
@@ -403,16 +343,22 @@ plt.title('mean_square_error')
 fig = plot3D_cluster_colors(z, lbls=lbls)
 fig.show()
 
-st=1
 fig01 = plt.figure();
-plt.plot(history_multiple.history['loss'][st:], label= 'loss', c = 'red');
-plt.plot(history_multiple.history['DCAE_loss'][st:], label= 'DCAE_loss', c = 'green');
-plt.plot(history_multiple.history['loss_mmd'][st:], label= 'loss_mmd', c = 'blue');
-plt.plot(history_multiple.history['mean_square_error_NN'][st:], label= 'mean_square_error_NN', c = 'black');
+plt.plot(history_multiple.history['loss'][st:stp], label= 'loss', c = 'red');
+plt.plot(history_multiple.history['DCAE_loss'][st:stp], label= 'DCAE_loss', c = 'green');
+plt.plot(history_multiple.history['loss_mmd'][st:stp], label= 'loss_mmd', c = 'blue');
+plt.plot(history_multiple.history['mean_square_error_NN'][st:stp], label= 'mean_square_error_NN', c = 'black');
 plt.legend(loc="upper right")
-fig = plot3D_cluster_colors(z, lbls=lbls)
-fig.show()
 
+
+#encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
+#autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
+#np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
+
+encoder.load_weights(output_dir +'/'+ID + '_3D.h5')
+autoencoder.load_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
+encoder.summary()
+z = encoder.predict([aFrame, Sigma])
 
 
 
@@ -422,21 +368,17 @@ fig.show()
 # clustering UMAP representation
 #mapper = umap.UMAP(n_neighbors=30, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=False).fit(aFrame)
 #embedUMAP =  mapper.transform(aFrame)
-#np.savez('Pregnancy_' + 'embedUMAP.npz', embedUMAP=embedUMAP)
-embedUMAP = np.load('Pregnancy_' + 'embedUMAP.npz')['embedUMAP']
-clusterer = hdbscan.HDBSCAN(min_cluster_size=200, min_samples=15, alpha=1.0, cluster_selection_method = 'leaf') #5,20
-labelsHDBscanUMAP = clusterer.fit_predict(embedUMAP)
-table(labelsHDBscanUMAP)
-print(compute_cluster_performance(lbls, labelsHDBscanUMAP))
+#np.savez('Art8_' + 'embedUMAP.npz', embedUMAP=embedUMAP)
+embedUMAP = np.load('Art8_' + 'embedUMAP.npz')['embedUMAP']
 #labelsHDBscanUMAP= [str(x) for  x in labelsHDBscanUMAP]#
-fig = plot2D_cluster_colors(embedUMAP[0:10000,:], lbls=lbls[0:10000])
+fig = plot2D_cluster_colors(embedUMAP, lbls=lbls)
 fig.show()
 
 ######################################3
 # try SAUCIE
-'''
+
 import sys
-sys.path.append("/home/grines02/PycharmProjects/BIOIBFO25L/SAUCIE/")
+sys.path.append("/home/grines02/SAUCIE/")
 data = aFrame
 from importlib import reload
 import SAUCIE
@@ -450,24 +392,22 @@ saucie.train(loadtrain, steps=10000)
 loadeval = SAUCIE.Loader(data, shuffle=False)
 embedding = saucie.get_embedding(loadeval)
 number_of_clusters, clusters = saucie.get_clusters(loadeval)
-#np.savez('Art7_' + 'embedSAUCIE.npz', embedding=embedding,number_of_clusters=number_of_clusters, clusters=clusters)
-'''
+#np.savez('Art8_' + 'embedSAUCIE.npz', embedding=embedding,number_of_clusters=number_of_clusters, clusters=clusters)
+
 import os
 os.chdir('/home/grines02/PycharmProjects/BIOIBFO25L')
 os.getcwd()
 
-embedding = np.load('Art7_' + 'embedSAUCIE.npz')['embedding']
-clusters= np.load('Art7_' + 'embedSAUCIE.npz')['clusters']
-print(compute_cluster_performance(lbls,  clusters))
-print(compute_cluster_performance(lbls[lbls!='"Unassgined"'], clusters[lbls!='"Unassgined"']))
+embedding = np.load('Art8_' + 'embedSAUCIE.npz')['embedding']
+clusters= np.load('Art8_' + 'embedSAUCIE.npz')['clusters']
+#print(compute_cluster_performance(lbls,  clusters))
+#print(compute_cluster_performance(lbls[lbls!='"Unassgined"'], clusters[lbls!='"Unassgined"']))
 #clusters= [str(x) for  x in clusters]
 #fig = plot3D_cluster_colors(x=embedding[:, 0],y=embedding[:, 1],z=np.zeros(len(clusters)), lbls=np.asarray(clusters))
 #fig.show()
 fig = plot2D_cluster_colors(embedding[:,:], lbls=lbls, msize=5)
 fig.show()
-#1 TODO:  add msize option to all graphical function, defaulting to 1
-#2 TODO: create more complex cluster structure, with 3 more clusters , one of which a side clusters and run teh demo
-
+#1 TODO:  add all the performance metrics and run on Levine32. If ok, create package for installation
 
 
 
