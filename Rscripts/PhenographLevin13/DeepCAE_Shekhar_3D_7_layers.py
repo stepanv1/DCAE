@@ -1,18 +1,3 @@
-'''This script to visualise cytoff data using deep variational autoencoder with MMD  with neighbourhood denoising and
-contracting knnCVAE, neighbourhood cleaning removed
-Original publication of data set: https://pubmed.ncbi.nlm.nih.gov/26095251/
-data : http://127.0.0.1:27955/library/HDCytoData/doc/Examples_and_use_cases.html,
-# watcg cd 4 separated into
-cd4  cd7+- cd15+
-compare with tsne there
-TODO ?? pretraining
-Now with entropic weighting of neibourhoods
-Innate‐like CD8+ T‐cells and NK cells: converging functions and phenotypes
-Ayako Kurioka,corresponding author 1 , 2 Paul Klenerman, 1 , 2 and Christian B. Willbergcorresponding author 1 , 2
-CD8+ T Cells and NK Cells: Parallel and Complementary Soldiers of Immunotherapy
-Jillian Rosenberg1 and Jun Huang1,2
-'''
-#import keras
 import tensorflow as tf
 from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
     plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
@@ -27,8 +12,6 @@ from plotly.graph_objs import Scatter3d, Figure, Layout, Scatter
 from plotly.io import to_html
 import plotly.graph_objects as go
 import umap.umap_ as umap
-import hdbscan
-import phenograph
 import multiprocessing
 import numpy as np
 import pandas as pd
@@ -122,13 +105,11 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
                 ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), #Sigma
                 ctypes.c_size_t]
 
-
-
 # load data
 k = 30
 k3 = k * 3
 coeffCAE = 1
-epochs = 2000
+epochs = 500
 ID = 'Shekhar_MMD_01_3D_DCAE_h300_h200_hidden_7_layers_CAE'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
 
 source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess'

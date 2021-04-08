@@ -411,7 +411,7 @@ Html_file.write(html_str)
 Html_file.close()
 
 
-fig =plot3D_marker_colors(z, data=aFrame, markers=list(markers), sub_s = 20000, lbls=lbls)
+#fig =plot3D_marker_colors(z, data=aFrame, markers=list(markers), sub_s = 20000, lbls=lbls)
 #data2 =np.sqrt(1-(aFrame-1)**2)
 #fig =plot3D_marker_colors(z, data=data2, markers=list(markers), sub_s = 20000, lbls=lbls)
 fig =plot3D_marker_colors(z, data=aFrame, markers=list(markers), sub_s = 20000, lbls=lbls)

@@ -99,9 +99,9 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 
 k = 30
 k3 = k * 3
-coeffCAE = 5
-epochs = 1500
-ID = 'Levine32_MMD_01_3D_DCAE_h96_h32_hidden_7_layers'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
+coeffCAE = 1
+epochs = 500
+ID = 'Levine32_MMD_01_3D_DCAE_h96_h32_hidden_7_layers'+ str(coeffCAE) + '_' + str(epochs) + '_2stages'
 source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess'
 output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/'
 '''
@@ -217,8 +217,7 @@ k3 = k * 3
 
 
 
-coeffCAE = 5
-epochs = 3000
+
 ID = 'Levine32' + str(coeffCAE) + '_' + str(epochs) + '_2stages_MMD'
 # TODO try downweight mmd to the end of computation
 #DCAE_weight = K.variable(value=0)
@@ -434,9 +433,9 @@ plt.plot(history_multiple.history['DCAE_loss'][st:stp], label= 'DCAE_loss', c = 
 plt.plot(history_multiple.history['loss_mmd'][st:stp], label= 'loss_mmd', c = 'blue');
 plt.plot(history_multiple.history['mean_square_error_NN'][st:stp], label= 'mean_square_error_NN', c = 'black');
 plt.legend(loc="upper right")
-#encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
-#autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
-#np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
+encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
+autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
+np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
 
 #ID='Levine32_MMD_1_3D_DCAE_5'
 #encoder.load_weights('/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/Levine32_3D_DCAE_10_3D.h5')
@@ -486,23 +485,23 @@ fig.show()
 #mapper = umap.UMAP(n_neighbors=30, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=False).fit(aFrame)
 #embedUMAP =  mapper.transform(aFrame)
 #np.savez('LEVINE32_' + 'embedUMAP.npz', embedUMAP=embedUMAP)
-embedUMAP = np.load('LEVINE32_' + 'embedUMAP.npz')['embedUMAP']
+#embedUMAP = np.load('LEVINE32_' + 'embedUMAP.npz')['embedUMAP']
 ######################################3
 # try SAUCIE
 os.chdir('/home/grines02/PycharmProjects/BIOIBFO25L/')
 sys.path.append("/home/grines02/PycharmProjects/BIOIBFO25L/SAUCIE")
 data = aFrame
 from importlib import reload
-import SAUCIE
+i#mport SAUCIE
 #reload(SAUCIE)
 #import tensorflow.compat.v1 as tf
 #tf.disable_v2_behavior()
-saucie = SAUCIE.SAUCIE(data.shape[1])
-loadtrain = SAUCIE.Loader(data, shuffle=True)
-saucie.train(loadtrain, steps=100000)
+#saucie = SAUCIE.SAUCIE(data.shape[1])
+#loadtrain = SAUCIE.Loader(data, shuffle=True)
+#saucie.train(loadtrain, steps=100000)
 
-loadeval = SAUCIE.Loader(data, shuffle=False)
-embedding = saucie.get_embedding(loadeval)
+#loadeval = SAUCIE.Loader(data, shuffle=False)
+#embedding = saucie.get_embedding(loadeval)
 #np.savez('LEVINE32_' + 'embedSAUCIE_100000.npz', embedding=embedding)
 embedding = np.load('LEVINE32_' + 'embedSAUCIE_100000.npz')['embedding']
 #number_of_clusters, clusters = saucie.get_clusters(loadeval)
@@ -542,15 +541,15 @@ PAPERPLOTS  = './PAPERPLOTS/'
 fig = plot3D_cluster_colors(z[lbls !='"unassigned"', :  ], camera = dict(eye = dict(x=-0.2,y=0.2,z=1.5)),
                             lbls=lbls[lbls !='"unassigned"'],legend=False)
 fig.show()
-fig.write_image(PAPERPLOTS+ "LEVINE32.png")
+fig.write_image(PAPERPLOTS+ ID+"LEVINE32.png")
 
 fig = plot2D_cluster_colors(embedding[lbls !='"unassigned"', :  ], lbls=lbls[lbls !='"unassigned"'],legend=False)
 fig.show()
-fig.write_image(PAPERPLOTS+ "LEVINE32_SAUCIE.png")
+fig.write_image(PAPERPLOTS+ ID+ "LEVINE32_SAUCIE.png")
 
 fig = plot2D_cluster_colors(embedUMAP[lbls !='"unassigned"', :  ], lbls=lbls[lbls !='"unassigned"'],legend=True)
 fig.show()
-fig.write_image(PAPERPLOTS+ "LEVINE32_UMAP.png")
+fig.write_image(PAPERPLOTS+ ID+ "LEVINE32_UMAP.png")
 
 
 #TODO:very importmant!!! scale all the output to be in unite square (or cube)
@@ -559,9 +558,9 @@ embedding=  scaler.fit_transform(embedding)
 embedUMAP= scaler.fit_transform(embedUMAP)
 z= scaler.fit_transform(z)
 z = z/np.sqrt(3.1415)
-prZ = projZ(z)
-prZ = scaler.fit_transform(prZ)
-prZ =prZ/np.sqrt(3.1415)
+#prZ = projZ(z)
+#prZ = scaler.fit_transform(prZ)
+#prZ =prZ/np.sqrt(3.1415)
 #DCAE
 discontinuityDCAE, manytooneDCAE = get_wsd_scores(aFrame, z, 90, num_meandist=10000, compute_knn_x=False, x_knn=Idx)
 onetomany_scoreDCAE = neighbour_onetomany_score(z, Idx, kmax=90, num_cores=12)[1]
