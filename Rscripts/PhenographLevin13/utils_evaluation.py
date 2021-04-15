@@ -6,7 +6,7 @@ import rpy2
 from rpy2.robjects.packages import SignatureTranslatedAnonymousPackage
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
-from sklearn import metrics
+from sklearn import metrics, datasets
 from plotly.graph_objs import Scatter3d, Figure, Layout, Scatter
 import plotly.graph_objects as go
 from matplotlib.colors import rgb2hex
@@ -867,3 +867,178 @@ plt.clim(vmin1, vmax4)
 plt.show()
 '''
 
+# function to generate artificial clusters with branches and different
+# number of noisy dimensions
+'''
+def generate_clusters(num_noisy = 5, branches_loc = [3,4], sep=5):
+    """ function to generate artificial clusters with branches and different
+    number of noisy dimensions, branchong
+
+    Creates a cluster with noisy dimensions and branches at the clusters
+    which number is passed as an argument
+    branches can be between 0 and 4
+
+    :param num_noisy: number of non-imformative dimensions
+           branches_loc a number, (0 to 4) to which 'core clusters' to attach a branch
+    :return: a numpy array with clusters nad labels
+    """
+    d= 5
+    # subspace clusters centers
+    original_dim = d + num_noisy
+    # main informative dimensions
+    #sep = 3
+    center_list0 = [np.zeros(original_dim), np.concatenate((sep*np.ones(1), np.zeros(original_dim-1)), axis=0 ),
+                   np.concatenate((2*sep*np.ones(1), np.zeros(original_dim-1)), axis=0 ), np.concatenate((3*sep*np.ones(1), np.zeros(original_dim-1)), axis=0 ),
+                   np.concatenate((4 * sep * np.ones(1), np.zeros(original_dim - 1)), axis=0), # linear sequence
+                   np.zeros(original_dim), np.zeros(original_dim), #branches
+                   np.concatenate((np.zeros(4), 0.5*sep*np.ones(1), np.zeros((num_noisy-4)), np.ones(4)), axis=0)] #big one
+
+    #attaching branches to there positions in linear squence
+    import copy
+    center_list = copy.deepcopy(center_list0)
+    center_list[5] = center_list0[branches_loc[0]]
+    center_list[5][1] = sep
+    center_list[6] = center_list0[branches_loc[1]]
+    center_list[6][2] = sep
+
+
+
+    '''
+    cl0_center = np.zeros(original_dim)
+    cl1_center = np.concatenate((sep*np.ones(1), np.zeros(original_dim-1)), axis=0 )
+    cl2_center = np.concatenate((2*sep*np.ones(1), np.zeros(original_dim-1)), axis=0 )
+    cl3_center = np.concatenate((3*sep*np.ones(1), np.zeros(original_dim-1)), axis=0 )
+    cl4_center = np.concatenate((4*sep*np.ones(1), np.zeros(original_dim-1)), axis=0 )
+    cl5_center = np.concatenate((3*sep*np.ones(1), np.zeros(original_dim-1)), axis=0 )
+    #cl5_center[1] = sep
+    cl6_center = np.concatenate((4*sep*np.ones(1), np.zeros(original_dim-1)), axis=0 )
+    #cl6_center[2] = sep
+    # add big cluster of 'irrelevant' cells with very different expression set
+    cl7_center  = np.concatenate((np.zeros(4), 0.5*sep*np.ones(1), np.zeros((num_noisy-4)), np.ones(4)), axis=0)
+    # chould be non-noisy (d)and then original_dim-(num_noisy-1) and then???
+    cl7_center
+    '''
+
+
+    # cluster populatiosn
+    ncl0 = ncl1 = ncl2 = ncl3  = ncl4 = ncl5 = ncl6 = 6000
+    ncl7 = 20000
+    # cluster labels
+    lbls = np.concatenate((np.zeros(ncl0), np.ones(ncl1), 2*np.ones(ncl2), 3*np.ones(ncl3), 4*np.ones(ncl4),
+                           5*np.ones(ncl5), 6*np.ones(ncl6), -7*np.ones(ncl7)), axis=0)
+    #introduce correlation
+
+
+    r = datasets.make_spd_matrix(d,  random_state=12346)
+    r7 = datasets.make_spd_matrix(d,  random_state=12347)
+
+
+    # Generate the random samples.
+    y0 = np.exp(np.random.multivariate_normal(center_list[0][:d], r, size=ncl0))
+    y1 = np.exp(np.random.multivariate_normal(center_list[1][:d], r, size=ncl1))
+    y2 = np.random.multivariate_normal(center_list[2][:d], r, size= ncl2)
+    y3 = np.random.multivariate_normal(center_list[3][:d], r, size=ncl3)
+    y4 = np.random.multivariate_normal(center_list[4][:d], r, size=ncl4)
+    y5 = np.random.multivariate_normal(center_list[5][:d], r, size=ncl5)
+    y6 = np.random.multivariate_normal(center_list[6][:d], r, size=ncl6)
+    y7 = np.random.multivariate_normal(center_list[7][np.concatenate((np.zeros(4), np.ones(1), np.zeros(num_noisy-4),
+                                                                      np.ones(4))).astype('bool')], r7, size=ncl7)
+
+    #wd= 0.3
+    cl0 = np.concatenate([y0, np.zeros((ncl0,original_dim - d))], axis=1 )
+    cl1 = np.concatenate([y1, np.zeros((ncl1,original_dim - d))], axis=1 )
+    cl2= np.concatenate([y2, np.zeros((ncl2,original_dim - d))], axis=1 )
+    cl3 = np.concatenate([y3, np.zeros((ncl3,original_dim - d))], axis=1 )
+    cl4 = np.concatenate([y4, np.zeros((ncl4,original_dim - d))], axis=1 )
+    cl5 = np.concatenate([y5, np.zeros((ncl5,original_dim - d))], axis=1 )
+    cl6 = np.concatenate([y6, np.zeros((ncl6,original_dim - d))], axis=1 )
+    cl7 =  np.zeros((ncl7,original_dim ))
+    cl7[:,np.concatenate((np.zeros(4), np.ones(1), np.zeros(num_noisy-4), np.ones(4))).astype('bool')] = y7
+
+    #figv1 = plt.figure();
+    #sns.violinplot(data= cl0, bw = 0.1);plt.show()
+    #figv2 = plt.figure();
+    #sns.violinplot(data= cl1, bw = 0.1);plt.show()
+    #figv3 = plt.figure();
+    #sns.violinplot(data= cl7, bw = 0.1);plt.show()
+
+    #sns.violinplot(data= cl1, bw = 0.1);sns.violinplot(data= cl8, bw = 0.1);
+    #noisy or not:
+    #noise_sig1 =  np.concatenate((np.zeros(20),  np.ones(10)), axis=0 )
+    #noise_sig2 = np.concatenate((np.ones(10), np.zeros(20)), axis=0 )
+    # add noise to orthogonal dimensions
+    noise_scale =0.2
+    cl0_noisy = cl0 + np.concatenate([np.zeros((ncl0,d)), np.abs(np.random.normal(loc=0, scale = noise_scale, size=(ncl0,original_dim - d)))], axis=1 )
+    cl1_noisy = cl1 + np.concatenate([np.zeros((ncl1,d)), np.abs(np.random.normal(loc=0, scale = noise_scale, size=(ncl1,original_dim - d)))], axis=1 )
+    cl2_noisy = cl2 + np.concatenate([np.zeros((ncl2,d)), np.abs(np.random.normal(loc=0, scale = noise_scale, size=(ncl2,original_dim - d)))], axis=1 )
+    cl3_noisy = cl3 + np.concatenate([np.zeros((ncl3,d)), np.abs(np.random.normal(loc=0, scale = noise_scale, size=(ncl3,original_dim - d)))], axis=1 )
+    cl4_noisy = cl4 + np.concatenate([np.zeros((ncl4,d)), np.abs(np.random.normal(loc=0, scale = noise_scale, size=(ncl4,original_dim - d)))], axis=1 )
+    cl5_noisy = cl5 + np.concatenate([np.zeros((ncl5,d)), np.abs(np.random.normal(loc=0, scale = noise_scale, size=(ncl5,original_dim - d)))], axis=1 )
+    cl6_noisy = cl6 + np.concatenate([np.zeros((ncl6,d)), np.abs(np.random.normal(loc=0, scale = noise_scale, size=(ncl6,original_dim - d)))], axis=1 )
+    cl7_noisy = cl7
+    cl7_noisy[:, ~np.concatenate((np.zeros(4), np.ones(1), np.zeros(num_noisy-4), np.ones(4))).astype('bool')] = \
+        np.abs(np.random.normal(loc=0, scale = noise_scale, size=(ncl7,original_dim - d)))
+    #figv2 = plt.figure();
+    #sns.violinplot(data= cl0_noisy[:,5:], bw = 0.1);plt.show()
+    #figv3 = plt.figure();
+    #sns.violinplot(data= cl1_noisy, bw = 0.1);plt.show()
+    #figv3 = plt.figure();
+    #sns.violinplot(data= cl4_noisy, bw = 0.1);plt.show()
+    #figv1 = plt.figure();
+    #sns.violinplot(data= cl7_noisy, bw = 0.1);plt.show()
+
+
+    #sns.violinplot(data= cl1_noisy, bw = 0.1);
+    #sns.violinplot(data= cl2_noisy, bw = 0.1);
+    #sns.violinplot(data= cl3_noisy, bw = 0.1);
+    #sns.violinplot(data= cl4_noisy, bw = 0.1);
+    #sns.violinplot(data= cl5_noisy, bw = 0.1);
+    #sns.violinplot(data= cl6_noisy, bw = 0.1);
+    #sns.violinplot(data= cl7_noisy, bw = 0.1);
+
+    noisy_clus = np.concatenate((cl0_noisy, cl1_noisy, cl2_noisy, cl3_noisy, cl4_noisy, cl5_noisy, cl6_noisy,
+                                 cl7_noisy), axis=0)
+
+    return noisy_clus, lbls
+noisy_clus, lbls = generate_clusters(num_noisy = 5, branches_loc = [0,2],  sep=3)
+
+
+scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
+data =  scaler.fit_transform(noisy_clus)
+mapper = umap.UMAP(n_neighbors=15, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=True).fit(data)
+y =  mapper.transform(data)
+cdict = {0: 'red', 1: 'blue', 2: 'green'}
+#plt.scatter(y[:, 0], y[:, 1], c=color, s=1., cmap=plt.cm.Spectral)
+dataset = pd.DataFrame()
+dataset['x'] = y[:, 0]
+dataset['y'] = y[:, 1]
+dataset['color'] = [str(x) for x in lbls]
+#pca
+from sklearn import decomposition
+pca = decomposition.PCA(n_components=2)
+pca.fit(data)
+yp = pca.transform(data)
+#plt.scatter(y[:, 0], y[:, 1], c=color, s=1., cmap=plt.cm.Spectral)
+dataset = pd.DataFrame()
+dataset['x'] = yp[:, 0]
+dataset['y'] = yp[:, 1]
+dataset['color'] = [str(x) for x in lbls]
+
+
+
+fig = plot2D_cluster_colors(y, lbls=lbls, msize=5)
+fig.show()
+fig = plot2D_cluster_colors(yp, lbls=lbls, msize=5)
+fig.show()
+
+
+
+
+
+def preprocess_artificial_clusters(noisy_clus, lbls):
+    """ function to generate
+    :param noisy_clus, lbls:np.array with clusters and thir lbls
+    :return: NULL
+    """
+
+'''

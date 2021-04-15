@@ -83,8 +83,8 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 d= 5
 # subspace clusters centers
 original_dim = 15
-d= 5 # main informative dimensions
-sep=3
+d = 5 # main informative dimensions
+sep = 3
 cl1_center = np.zeros(original_dim)
 cl2_center = np.concatenate((sep*np.ones(1), np.zeros(original_dim-1)), axis=0 )
 cl3_center = np.concatenate((2*sep*np.ones(1), np.zeros(original_dim-1)), axis=0 )

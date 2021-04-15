@@ -577,7 +577,7 @@ marker_similarity_scoreUMAP = neighbour_marker_similarity_score_per_cell(embedUM
 
 #SAUCIE
 discontinuitySAUCIE, manytooneSAUCIE = get_wsd_scores(aFrame, embedding, 90, num_meandist=10000, compute_knn_x=False, x_knn=Idx)
-onetomany_scoreSAUCIE= neighbour_onetomany_score(embedding, Idx, kmax=90, num_cores=12)[1]
+onetomany_scoreSAUCIE= neighbour_onetomany_score(embedding, Idx, kmax =90, num_cores=12)[1]
 marker_similarity_scoreSAUCIE = neighbour_marker_similarity_score_per_cell(embedding, aFrame, kmax=90, num_cores=12)
 
 outfile2 = source_dir + '/' + ID+ '_PerformanceMeasures.npz'

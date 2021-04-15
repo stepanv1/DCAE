@@ -360,14 +360,20 @@ autoencoder.load_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
 encoder.summary()
 z = encoder.predict([aFrame, Sigma])
 
+import sys
+os.chdir('/home/grines02/PycharmProjects/BIOIBFO25L/')
+sys.path.append("/home/grines02/PycharmProjects/BIOIBFO25L/SAUCIE")
+data = aFrame
 
+fig = plot3D_cluster_colors(z, lbls=lbls)
+fig.show()
 
 # cluster toplogy
 # 0 1 2 3 4
 #       5 6
 # clustering UMAP representation
-#mapper = umap.UMAP(n_neighbors=30, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=False).fit(aFrame)
-#embedUMAP =  mapper.transform(aFrame)
+mapper = umap.UMAP(n_neighbors=30, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=False).fit(aFrame)
+embedUMAP =  mapper.transform(aFrame)
 #np.savez('Art8_' + 'embedUMAP.npz', embedUMAP=embedUMAP)
 embedUMAP = np.load('Art8_' + 'embedUMAP.npz')['embedUMAP']
 #labelsHDBscanUMAP= [str(x) for  x in labelsHDBscanUMAP]#
@@ -378,11 +384,11 @@ fig.show()
 # try SAUCIE
 
 import sys
-sys.path.append("/home/grines02/SAUCIE/")
+#sys.path.append("/home/grines02/SAUCIE/")
 data = aFrame
 from importlib import reload
 import SAUCIE
-#reload(SAUCIE)
+reload(SAUCIE)
 #import tensorflow.compat.v1 as tf
 #tf.disable_v2_behavior()
 saucie = SAUCIE.SAUCIE(data.shape[1])
@@ -392,7 +398,7 @@ saucie.train(loadtrain, steps=10000)
 loadeval = SAUCIE.Loader(data, shuffle=False)
 embedding = saucie.get_embedding(loadeval)
 number_of_clusters, clusters = saucie.get_clusters(loadeval)
-#np.savez('Art8_' + 'embedSAUCIE.npz', embedding=embedding,number_of_clusters=number_of_clusters, clusters=clusters)
+np.savez('Art8_' + 'embedSAUCIE.npz', embedding=embedding,number_of_clusters=number_of_clusters, clusters=clusters)
 
 import os
 os.chdir('/home/grines02/PycharmProjects/BIOIBFO25L')
