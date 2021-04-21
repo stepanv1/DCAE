@@ -198,6 +198,15 @@ weight_neibF_Tr =weight_distALL
 sourceTr = aFrame
 Idx = npzfile['Idx']
 
+
+# "CD16+_NK_cells"
+# "CD16-_NK_cells"
+# "Mature_B_cells"
+sns.violinplot(data=aFrame[lbls=='"CD16+_NK_cells"',5:15])
+sns.violinplot(data=aFrame[lbls=='"Mature_B_cells"',5:15])
+sns.violinplot(data=aFrame[:,5:15])
+plt.hist(sns.violinplot(data=aFrame[lbls=='"CD16+_NK_cells"',8]))
+
 # session set up
 
 tf.config.threading.set_inter_op_parallelism_threads(0)

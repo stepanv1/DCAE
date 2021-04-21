@@ -111,8 +111,8 @@ r8 = sklearn.datasets.make_spd_matrix(d,  random_state=12347)
 
 
 # Generate the random samples.
-y1 = np.exp(np.random.multivariate_normal(cl1_center[:d], r, size=ncl1))
-y2 = np.exp(np.random.multivariate_normal(cl2_center[:d], r, size=ncl2))
+y1 = (np.random.multivariate_normal(cl1_center[:d], r, size=ncl1))
+y2 = (np.random.multivariate_normal(cl2_center[:d], r, size=ncl2))
 y3 = np.random.multivariate_normal(cl3_center[:d], r, size= ncl3)
 y4 = np.random.multivariate_normal(cl4_center[:d], r, size=ncl4)
 y5 = np.random.multivariate_normal(cl5_center[:d], r, size=ncl5)
@@ -215,7 +215,7 @@ k = 30
 k3 = k * 3
 '''
 aFrame = noisy_clus
-aFrame.shape
+original_dim=aFrame.shape[1]
 # set negative values to zero
 #aFrame[aFrame < 0] = 0
 #randomize order

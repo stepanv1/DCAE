@@ -3,10 +3,13 @@
 #labels should be incoded as naturals 1,2, 3
 
 import rpy2
+import numpy as np
 from rpy2.robjects.packages import SignatureTranslatedAnonymousPackage
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 from sklearn import metrics, datasets
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import normalize
 from plotly.graph_objs import Scatter3d, Figure, Layout, Scatter
 import plotly.graph_objects as go
 from matplotlib.colors import rgb2hex
@@ -16,6 +19,19 @@ from pathos import multiprocessing
 from mlpack import approx_kfn, kfn
 import ot
 import faiss
+
+
+import ctypes
+from numpy.ctypeslib import ndpointer
+lib = ctypes.cdll.LoadLibrary("/home/grines02/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
+perp = lib.Perplexity
+perp.restype = None
+perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
+                ctypes.c_size_t, ctypes.c_size_t,
+                ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
+                ctypes.c_double,  ctypes.c_size_t,
+                ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), #Sigma
+                ctypes.c_size_t]
 
 
 def compute_f1(lblsT, lblsP):
@@ -869,8 +885,8 @@ plt.show()
 
 # function to generate artificial clusters with branches and different
 # number of noisy dimensions
-'''
-def generate_clusters(num_noisy = 5, branches_loc = [3,4], sep=5):
+
+def generate_clusters(num_noisy = 5, branches_loc = [3,4], sep=3):
     """ function to generate artificial clusters with branches and different
     number of noisy dimensions, branchong
 
@@ -901,25 +917,6 @@ def generate_clusters(num_noisy = 5, branches_loc = [3,4], sep=5):
     center_list[6] = center_list0[branches_loc[1]]
     center_list[6][2] = sep
 
-
-
-    '''
-    cl0_center = np.zeros(original_dim)
-    cl1_center = np.concatenate((sep*np.ones(1), np.zeros(original_dim-1)), axis=0 )
-    cl2_center = np.concatenate((2*sep*np.ones(1), np.zeros(original_dim-1)), axis=0 )
-    cl3_center = np.concatenate((3*sep*np.ones(1), np.zeros(original_dim-1)), axis=0 )
-    cl4_center = np.concatenate((4*sep*np.ones(1), np.zeros(original_dim-1)), axis=0 )
-    cl5_center = np.concatenate((3*sep*np.ones(1), np.zeros(original_dim-1)), axis=0 )
-    #cl5_center[1] = sep
-    cl6_center = np.concatenate((4*sep*np.ones(1), np.zeros(original_dim-1)), axis=0 )
-    #cl6_center[2] = sep
-    # add big cluster of 'irrelevant' cells with very different expression set
-    cl7_center  = np.concatenate((np.zeros(4), 0.5*sep*np.ones(1), np.zeros((num_noisy-4)), np.ones(4)), axis=0)
-    # chould be non-noisy (d)and then original_dim-(num_noisy-1) and then???
-    cl7_center
-    '''
-
-
     # cluster populatiosn
     ncl0 = ncl1 = ncl2 = ncl3  = ncl4 = ncl5 = ncl6 = 6000
     ncl7 = 20000
@@ -932,17 +929,58 @@ def generate_clusters(num_noisy = 5, branches_loc = [3,4], sep=5):
     r = datasets.make_spd_matrix(d,  random_state=12346)
     r7 = datasets.make_spd_matrix(d,  random_state=12347)
 
+    def trunc_normal(ncl, r):
+        from trun_mvnt import rtmvn, rtmvt
+
+        D = np.diag(np.ones(d))
+        lower = np.array([0, 0, 0, 0, 0])
+        upper = np.array([1, 1, 1, 1, 1])
+        Mean = np.array([0.3,0.3,0.3,0.3,0.3])
+        Sigma = r
+
+        n = ncl # want ncl sample
+        burn = 100  # burn-in first 100 iterates
+        thin = 1  # thinning for Gibbs
+
+        random_sample = rtmvn(n, Mean, Sigma, D, lower, upper, burn, thin)
+        # Numpy array n-by-p as result!
+        #sns.violinplot(data=random_sample)
+        return random_sample
 
     # Generate the random samples.
-    y0 = np.exp(np.random.multivariate_normal(center_list[0][:d], r, size=ncl0))
-    y1 = np.exp(np.random.multivariate_normal(center_list[1][:d], r, size=ncl1))
-    y2 = np.random.multivariate_normal(center_list[2][:d], r, size= ncl2)
-    y3 = np.random.multivariate_normal(center_list[3][:d], r, size=ncl3)
-    y4 = np.random.multivariate_normal(center_list[4][:d], r, size=ncl4)
-    y5 = np.random.multivariate_normal(center_list[5][:d], r, size=ncl5)
-    y6 = np.random.multivariate_normal(center_list[6][:d], r, size=ncl6)
-    y7 = np.random.multivariate_normal(center_list[7][np.concatenate((np.zeros(4), np.ones(1), np.zeros(num_noisy-4),
-                                                                      np.ones(4))).astype('bool')], r7, size=ncl7)
+    y0 = center_list[0][:d]+trunc_normal(ncl0, r)
+    y1 = center_list[1][:d]+trunc_normal(ncl1, r)
+    y2 = center_list[2][:d]+trunc_normal(ncl2, r)
+    y3 = center_list[3][:d]+trunc_normal(ncl3, r)
+    y4 = center_list[4][:d]+trunc_normal(ncl4, r)
+    y5 = center_list[5][:d]+trunc_normal(ncl5, r)
+    y6 = center_list[6][:d]+trunc_normal(ncl6, r)
+    y7 = center_list[7][np.concatenate((np.zeros(4), np.ones(1), np.zeros(num_noisy-4),
+                                    np.ones(4))).astype('bool')]++trunc_normal(ncl7, r)
+
+
+    #y0 = center_list[0][:d]+1+np.tanh(np.random.multivariate_normal(np.zeros(d), r, size=ncl0))**3
+    #y1 = center_list[1][:d]+1+np.tanh(np.random.multivariate_normal(np.zeros(d), r, size=ncl1))**3
+    #y2 = center_list[2][:d]+1+np.tanh(np.random.multivariate_normal(np.zeros(d), r, size= ncl2))**3
+    #y3 = center_list[3][:d]+1+np.tanh(np.random.multivariate_normal(np.zeros(d), r, size=ncl3))**3
+    #y4 = center_list[4][:d]+1+np.tanh(np.random.multivariate_normal(np.zeros(d), r, size=ncl4))**3
+    #y5 = center_list[5][:d]+1+np.tanh(np.random.multivariate_normal(np.zeros(d), r, size=ncl5))**3
+    #y6 = center_list[6][:d]+1+np.tanh(np.random.multivariate_normal(np.zeros(d), r, size=ncl6))**3
+    #y7 = center_list[7][np.concatenate((np.zeros(4), np.ones(1), np.zeros(num_noisy-4),
+    #                                np.ones(4))).astype('bool')]+1+np.tanh(np.random.multivariate_normal(np.zeros(d), r7, size=ncl7))**3
+
+    #plt.hist(y0[:, 2],50)
+    #sns.violinplot(data=y0)
+    #sns.violinplot(data=y1)
+    #sns.violinplot(data=y2)
+    #sns.violinplot(data=y3)
+    #sns.violinplot(data=y4)
+    #sns.violinplot(data=y5)
+    #sns.violinplot(data=y6)
+    #sns.violinplot(data=y7)
+
+
+
 
     #wd= 0.3
     cl0 = np.concatenate([y0, np.zeros((ncl0,original_dim - d))], axis=1 )
@@ -987,7 +1025,7 @@ def generate_clusters(num_noisy = 5, branches_loc = [3,4], sep=5):
     #figv1 = plt.figure();
     #sns.violinplot(data= cl7_noisy, bw = 0.1);plt.show()
 
-
+    #sns.violinplot(data=cl0_noisy, bw=0.1);
     #sns.violinplot(data= cl1_noisy, bw = 0.1);
     #sns.violinplot(data= cl2_noisy, bw = 0.1);
     #sns.violinplot(data= cl3_noisy, bw = 0.1);
@@ -1000,45 +1038,67 @@ def generate_clusters(num_noisy = 5, branches_loc = [3,4], sep=5):
                                  cl7_noisy), axis=0)
 
     return noisy_clus, lbls
-noisy_clus, lbls = generate_clusters(num_noisy = 5, branches_loc = [0,2],  sep=3)
 
 
-scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
-data =  scaler.fit_transform(noisy_clus)
-mapper = umap.UMAP(n_neighbors=15, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=True).fit(data)
-y =  mapper.transform(data)
-cdict = {0: 'red', 1: 'blue', 2: 'green'}
-#plt.scatter(y[:, 0], y[:, 1], c=color, s=1., cmap=plt.cm.Spectral)
-dataset = pd.DataFrame()
-dataset['x'] = y[:, 0]
-dataset['y'] = y[:, 1]
-dataset['color'] = [str(x) for x in lbls]
-#pca
-from sklearn import decomposition
-pca = decomposition.PCA(n_components=2)
-pca.fit(data)
-yp = pca.transform(data)
-#plt.scatter(y[:, 0], y[:, 1], c=color, s=1., cmap=plt.cm.Spectral)
-dataset = pd.DataFrame()
-dataset['x'] = yp[:, 0]
-dataset['y'] = yp[:, 1]
-dataset['color'] = [str(x) for x in lbls]
-
-
-
-fig = plot2D_cluster_colors(y, lbls=lbls, msize=5)
-fig.show()
-fig = plot2D_cluster_colors(yp, lbls=lbls, msize=5)
-fig.show()
-
-
-
-
-
-def preprocess_artificial_clusters(noisy_clus, lbls):
+def preprocess_artificial_clusters(noisy_clus, lbls, k=30, num_cores=12, outfile='test'):
     """ function to generate
     :param noisy_clus, lbls:np.array with clusters and thir lbls
     :return: NULL
     """
+    k3 = k * 3
 
-'''
+    aFrame = noisy_clus
+    original_dim=aFrame.shape[1]
+    # set negative values to zero
+    #aFrame[aFrame < 0] = 0
+    #randomize order
+    #IDX = np.random.choice(aFrame.shape[0], aFrame.shape[0], replace=False)
+    #patient_table = patient_table[IDX,:]
+    #aFrame= aFrame[IDX,:]
+    #lbls = lbls[IDX]
+    len(lbls)
+    scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
+    scaler.fit_transform(aFrame)
+    nb=find_neighbors(aFrame, k3, metric='euclidean', cores=12)
+    Idx = nb['idx']; Dist = nb['dist']
+
+    def singleInput(i):
+        nei = noisy_clus[Idx[i, :], :]
+        return [nei, i]
+    # find nearest neighbours
+    nn=k
+    rk=range(k3)
+    def singleInput(i):
+         nei =  aFrame[Idx[i,:],:]
+         di = [np.sqrt(sum(np.square(aFrame[i] - nei[k_i,]))) for k_i in rk]
+         return [nei, di, i]
+    nrow = len(lbls)
+    inputs = range(nrow)
+
+    results = Parallel(n_jobs=num_cores, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
+
+    neibALL = np.zeros((nrow, k3, original_dim))
+    Distances = np.zeros((nrow, k3))
+    neib_weight = np.zeros((nrow, k3))
+    Sigma = np.zeros(nrow, dtype=float)
+    for i in range(nrow):
+        neibALL[i,] = results[i][0]
+    for i in range(nrow):
+        Distances[i,] = results[i][1]
+    #Compute perpelexities
+    nn=30
+    perp((Distances[:,0:k3]),       nrow,     original_dim,   neib_weight,          nn,          k3,   Sigma,    12)
+          #(     double* dist,      int N,    int D,       double* P,     double perplexity,    int K, int num_threads)
+    np.shape(neib_weight)
+    plt.plot(neib_weight[1,])
+    #sort and normalise weights
+    topk = np.argsort(neib_weight, axis=1)[:,-nn:]
+    topk= np.apply_along_axis(np.flip, 1, topk,0)
+    neib_weight=np.array([ neib_weight[i, topk[i]] for i in range(len(topk))])
+    neib_weight=normalize(neib_weight, axis=1, norm='l1')
+    neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
+    #plt.plot(neib_weight[1,:]);plt.show()
+    np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
+             neibALL=neibALL,  Sigma=Sigma)
+    return aFrame, Idx, Dist, Sigma, lbls, neibALL
+

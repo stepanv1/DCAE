@@ -23,7 +23,8 @@ pio.renderers.default = "browser"
 
 from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
     plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
-    get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d, plot3D_performance_colors, plot2D_performance_colors
+    get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d, plot3D_performance_colors, plot2D_performance_colors, \
+    preprocess_artificial_clusters, generate_clusters
 
 from sklearn.preprocessing import MinMaxScaler
 from joblib import Parallel, delayed
@@ -76,21 +77,6 @@ class EpochCounterCallback(Callback):
 
 
 
-
-import ctypes
-from numpy.ctypeslib import ndpointer
-lib = ctypes.cdll.LoadLibrary("/home/grines02/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
-perp = lib.Perplexity
-perp.restype = None
-perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
-                ctypes.c_size_t, ctypes.c_size_t,
-                ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
-                ctypes.c_double,  ctypes.c_size_t,
-                ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), #Sigma
-                ctypes.c_size_t]
-
-
-
 #d= 5
 # subspace clusters centers
 #original_dim = 30
@@ -101,11 +87,15 @@ k = 30
 k3 = k * 3
 source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/simulatedData'
 output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/simulatedData/output'
-outfile = source_dir + '/8art_scaled_cor_62000_15D_positive_signal.npz'
+#outfile = source_dir + '/8art_scaled_cor_62000_15D_positive_signal.npz'
 k=30
 markers = np.arange(30).astype(str)
 # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
+'''
 npzfile = np.load(outfile)
+import seaborn as sns
+sns.violinplot(data=aFrame[lbls==5,:])
+sns.violinplot(data=aFrame[:,:])
 
 
 Sigma = npzfile['Sigma']
@@ -116,7 +106,8 @@ Dist = npzfile['Dist']
 Idx = npzfile['Idx']
 neibALL = npzfile['neibALL']
 Sigma = npzfile['Sigma']
-
+sns.violinplot(data=aFrame[lbls==-7,:])
+'''
 # session set up
 if tf.__version__ == '2.3.0':
     tf.config.threading.set_inter_op_parallelism_threads(0)
@@ -130,11 +121,34 @@ if tf.__version__ == '2.3.0':
 k = 30
 k3 = k * 3
 
+noisy_clus, lbls = generate_clusters(num_noisy = 10, branches_loc = [0,3],  sep=3)
+sns.violinplot(data=noisy_clus[lbls==0,:])
+aFrame=noisy_clus
+scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
+scaler.fit_transform(aFrame)
+sns.violinplot(data=aFrame[lbls==6,:])
+
+aFrame, Idx, Dist, Sigma, lbls, neibALL =  preprocess_artificial_clusters(noisy_clus, lbls, k=30, num_cores=12, outfile='test')
+sns.violinplot(data=aFrame[lbls==-7,:])
+'''
+mapper = umap.UMAP(n_neighbors=15, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=True).fit(aFrame)
+yUMAP =  mapper.transform(aFrame)
+
+from sklearn import decomposition
+pca = decomposition.PCA(n_components=2)
+pca.fit(aFrame)
+yPCA = pca.transform(aFrame)
 
 
-coeffCAE = 5
-epochs = 100
-ID = 'Art8_positive_signal_15D' + str(coeffCAE) + '_' + str(epochs) + '_2stages_MMD'
+fig = plot2D_cluster_colors(yUMAP, lbls=lbls, msize=5)
+fig.show()
+fig = plot2D_cluster_colors(yPCA, lbls=lbls, msize=5)
+fig.show()
+'''
+
+coeffCAE = 1
+epochs = 500
+ID = 'Art8_positive_signal_15D_constCAE_test2_[0,3]' + str(coeffCAE) + '_' + str(epochs) + '_2stages_MMD'
 # TODO try downweight mmd to the end of computation
 #DCAE_weight = K.variable(value=0)
 #DCAE_weight_lst = K.variable(np.array(frange_anneal(epochs, ratio=0)))
@@ -142,7 +156,6 @@ ID = 'Art8_positive_signal_15D' + str(coeffCAE) + '_' + str(epochs) + '_2stages_
 # check for possible discontinuities/singularities o last epochs, is shape of potenatial  to narroe at the end?
 
 MMD_weight = K.variable(value=0)
-
 MMD_weight_lst = K.variable( np.array(frange_anneal(int(epochs), ratio=0.95)) )
 
 
@@ -280,7 +293,9 @@ def mean_square_error_NN(y_true, y_pred):
 def ae_loss(weight, MMD_weight_lst):
     def loss(x, x_decoded_mean):
         msew = mean_square_error_NN(x, x_decoded_mean)
-        return msew + 1*(1-MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean) #TODO: try 1-MMD insted 2-MMD
+        #return msew + 1*(1-MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean) #TODO: try 1-MMD insted 2-MMD
+        return msew + 1 * (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (coeffCAE) * DCAE_loss(x,
+                                                                                                               x_decoded_mean)
         # return K.mean(msew)
     return loss
     #return K.switch(tf.equal(Epoch_count, 10),  loss1(x, x_decoded_mean), loss1(x, x_decoded_mean))
@@ -327,7 +342,7 @@ history_multiple = autoencoder.fit([aFrame, Sigma], aFrame,
 stop = timeit.default_timer()
 z = encoder.predict([aFrame,  Sigma])
 print(stop - start)
-st=0; stp=100
+st=5; stp=500
 fig01 = plt.figure();
 plt.plot(history_multiple.history['loss'][st:stp]);
 plt.title('loss')
@@ -351,9 +366,9 @@ plt.plot(history_multiple.history['mean_square_error_NN'][st:stp], label= 'mean_
 plt.legend(loc="upper right")
 
 
-#encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
-#autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
-#np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
+encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
+autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
+np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
 
 encoder.load_weights(output_dir +'/'+ID + '_3D.h5')
 autoencoder.load_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
