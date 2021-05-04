@@ -24,7 +24,7 @@ pio.renderers.default = "browser"
 from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
     plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
     get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d, plot3D_performance_colors, plot2D_performance_colors, \
-    preprocess_artificial_clusters, generate_clusters
+    preprocess_artificial_clusters, generate_clusters, generate_clusters_pentagon
 
 from sklearn.preprocessing import MinMaxScaler
 from joblib import Parallel, delayed
@@ -121,15 +121,40 @@ if tf.__version__ == '2.3.0':
 k = 30
 k3 = k * 3
 
-noisy_clus, lbls = generate_clusters(num_noisy = 10, branches_loc = [0,3],  sep=3)
-sns.violinplot(data=noisy_clus[lbls==0,:])
+list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
+noisy_clus, lbls = generate_clusters_pentagon(num_noisy = 10, branches_loc = [0,0],  sep=3/2, pent_size=3/2)
 aFrame=noisy_clus
-scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
-scaler.fit_transform(aFrame)
-sns.violinplot(data=aFrame[lbls==6,:])
+aFrame= aFrame/np.max(aFrame)
+#cm=np.corrcoef(aFrame[lbls==0,:], rowvar =False)
 
-aFrame, Idx, Dist, Sigma, lbls, neibALL =  preprocess_artificial_clusters(noisy_clus, lbls, k=30, num_cores=12, outfile='test')
-sns.violinplot(data=aFrame[lbls==-7,:])
+
+
+#scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
+#scaler.fit_transform(aFrame)
+#sns.violinplot(data=aFrame[lbls==6,:])
+
+fig, axs = plt.subplots(nrows=8)
+sns.violinplot(data=aFrame[lbls==0,:],  ax=axs[0]).set_title('0', rotation=-90, position=(1, 1), ha='left', va='bottom')
+axs[0].set_ylim(0, 1)
+sns.violinplot(data=aFrame[lbls==1,:],  ax=axs[1]).set_title('1', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[1].set_ylim(0, 1)
+sns.violinplot(data=aFrame[lbls==2,:],  ax=axs[2]).set_title('2', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[2].set_ylim(0, 1)
+sns.violinplot(data=aFrame[lbls==3,:],  ax=axs[3]).set_title('3', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[3].set_ylim(0, 1)
+sns.violinplot(data=aFrame[lbls==4,:],  ax=axs[4]).set_title('4', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[4].set_ylim(0, 1)
+sns.violinplot(data=aFrame[lbls==5,:],  ax=axs[5]).set_title('5', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[5].set_ylim(0, 1)
+sns.violinplot(data=aFrame[lbls==6,:],  ax=axs[6]).set_title('6', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[6].set_ylim(0, 1)
+sns.violinplot(data=aFrame[lbls==-7,:], ax=axs[7]).set_title('7', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[7].set_ylim(0, 1)
+
+
+aFrame, Idx, Dist, Sigma, lbls, neibALL =  preprocess_artificial_clusters(aFrame, lbls, k=30, num_cores=12, outfile='test')
+
+
 '''
 mapper = umap.UMAP(n_neighbors=15, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=True).fit(aFrame)
 yUMAP =  mapper.transform(aFrame)
@@ -139,16 +164,22 @@ pca = decomposition.PCA(n_components=2)
 pca.fit(aFrame)
 yPCA = pca.transform(aFrame)
 
+pca = decomposition.PCA(n_components=10)
+pca.fit(aFrame)
+yPCA3 = pca.transform(aFrame)
+
+
 
 fig = plot2D_cluster_colors(yUMAP, lbls=lbls, msize=5)
 fig.show()
 fig = plot2D_cluster_colors(yPCA, lbls=lbls, msize=5)
 fig.show()
+
 '''
 
 coeffCAE = 1
 epochs = 500
-ID = 'Art8_positive_signal_15D_constCAE_test2_[0,3]' + str(coeffCAE) + '_' + str(epochs) + '_2stages_MMD'
+ID = 'Art8_positive_signal_15D_constCAE_test2_branch' +  '[0,0]'   + str(coeffCAE) + '_' + str(epochs) + '_2stages_MMD'
 # TODO try downweight mmd to the end of computation
 #DCAE_weight = K.variable(value=0)
 #DCAE_weight_lst = K.variable(np.array(frange_anneal(epochs, ratio=0)))
@@ -156,7 +187,7 @@ ID = 'Art8_positive_signal_15D_constCAE_test2_[0,3]' + str(coeffCAE) + '_' + str
 # check for possible discontinuities/singularities o last epochs, is shape of potenatial  to narroe at the end?
 
 MMD_weight = K.variable(value=0)
-MMD_weight_lst = K.variable( np.array(frange_anneal(int(epochs), ratio=0.95)) )
+MMD_weight_lst = K.variable( np.array(frange_anneal(int(epochs), ratio=0.80)) )
 
 
 nrow = aFrame.shape[0]
@@ -277,8 +308,8 @@ def compute_mmd(x, y):   # [batch_size, z_dim] [batch_size, z_dim]
 def loss_mmd(x, x_decoded_mean):
     batch_size = K.shape(z_mean)[0]
     latent_dim = K.int_shape(z_mean)[1]
-    true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0.0, stddev=1.)
-    #true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval = -1.5, maxval = 1.5)
+    #true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0.0, stddev=1.)
+    true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval = -1.5, maxval = 1.5)
     #true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=0.0, maxval=1.0)
     return compute_mmd(true_samples, z_mean)
 
@@ -342,7 +373,7 @@ history_multiple = autoencoder.fit([aFrame, Sigma], aFrame,
 stop = timeit.default_timer()
 z = encoder.predict([aFrame,  Sigma])
 print(stop - start)
-st=5; stp=500
+st=10;stp=epochs
 fig01 = plt.figure();
 plt.plot(history_multiple.history['loss'][st:stp]);
 plt.title('loss')
@@ -382,6 +413,8 @@ data = aFrame
 
 fig = plot3D_cluster_colors(z, lbls=lbls)
 fig.show()
+fig =plot3D_marker_colors(z, data=aFrame, markers=list(markers[0:15]), sub_s = 62000, lbls=lbls)
+fig.show()
 
 # cluster toplogy
 # 0 1 2 3 4
@@ -394,6 +427,12 @@ embedUMAP = np.load('Art8_' + 'embedUMAP.npz')['embedUMAP']
 #labelsHDBscanUMAP= [str(x) for  x in labelsHDBscanUMAP]#
 fig = plot2D_cluster_colors(embedUMAP, lbls=lbls)
 fig.show()
+
+#generate list of barnches:
+
+
+
+
 
 ######################################3
 # try SAUCIE

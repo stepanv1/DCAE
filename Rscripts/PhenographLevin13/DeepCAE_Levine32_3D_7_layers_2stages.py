@@ -101,7 +101,7 @@ k = 30
 k3 = k * 3
 coeffCAE = 1
 epochs = 500
-ID = 'Levine32_MMD_01_3D_DCAE_h96_h32_hidden_7_layers'+ str(coeffCAE) + '_' + str(epochs) + '_2stages'
+ID = 'Levine32_MMD_01_3D_DCAE_h96_h32_hidden_7_layers'+ str(coeffCAE) + '_' + str(epochs) + '_2stages_not+scaled'
 source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess'
 output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/'
 '''
@@ -120,8 +120,40 @@ IDX = np.random.choice(aFrame.shape[0], aFrame.shape[0], replace=False)
 aFrame= aFrame[IDX,:]
 lbls = lbls[IDX]
 len(lbls)
-scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
-scaler.fit_transform(aFrame)
+#scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
+#scaler.fit_transform(aFrame)
+
+aFrame= aFrame/np.max(aFrame)
+#cm=np.corrcoef(aFrame[lbls==0,:], rowvar =False)
+
+
+
+fig, axs = plt.subplots(nrows=8)
+sns.violinplot(data=aFrame[lbls=='"CD8_T_cells"',:],  ax=axs[0]).set_title('0', rotation=-90, position=(1, 1), ha='left', va='bottom')
+axs[0].set_ylim(0, 1)
+sns.violinplot(data=aFrame[lbls=='"CD16+_NK_cells"',:],  ax=axs[1]).set_title('1', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[1].set_ylim(0, 1)
+sns.violinplot(data=aFrame[lbls=='"CD16-_NK_cells"',:],  ax=axs[2]).set_title('2', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[2].set_ylim(0, 1)
+sns.violinplot(data=aFrame[lbls=='"CD34+CD38+CD123+_HSPCs"',:],  ax=axs[3]).set_title('3', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[3].set_ylim(0, 1)
+sns.violinplot(data=aFrame[lbls=='"CD34+CD38+CD123-_HSPCs"',:],  ax=axs[4]).set_title('4', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[4].set_ylim(0, 1)
+sns.violinplot(data=aFrame[lbls=='"CD34+CD38lo_HSCs"',:],  ax=axs[5]).set_title('5', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[5].set_ylim(0, 1)
+sns.violinplot(data=aFrame[lbls=='"CD34+CD38lo_HSCs"',:],  ax=axs[6]).set_title('6', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[6].set_ylim(0, 1)
+sns.violinplot(data=aFrame[lbls=='"CD8_T_cells"',:], ax=axs[7]).set_title('7', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[7].set_ylim(0, 1)
+
+
+cm=np.corrcoef(aFrame[lbls=='"CD16+_NK_cells"',:], rowvar =False)
+
+
+
+
+
+
 nb=find_neighbors(aFrame, k3, metric='euclidean', cores=48)
 Idx = nb['idx']; Dist = nb['dist']
 #Dist = Dist[IDX]
@@ -168,11 +200,11 @@ neib_weight=sklearn.preprocessing.normalize(neib_weight, axis=1, norm='l1')
 neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
 plt.plot(neib_weight[1,:]);plt.show()
 #outfile = source_dir + '/Nowicka2017euclid.npz'
-outfile = source_dir + '/Levine32euclid_scaled.npz'
+outfile = source_dir + '/Levine32euclid_not_scaled.npz'
 np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
          neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma)
 '''
-outfile = source_dir + '/Levine32euclid_scaled.npz'
+outfile = source_dir + '/Levine32euclid_not_scaled.npz'
 markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
 # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
 npzfile = np.load(outfile)
@@ -202,10 +234,6 @@ Idx = npzfile['Idx']
 # "CD16+_NK_cells"
 # "CD16-_NK_cells"
 # "Mature_B_cells"
-sns.violinplot(data=aFrame[lbls=='"CD16+_NK_cells"',5:15])
-sns.violinplot(data=aFrame[lbls=='"Mature_B_cells"',5:15])
-sns.violinplot(data=aFrame[:,5:15])
-plt.hist(sns.violinplot(data=aFrame[lbls=='"CD16+_NK_cells"',8]))
 
 # session set up
 
@@ -227,7 +255,6 @@ k3 = k * 3
 
 
 
-ID = 'Levine32' + str(coeffCAE) + '_' + str(epochs) + '_2stages_MMD'
 # TODO try downweight mmd to the end of computation
 #DCAE_weight = K.variable(value=0)
 #DCAE_weight_lst = K.variable(np.array(frange_anneal(epochs, ratio=0)))
@@ -236,7 +263,7 @@ ID = 'Levine32' + str(coeffCAE) + '_' + str(epochs) + '_2stages_MMD'
 
 MMD_weight = K.variable(value=0)
 
-MMD_weight_lst = K.variable( np.array(frange_anneal(int(epochs), ratio=0.95)) )
+MMD_weight_lst = K.variable( np.array(frange_anneal(int(epochs), ratio=0.80)) )
 
 
 nrow = aFrame.shape[0]
@@ -357,8 +384,8 @@ def compute_mmd(x, y):   # [batch_size, z_dim] [batch_size, z_dim]
 def loss_mmd(x, x_decoded_mean):
     batch_size = K.shape(z_mean)[0]
     latent_dim = K.int_shape(z_mean)[1]
-    true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0.0, stddev=1.)
-    #true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval = -1.5, maxval = 1.5)
+    #true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0.0, stddev=1.)
+    true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval = -1.5, maxval = 1.5)
     #true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=0.0, maxval=1.0)
     return compute_mmd(true_samples, z_mean)
 
@@ -501,7 +528,7 @@ os.chdir('/home/grines02/PycharmProjects/BIOIBFO25L/')
 sys.path.append("/home/grines02/PycharmProjects/BIOIBFO25L/SAUCIE")
 data = aFrame
 from importlib import reload
-i#mport SAUCIE
+#import SAUCIE
 #reload(SAUCIE)
 #import tensorflow.compat.v1 as tf
 #tf.disable_v2_behavior()
