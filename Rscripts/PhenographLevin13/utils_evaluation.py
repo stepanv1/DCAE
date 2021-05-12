@@ -24,7 +24,7 @@ import math
 
 import ctypes
 from numpy.ctypeslib import ndpointer
-lib = ctypes.cdll.LoadLibrary("/home/grines02/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
+lib = ctypes.cdll.LoadLibrary("/home/stepan/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
 perp = lib.Perplexity
 perp.restype = None
 perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
@@ -156,6 +156,61 @@ helper_match_evaluate_multiple <- function(clus_algorithm, clus_truth) {
     match_evaluate_multiple=rfuncs.helper_match_evaluate_multiple
     res= match_evaluate_multiple(rpy2.robjects.vectors.IntVector(lblsT), rpy2.robjects.vectors.IntVector(lblsP))
     return res.rx('mean_F1')[0][0]
+
+# from here: https://gist.github.com/mikebirdgeneau/a61459aede3a29743c780548753b7fde
+def compute_MVpert(n, min, mode, max, sigma):
+    string = """
+#' Multivariate Beta PERT distributions
+#'
+#' @description Generates random deviates from correlated (modified) pert distributions.
+#'    this is performed by remapping correlated normal distributions to the beta pert
+#'    distributions using quantiles.
+#'
+#' @param n Number of observations. If length(n) > 1, the length is taken to be the number required.
+#' @param min Vector of minima.
+#' @param mode Vector of modes.
+#' @param max Vector of maxima.
+#' @param sigma covariance matrix, default is diag(ncol(x)).
+#'
+#' @return Returns a matrix of values of dimensions n x length(mode).
+#' @export
+#'
+#' @examples
+mvtbetapert <- function(n, min, mode, max, sigma = diag(length(mode))){
+  require(freedom)
+  # Generate correlated normal distributions:
+  mvn <- mvtnorm::rmvnorm(n, mean = rep(0, length(mode)), sigma = sigma)
+    
+  # Convert to quantiles to be re-mapped to the betaPERT distribution:
+  for (j in 1:ncol(mvn)){
+    mvn[, j] <- rank(mvn[, j]) / length(mvn[, j])
+  }
+  # Convert quantiles desired betaPERT distributions
+  for (j in 1:ncol(mvn)){
+    prt <- rpert(n, x.min = min[j],  x.max = max[j], x.mode = mode[j],)
+    mvn[, j] <- quantile(prt, probs = mvn[, j])
+  }
+  return(mvn)
+}
+"""
+    # import function from R
+    rfuncs = SignatureTranslatedAnonymousPackage(string, "rfuncs")
+    mvtbetapert = rfuncs.mvtbetapert
+    from rpy2.robjects import numpy2ri
+    numpy2ri.activate()
+    res = mvtbetapert(n, min, mode, max, sigma)
+    np.res=np.array(res)
+    np.res
+    return np.res
+
+#umpy2ri.deactivate()
+
+#n=5
+#min = np.array([0,0])
+#mode = np.array([0.2,0.2])
+#max = np.array([1,1])
+#sigma = np.array([[0.1,0],[0,10]])
+#compute_MVpert(n, min, mode, max, sigma)
 
 #generate fibbonachi grid for surface area estimate
 # from here: https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere/26127012
@@ -1043,7 +1098,7 @@ def generate_clusters(num_noisy = 5, branches_loc = [3,4], sep=3):
 
     return noisy_clus, lbls
 
-
+'''
 def generate_clusters_pentagon(num_noisy = 5, branches_loc = [3,4], sep=3, pent_size= 3/2):
     """ function to generate artificial clusters with branches and different
     number of noisy dimensions, branchong
@@ -1211,6 +1266,186 @@ def generate_clusters_pentagon(num_noisy = 5, branches_loc = [3,4], sep=3, pent_
                                  cl7_noisy), axis=0)
 
     return noisy_clus, lbls
+'''
+
+def generate_clusters_pentagon(num_noisy = 5, branches_loc = [3,4], sep=3, pent_size= 3/2):
+    """ function to generate artificial clusters with branches and different
+    number of noisy dimensions, branchong
+
+    Creates a cluster with noisy dimensions and branches at the clusters
+    which number is passed as an argument
+    branches can be between 0 and 4
+
+    :param num_noisy: number of non-imformative dimensions
+           branches_loc a number, (0 to 4) to which 'core clusters' to attach a branch
+    :return: a numpy array with clusters nad labels
+    """
+    d= 5
+    # subspace clusters centers
+    original_dim = d + num_noisy
+    # main informative dimensions
+    #sep = 3
+
+    # generate pentagon for dims 0 and 3 in clusters 0 to 4
+    pentagon = []
+    R = pent_size
+    for n in range(0, 5):
+        x = R * math.cos(math.radians(90 + n * 72))
+        y = R * math.sin(math.radians(90 + n * 72))
+        pentagon.append([x, y])
+
+    pnt=  np.array(pentagon)
+    pnt[:,0]=pnt[:,0] - np.min(pnt[:,0])
+    pnt[:,1]=pnt[:,1] - np.min(pnt[:,1])
+    #plt.scatter(x=pnt[:,0], y=pnt[:,1])
+
+    center_list0 = np.array([np.zeros(original_dim),
+                             np.zeros(original_dim),
+                   np.zeros(original_dim),
+                             np.zeros(original_dim),
+                   np.zeros(original_dim), # pentagon seed
+                   np.zeros(original_dim), np.zeros(original_dim), #branches
+                   np.concatenate((np.zeros(4), 0.5*sep*np.ones(1),
+                                   np.zeros((num_noisy-4)), np.ones(4)), axis=0)]) #big one
+
+    #pentagonalizing:
+    for i in range(0,5):
+        center_list0[i][[0,3]] = pnt[i,:]
+
+
+    #attaching branches to there positions in linear squence
+    import copy
+
+    center_list = copy.deepcopy(center_list0)
+
+    center_list[5,:] = center_list0[branches_loc[0],:]
+    center_list[5,1] = 1*sep
+    center_list[6,:] = center_list0[branches_loc[1],:]
+    center_list[6,2] = 1*sep
+
+    # cluster populatiosn
+    ncl0 = ncl1 = ncl2 = ncl3  = ncl4 = ncl5 = ncl6 = 6000
+    ncl7 = 20000
+    # cluster labels
+    lbls = np.concatenate((np.zeros(ncl0), np.ones(ncl1), 2*np.ones(ncl2), 3*np.ones(ncl3), 4*np.ones(ncl4),
+                           5*np.ones(ncl5), 6*np.ones(ncl6), -7*np.ones(ncl7)), axis=0)
+    #introduce correlation
+
+
+    r = datasets.make_spd_matrix(d,  random_state=12346)
+    r7 = datasets.make_spd_matrix(d,  random_state=12347)
+    r5 = datasets.make_spd_matrix(d,  random_state=12348)
+    r6 = datasets.make_spd_matrix(d, random_state=12349)
+    u  = 1*sep
+    m = 0.6
+    def trunc_normal(ncl,  r, u, m, dim=5):
+        from trun_mvnt import rtmvn, rtmvt
+
+        D = np.diag(np.ones(dim))
+        lower = np.zeros(dim)
+        upper = u*np.ones(dim)
+        Mean = m*np.ones(dim)
+        Sigma = r
+
+        n = ncl # want ncl sample
+        burn = 100  # burn-in first 100 iterates
+        thin = 1  # thinning for Gibbs
+
+        random_sample = rtmvn(n, Mean, Sigma, D, lower, upper, burn, thin)
+        # Numpy array n-by-p as result!
+        #sns.violinplot(data=random_sample)
+        return random_sample
+
+    #compute_MVpert(n, min, mode, max, r)
+    minb = np.zeros(d)
+    modeb =m*np.ones(d)
+    maxb =u*np.ones(d)
+    # Generate the random samples.
+    y0 = center_list[0,:][:d]+compute_MVpert(ncl0, minb, modeb, maxb, r)
+    y1 = center_list[1,:][:d]+compute_MVpert(ncl1, minb, modeb, maxb, r)
+    y2 = center_list[2,:][:d]+compute_MVpert(ncl2, minb, modeb, maxb, r)
+    y3 = center_list[3,:][:d]+compute_MVpert(ncl3, minb, modeb, maxb, r)
+    y4 = center_list[4,:][:d]+compute_MVpert(ncl4, minb, modeb, maxb, r)
+    y5 = center_list[5,:][:d]+compute_MVpert(ncl5, minb, modeb, maxb, r5)
+    y6 = center_list[6,:][:d]+compute_MVpert(ncl6, minb, modeb, maxb, r6)
+    y7 = center_list[7,:][np.concatenate((np.zeros(4), np.ones(1), np.zeros(num_noisy-4),
+                                    np.ones(4))).astype('bool')]+compute_MVpert(ncl7, minb, modeb, maxb, r7)
+
+
+
+    #plt.hist(y0[:, 2],50)
+    #sns.violinplot(data=y0)
+    #sns.violinplot(data=y1)
+    #sns.violinplot(data=y2)
+    #sns.violinplot(data=y3)
+    #sns.violinplot(data=y4)
+    #sns.violinplot(data=y5)
+    #sns.violinplot(data=y6)
+    #sns.violinplot(data=y7)
+
+
+
+
+    #wd= 0.3
+    cl0 = np.concatenate([y0, np.zeros((ncl0,original_dim - d))], axis=1 )
+    cl1 = np.concatenate([y1, np.zeros((ncl1,original_dim - d))], axis=1 )
+    cl2= np.concatenate([y2, np.zeros((ncl2,original_dim - d))], axis=1 )
+    cl3 = np.concatenate([y3, np.zeros((ncl3,original_dim - d))], axis=1 )
+    cl4 = np.concatenate([y4, np.zeros((ncl4,original_dim - d))], axis=1 )
+    cl5 = np.concatenate([y5, np.zeros((ncl5,original_dim - d))], axis=1 )
+    cl6 = np.concatenate([y6, np.zeros((ncl6,original_dim - d))], axis=1 )
+    cl7 =  np.zeros((ncl7,original_dim ))
+    cl7[:,np.concatenate((np.zeros(4), np.ones(1), np.zeros(num_noisy-4), np.ones(4))).astype('bool')] = y7
+
+    #figv1 = plt.figure();
+    #sns.violinplot(data= cl0, bw = 0.1);plt.show()
+    #figv2 = plt.figure();
+    #sns.violinplot(data= cl1, bw = 0.1);plt.show()
+    #figv3 = plt.figure();
+    #sns.violinplot(data= cl7, bw = 0.1);plt.show()
+
+    # add noise to orthogonal dimensions
+    noise_scale =0.2
+    diagM=  np.diag(np.ones(original_dim - d))
+    minb = np.zeros(original_dim - d)
+    modeb = noise_scale * np.ones(original_dim - d)
+    maxb = 3*sep * np.ones(original_dim - d)
+    # Generate the random samples.
+    #y0 = center_list[0, :][:d] + compute_MVpert(ncl0, minb, modeb, maxb, r)
+    cl0_noisy = cl0 + np.concatenate([np.zeros((ncl0,d)), compute_MVpert(ncl0, minb, modeb, maxb, diagM)], axis=1 )
+    cl1_noisy = cl1 + np.concatenate([np.zeros((ncl1,d)), compute_MVpert(ncl1, minb, modeb, maxb, diagM)], axis=1 )
+    cl2_noisy = cl2 + np.concatenate([np.zeros((ncl2,d)), compute_MVpert(ncl2, minb, modeb, maxb, diagM)], axis=1 )
+    cl3_noisy = cl3 + np.concatenate([np.zeros((ncl3,d)), compute_MVpert(ncl3, minb, modeb, maxb, diagM)], axis=1 )
+    cl4_noisy = cl4 + np.concatenate([np.zeros((ncl4,d)), compute_MVpert(ncl4, minb, modeb, maxb, diagM)], axis=1 )
+    cl5_noisy = cl5 + np.concatenate([np.zeros((ncl5,d)), compute_MVpert(ncl5, minb, modeb, maxb, diagM)], axis=1 )
+    cl6_noisy = cl6 + np.concatenate([np.zeros((ncl6,d)), compute_MVpert(ncl6, minb, modeb, maxb, diagM)], axis=1 )
+    cl7_noisy = cl7
+    cl7_noisy[:, ~np.concatenate((np.zeros(4), np.ones(1), np.zeros(num_noisy-4), np.ones(4))).astype('bool')] = \
+        compute_MVpert(ncl7, minb, modeb, maxb, diagM)
+    #figv2 = plt.figure();
+    #sns.violinplot(data= cl0_noisy[:,5:], bw = 0.1);plt.show()
+    #figv3 = plt.figure();
+    #sns.violinplot(data= cl1_noisy, bw = 0.1);plt.show()
+    #figv3 = plt.figure();
+    #sns.violinplot(data= cl4_noisy, bw = 0.1);plt.show()
+    #figv1 = plt.figure();
+    #sns.violinplot(data= cl7_noisy, bw = 0.1);plt.show()
+
+    #sns.violinplot(data=cl0_noisy, bw=0.1);
+    #sns.violinplot(data= cl1_noisy, bw = 0.1);
+    #sns.violinplot(data= cl2_noisy, bw = 0.1);
+    #sns.violinplot(data= cl3_noisy, bw = 0.1);
+    #sns.violinplot(data= cl4_noisy, bw = 0.1);
+    #sns.violinplot(data= cl5_noisy, bw = 0.1);
+    #sns.violinplot(data= cl6_noisy, bw = 0.1);
+    #sns.violinplot(data= cl7_noisy, bw = 0.1);
+
+    noisy_clus = np.concatenate((cl0_noisy, cl1_noisy, cl2_noisy, cl3_noisy, cl4_noisy, cl5_noisy, cl6_noisy,
+                                 cl7_noisy), axis=0)
+
+    return noisy_clus, lbls
+
+
 
 
 def preprocess_artificial_clusters(noisy_clus, lbls, k=30, num_cores=12, outfile='test'):

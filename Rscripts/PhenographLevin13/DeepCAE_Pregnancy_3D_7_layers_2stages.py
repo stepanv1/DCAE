@@ -96,6 +96,7 @@ class AnnealingCallback(Callback):
         K.set_value(self.weight, new_weight)
         print("  Current DCAE Weight is " + str(K.get_value(self.weight)))
 
+"""
 import ctypes
 from numpy.ctypeslib import ndpointer
 lib = ctypes.cdll.LoadLibrary("/home/grines02/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
@@ -107,21 +108,22 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
                 ctypes.c_double,  ctypes.c_size_t,
                 ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), #Sigma
                 ctypes.c_size_t]
-
+"""
 # load data
 k = 30
 k3 = k * 3
 coeffCAE = 5
 epochs = 500
 ID = 'Pregnancy_DCAE_h300_h200_hidden_7_layers_CAE'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
+DATA = "/home/stepan/Documents/CyTOFdataPreprocess/"
 #ID = 'Pr_sample_008_1_MMD_01_3D_DCAE_h128_h63_h32_9_layers'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
 #ID = 'Pr_sample_008_1_Unstim_3D'
 '''
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
 '''
-source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/pregnancy'
-output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/pregnancy/output'
+source_dir = DATA
+output_dir  = DATA
 '''
 #data0 = np.genfromtxt(source_dir + "/Gates_PTLG008_1_Unstim.fcs.csv" , names=None, dtype=float,  delimiter=',')
 data0 = pd.read_csv(source_dir + "/Gates_PTLG008_1_Unstim.fcs.csv")
@@ -160,10 +162,10 @@ Idx = nb['idx']; Dist = nb['dist']
 #Idx = Idx[IDX]
 nrow=Idx.shape[0]
 # find nearest neighbours
-def singleInput(i):
+def singleInpuvvt(i):
     nei = noisy_clus[Idx[i, :], :]
-    return [nei, i]
-# find nearest neighbours
+    return [nei, i]vv
+# find nearest neivvvghbours
 nn=30
 rk=range(k3)
 def singleInput(i):
@@ -409,7 +411,7 @@ opt=tf.keras.optimizers.Adam(
 autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst), metrics=[DCAE_loss, loss_mmd,  mean_square_error_NN])
 
 autoencoder.summary()
-import tensorflow_addons as tfa
+#import tensorflow_addons as tfa
 #opt = tfa.optimizers.RectifiedAdam(lr=1e-3)
 #opt=tf.keras.optimizers.Adam(
 #    learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False
@@ -427,7 +429,7 @@ class plotCallback(Callback):
             html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                                include_mathjax=False, post_script=None, full_html=True,
                                animation_opts=None, default_width='100%', default_height='100%', validate=True)
-            html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
+            html_dir = DATA
             Html_file = open(html_dir + "/" + ID +'_epoch=' + str(epoch) + '_' + "_Buttons.html", "w")
             Html_file.write(html_str)
             Html_file.close()

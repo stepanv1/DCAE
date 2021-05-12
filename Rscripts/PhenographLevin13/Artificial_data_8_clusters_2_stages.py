@@ -85,8 +85,8 @@ class EpochCounterCallback(Callback):
 
 k = 30
 k3 = k * 3
-source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/simulatedData'
-output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/simulatedData/output'
+source_dir = '/home/stepan/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/simulatedData'
+output_dir  = '/home/stepan/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/simulatedData/output'
 #outfile = source_dir + '/8art_scaled_cor_62000_15D_positive_signal.npz'
 k=30
 markers = np.arange(30).astype(str)
@@ -357,7 +357,7 @@ class plotCallback(Callback):
             html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                                include_mathjax=False, post_script=None, full_html=True,
                                animation_opts=None, default_width='100%', default_height='100%', validate=True)
-            html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
+            html_dir = "/home/stepan/plots/"
             Html_file = open(html_dir + "/" + ID +'_epoch=' + str(epoch) + '_' + "_Buttons.html", "w")
             Html_file.write(html_str)
             Html_file.close()
@@ -407,8 +407,8 @@ encoder.summary()
 z = encoder.predict([aFrame, Sigma])
 
 import sys
-os.chdir('/home/grines02/PycharmProjects/BIOIBFO25L/')
-sys.path.append("/home/grines02/PycharmProjects/BIOIBFO25L/SAUCIE")
+os.chdir('/home/stepan/PycharmProjects/BIOIBFO25L/')
+sys.path.append("/home/stepan/PycharmProjects/BIOIBFO25L/SAUCIE")
 data = aFrame
 
 fig = plot3D_cluster_colors(z, lbls=lbls)
@@ -438,7 +438,7 @@ fig.show()
 # try SAUCIE
 
 import sys
-#sys.path.append("/home/grines02/SAUCIE/")
+#sys.path.append("/home/stepan/SAUCIE/")
 data = aFrame
 from importlib import reload
 import SAUCIE
@@ -455,7 +455,7 @@ number_of_clusters, clusters = saucie.get_clusters(loadeval)
 np.savez('Art8_' + 'embedSAUCIE.npz', embedding=embedding,number_of_clusters=number_of_clusters, clusters=clusters)
 
 import os
-os.chdir('/home/grines02/PycharmProjects/BIOIBFO25L')
+os.chdir('/home/stepan/PycharmProjects/BIOIBFO25L')
 os.getcwd()
 
 embedding = np.load('Art8_' + 'embedSAUCIE.npz')['embedding']
