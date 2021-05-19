@@ -2,6 +2,7 @@
 Generates artificial clusters
 and computes objects required to run
 DCAE
+generate UMAP data and plots for comparison
 '''
 
 import numpy as np
@@ -30,16 +31,19 @@ for b in list_of_branches:
     #saves all obects in npz
     aFrame, Idx, Dist, Sigma, lbls, neibALL =  preprocess_artificial_clusters(aFrame, lbls, k=30, num_cores=10, outfile=output_dir + 'set_' + str(b) +  '.npz' )
     #save csv
-    np.savetxt('aFrame_' + str(b) + '.csv', aFrame, delimiter=',')
-    np.savetxt('Idx.csv_' + str(b) + '.csv', Idx, delimiter=',')
-    np.savetxt('Dist_' + str(b) + '.csv', Dist, delimiter=',')
-    np.savetxt('Sigma_' + str(b) + '.csv', Sigma, delimiter=',')
-    np.savetxt('lbls.csv_' + str(b) + '.csv', lbls, delimiter=',')
-    np.savetxt('neibALL.csv_' + str(b) + '.csv', neibALL, delimiter=',')
+    np.savetxt(output_dir + 'aFrame_' + str(b) + '.csv', aFrame, delimiter=',')
+    np.savetxt(output_dir + 'Idx.csv_' + str(b) + '.csv', Idx, delimiter=',')
+    np.savetxt(output_dir + 'Dist_' + str(b) + '.csv', Dist, delimiter=',')
+    np.savetxt(output_dir + 'Sigma_' + str(b) + '.csv', Sigma, delimiter=',')
+    np.savetxt(output_dir + 'lbls.csv_' + str(b) + '.csv', lbls, delimiter=',')
     #data = np.loadtxt('data.csv', delimiter=',')
 
 
 '''
+import seaborn as sns
+import umap.umap_ as umap
+import plotly.io as pio
+pio.renderers.default = "browser"
 yl =7
 fig, axs = plt.subplots(nrows=8)
 sns.violinplot(data=aFrame[lbls==0,:],  ax=axs[0]).set_title('0', rotation=-90, position=(1, 1), ha='left', va='bottom')
@@ -81,7 +85,6 @@ fig = plot2D_cluster_colors(yUMAP, lbls=lbls, msize=5)
 fig.show()
 fig = plot2D_cluster_colors(yPCA, lbls=lbls, msize=5)
 fig.show()
-
 '''
 
 
