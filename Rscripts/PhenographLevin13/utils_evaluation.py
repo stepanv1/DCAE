@@ -34,6 +34,10 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
                 ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), #Sigma
                 ctypes.c_size_t]
 
+def table(labels):
+    unique, counts = np.unique(labels, return_counts=True)
+    print('%d %d', np.asarray((unique, counts)).T)
+    return {'unique': unique, 'counts': counts}
 
 def compute_f1(lblsT, lblsP):
     string = """
@@ -250,10 +254,6 @@ def compute_cluster_performance(lblsT, lblsP):
     F1_score = compute_f1(lblsTint, lblsPint)
     return {'Adjusted_Rand_Score': Adjusted_Rand_Score, 'adjusted_MI_Score': adjusted_MI_Score, 'F1_score': F1_score}
 
-def table(labels):
-    unique, counts = np.unique(labels, return_counts=True)
-    print('%d %d', np.asarray((unique, counts)).T)
-    return {'unique': unique, 'counts': counts}
 
 def find_neighbors(data, k_, metric='manhattan', cores=12):
     tree = NearestNeighbors(n_neighbors=k_, algorithm="ball_tree", leaf_size=30, metric=metric, metric_params=None,
@@ -1268,7 +1268,7 @@ def generate_clusters_pentagon(num_noisy = 5, branches_loc = [3,4], sep=3, pent_
     return noisy_clus, lbls
 '''
 
-def generate_clusters_pentagon(num_noisy = 5, branches_loc = [3,4], sep=3, pent_size= 3/2):
+def generate_clusters_pentagon(num_noisy = 5, branches_loc = [3,4], sep=3, pent_size= 3/2, k=1):
     """ function to generate artificial clusters with branches and different
     number of noisy dimensions, branchong
 
@@ -1324,8 +1324,8 @@ def generate_clusters_pentagon(num_noisy = 5, branches_loc = [3,4], sep=3, pent_
     center_list[6,2] = 1*sep
 
     # cluster populatiosn
-    ncl0 = ncl1 = ncl2 = ncl3  = ncl4 = ncl5 = ncl6 = 6000
-    ncl7 = 20000
+    ncl0 = ncl1 = ncl2 = ncl3  = ncl4 = ncl5 = ncl6 = int(k*6000)
+    ncl7 = int(k*20000)
     # cluster labels
     lbls = np.concatenate((np.zeros(ncl0), np.ones(ncl1), 2*np.ones(ncl2), 3*np.ones(ncl3), 4*np.ones(ncl4),
                            5*np.ones(ncl5), 6*np.ones(ncl6), -7*np.ones(ncl7)), axis=0)
@@ -1358,8 +1358,8 @@ def generate_clusters_pentagon(num_noisy = 5, branches_loc = [3,4], sep=3, pent_
 
     #compute_MVpert(n, min, mode, max, r)
     minb = np.zeros(d)
-    modeb =m*np.ones(d)
-    maxb =u*np.ones(d)
+    modeb =sep/2 * np.ones(d)
+    maxb =sep*np.ones(d)
     # Generate the random samples.
     y0 = center_list[0,:][:d]+compute_MVpert(ncl0, minb, modeb, maxb, r)
     y1 = center_list[1,:][:d]+compute_MVpert(ncl1, minb, modeb, maxb, r)
@@ -1371,7 +1371,8 @@ def generate_clusters_pentagon(num_noisy = 5, branches_loc = [3,4], sep=3, pent_
     y7 = center_list[7,:][np.concatenate((np.zeros(4), np.ones(1), np.zeros(num_noisy-4),
                                     np.ones(4))).astype('bool')]+compute_MVpert(ncl7, minb, modeb, maxb, r7)
 
-
+    cr = np.corrcoef(y0, rowvar=False)
+    cr7 = np.corrcoef(y7, rowvar=False)
 
     #plt.hist(y0[:, 2],50)
     #sns.violinplot(data=y0)

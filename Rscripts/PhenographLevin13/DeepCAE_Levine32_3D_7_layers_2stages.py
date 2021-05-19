@@ -102,8 +102,8 @@ k3 = k * 3
 coeffCAE = 1
 epochs = 500
 ID = 'Levine32_MMD_01_3D_DCAE_h96_h32_hidden_7_layers'+ str(coeffCAE) + '_' + str(epochs) + '_2stages_not+scaled'
-source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess'
-output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/'
+source_dir = '/home/stepan/Documents/CyTOFdataPreprocess/'
+output_dir  = '/home/stepan/Documents/CyTOFdataPreprocess/'
 '''
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
@@ -113,7 +113,7 @@ aFrame = data0[:,:]
 aFrame.shape
 # set negative values to zero
 aFrame[aFrame < 0] = 0
-lbls= np.genfromtxt(source_dir + "/Levine32_population.csv" , names=None, skip_header=0, delimiter=',', dtype='U100')
+lbls= np.genfromtxt(source_dir + "Levine32_population.csv" , names=None, skip_header=0, delimiter=',', dtype='U100')
 #randomize order
 IDX = np.random.choice(aFrame.shape[0], aFrame.shape[0], replace=False)
 #patient_table = patient_table[IDX,:]
@@ -127,24 +127,24 @@ aFrame= aFrame/np.max(aFrame)
 #cm=np.corrcoef(aFrame[lbls==0,:], rowvar =False)
 
 
-
+ly=10
 fig, axs = plt.subplots(nrows=8)
 sns.violinplot(data=aFrame[lbls=='"CD8_T_cells"',:],  ax=axs[0]).set_title('0', rotation=-90, position=(1, 1), ha='left', va='bottom')
-axs[0].set_ylim(0, 1)
+axs[0].set_ylim(0, ly)
 sns.violinplot(data=aFrame[lbls=='"CD16+_NK_cells"',:],  ax=axs[1]).set_title('1', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[1].set_ylim(0, 1)
+axs[1].set_ylim(0, ly)
 sns.violinplot(data=aFrame[lbls=='"CD16-_NK_cells"',:],  ax=axs[2]).set_title('2', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[2].set_ylim(0, 1)
+axs[2].set_ylim(0, ly)
 sns.violinplot(data=aFrame[lbls=='"CD34+CD38+CD123+_HSPCs"',:],  ax=axs[3]).set_title('3', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[3].set_ylim(0, 1)
+axs[3].set_ylim(0, ly)
 sns.violinplot(data=aFrame[lbls=='"CD34+CD38+CD123-_HSPCs"',:],  ax=axs[4]).set_title('4', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[4].set_ylim(0, 1)
+axs[4].set_ylim(0, ly)
 sns.violinplot(data=aFrame[lbls=='"CD34+CD38lo_HSCs"',:],  ax=axs[5]).set_title('5', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[5].set_ylim(0, 1)
+axs[5].set_ylim(0, ly)
 sns.violinplot(data=aFrame[lbls=='"CD34+CD38lo_HSCs"',:],  ax=axs[6]).set_title('6', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[6].set_ylim(0, 1)
+axs[6].set_ylim(0, ly)
 sns.violinplot(data=aFrame[lbls=='"CD8_T_cells"',:], ax=axs[7]).set_title('7', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[7].set_ylim(0, 1)
+axs[7].set_ylim(0, ly)
 
 
 cm=np.corrcoef(aFrame[lbls=='"CD16+_NK_cells"',:], rowvar =False)
@@ -204,7 +204,7 @@ outfile = source_dir + '/Levine32euclid_not_scaled.npz'
 np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
          neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma)
 '''
-outfile = source_dir + '/Levine32euclid_not_scaled.npz'
+outfile = source_dir + '/Levine32euclid_scaled.npz'
 markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
 # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
 npzfile = np.load(outfile)

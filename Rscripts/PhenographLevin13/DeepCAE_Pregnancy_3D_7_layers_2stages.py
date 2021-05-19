@@ -115,7 +115,7 @@ k3 = k * 3
 coeffCAE = 5
 epochs = 500
 ID = 'Pregnancy_DCAE_h300_h200_hidden_7_layers_CAE'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
-DATA = "/home/stepan/Documents/CyTOFdataPreprocess/"
+DATA = "/home/stepan/Documents/CyTOFdataPreprocess"
 #ID = 'Pr_sample_008_1_MMD_01_3D_DCAE_h128_h63_h32_9_layers'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
 #ID = 'Pr_sample_008_1_Unstim_3D'
 '''

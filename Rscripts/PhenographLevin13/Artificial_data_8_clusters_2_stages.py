@@ -5,12 +5,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
 import numpy as np
 import matplotlib.pyplot as plt
-import pickle
-import multiprocessing
-from sklearn.model_selection import train_test_split
-from numpy.ctypeslib import ndpointer
-import ctypes
-import sklearn
+
 import seaborn as sns
 import os
 import h5py
@@ -34,10 +29,7 @@ pool = multiprocessing.Pool(num_cores)
 
 from tensorflow.keras.callbacks import Callback, EarlyStopping, ModelCheckpoint
 
-def table(labels):
-    unique, counts = np.unique(labels, return_counts=True)
-    print('%d %d', np.asarray((unique, counts)).T)
-    return {'unique': unique, 'counts': counts}
+
 
 def frange_anneal(n_epoch, ratio=0.25, shape='sin'):
     L = np.ones(n_epoch)
@@ -85,8 +77,10 @@ class EpochCounterCallback(Callback):
 
 k = 30
 k3 = k * 3
-source_dir = '/home/stepan/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/simulatedData'
-output_dir  = '/home/stepan/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/simulatedData/output'
+os.chdir('/home/stepan/PycharmProjects/BIOIBFO25L/')
+#source_dir = '/~/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/simulatedData'
+
+output_dir  = "./models"
 #outfile = source_dir + '/8art_scaled_cor_62000_15D_positive_signal.npz'
 k=30
 markers = np.arange(30).astype(str)
@@ -122,37 +116,38 @@ k = 30
 k3 = k * 3
 
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-noisy_clus, lbls = generate_clusters_pentagon(num_noisy = 10, branches_loc = [0,0],  sep=3/2, pent_size=3/2)
+noisy_clus, lbls = generate_clusters_pentagon(num_noisy = 25, branches_loc = [0,3],  sep=3/2, pent_size=2, k=2)
 aFrame=noisy_clus
-aFrame= aFrame/np.max(aFrame)
+#aFrame= aFrame/np.max(aFrame)
 #cm=np.corrcoef(aFrame[lbls==0,:], rowvar =False)
-
+#scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
+#scaler.fit_transform(aFrame)
 
 
 #scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
 #scaler.fit_transform(aFrame)
 #sns.violinplot(data=aFrame[lbls==6,:])
-
+yl =5
 fig, axs = plt.subplots(nrows=8)
 sns.violinplot(data=aFrame[lbls==0,:],  ax=axs[0]).set_title('0', rotation=-90, position=(1, 1), ha='left', va='bottom')
-axs[0].set_ylim(0, 1)
+axs[0].set_ylim(0, yl)
 sns.violinplot(data=aFrame[lbls==1,:],  ax=axs[1]).set_title('1', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[1].set_ylim(0, 1)
+axs[1].set_ylim(0, yl)
 sns.violinplot(data=aFrame[lbls==2,:],  ax=axs[2]).set_title('2', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[2].set_ylim(0, 1)
+axs[2].set_ylim(0, yl)
 sns.violinplot(data=aFrame[lbls==3,:],  ax=axs[3]).set_title('3', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[3].set_ylim(0, 1)
+axs[3].set_ylim(0, yl)
 sns.violinplot(data=aFrame[lbls==4,:],  ax=axs[4]).set_title('4', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[4].set_ylim(0, 1)
+axs[4].set_ylim(0, yl)
 sns.violinplot(data=aFrame[lbls==5,:],  ax=axs[5]).set_title('5', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[5].set_ylim(0, 1)
+axs[5].set_ylim(0, yl)
 sns.violinplot(data=aFrame[lbls==6,:],  ax=axs[6]).set_title('6', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[6].set_ylim(0, 1)
+axs[6].set_ylim(0, yl)
 sns.violinplot(data=aFrame[lbls==-7,:], ax=axs[7]).set_title('7', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[7].set_ylim(0, 1)
+axs[7].set_ylim(0, yl)
 
 
-aFrame, Idx, Dist, Sigma, lbls, neibALL =  preprocess_artificial_clusters(aFrame, lbls, k=30, num_cores=12, outfile='test')
+aFrame, Idx, Dist, Sigma, lbls, neibALL =  preprocess_artificial_clusters(aFrame, lbls, k=30, num_cores=10, outfile='test')
 
 
 '''
@@ -178,24 +173,27 @@ fig.show()
 '''
 
 coeffCAE = 1
-epochs = 500
-ID = 'Art8_positive_signal_15D_constCAE_test2_branch' +  '[0,0]'   + str(coeffCAE) + '_' + str(epochs) + '_2stages_MMD'
+epochs = 50
+ID = 'Art8_branch_PERT_distr' +  '[0,0]'   + str(coeffCAE) + '_' + str(epochs) + '_2stages_MMD_scaled_' + str(k)
 # TODO try downweight mmd to the end of computation
 #DCAE_weight = K.variable(value=0)
 #DCAE_weight_lst = K.variable(np.array(frange_anneal(epochs, ratio=0)))
 # TODO: Possible bug in here ast ther end of training after the switch
 # check for possible discontinuities/singularities o last epochs, is shape of potenatial  to narroe at the end?
 
+nrow = aFrame.shape[0]
+
 MMD_weight = K.variable(value=0)
 MMD_weight_lst = K.variable( np.array(frange_anneal(int(epochs), ratio=0.80)) )
 
 
-nrow = aFrame.shape[0]
+
+
 batch_size = 256
 latent_dim = 3
 original_dim = aFrame.shape[1]
 intermediate_dim =original_dim*3
-intermediate_dim2=original_dim
+intermediate_dim2=original_dim*2
 # var_dims = Input(shape = (original_dim,))
 #
 initializer = tf.keras.initializers.he_normal(12345)
@@ -324,9 +322,9 @@ def mean_square_error_NN(y_true, y_pred):
 def ae_loss(weight, MMD_weight_lst):
     def loss(x, x_decoded_mean):
         msew = mean_square_error_NN(x, x_decoded_mean)
-        #return msew + 1*(1-MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean) #TODO: try 1-MMD insted 2-MMD
-        return msew + 1 * (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (coeffCAE) * DCAE_loss(x,
-                                                                                                               x_decoded_mean)
+        return msew + 1*(1-MMD_weight) * loss_mmd(x, x_decoded_mean) + 1*(MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean) #TODO: try 1-MMD insted 2-MMD
+        #return msew + 1 * (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (coeffCAE) * DCAE_loss(x,
+                                                                                                               #x_decoded_mean)
         # return K.mean(msew)
     return loss
     #return K.switch(tf.equal(Epoch_count, 10),  loss1(x, x_decoded_mean), loss1(x, x_decoded_mean))
@@ -400,11 +398,17 @@ plt.legend(loc="upper right")
 encoder.save_weights(output_dir +'/'+ID + '_3D.h5')
 autoencoder.save_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
 np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
+np.savez(output_dir +'/'+ ID + 'input_set.npz', aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
+             neibALL=neibALL,  Sigma=Sigma)
 
 encoder.load_weights(output_dir +'/'+ID + '_3D.h5')
 autoencoder.load_weights(output_dir +'/autoencoder_'+ID + '_3D.h5')
 encoder.summary()
 z = encoder.predict([aFrame, Sigma])
+save_obj= np.load(output_dir +'/'+ ID + 'input_set.npz')
+aFrame = save_obj['aFrame']; Idx = save_obj['Idx']; lbls = save_obj['lbls']; Dist = save_obj['Dist']
+neibALL = save_obj['neibALL']; Sigma = save_obj['Sigma']
+
 
 import sys
 os.chdir('/home/stepan/PycharmProjects/BIOIBFO25L/')
