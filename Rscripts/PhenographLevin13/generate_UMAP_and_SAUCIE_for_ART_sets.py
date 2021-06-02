@@ -5,10 +5,10 @@ for artificial clusters
 '''
 
 import numpy as np
-import matplotlib.pyplot as plt
+
 import os
 
-#import umap.umap_ as umap
+import umap.umap_ as umap
 import pandas as pd
 import timeit
 from plotly.io import to_html
