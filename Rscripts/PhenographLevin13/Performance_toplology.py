@@ -39,7 +39,7 @@ def get_representation_topology(z, lbls):
     return topolist_estimate
 
 def get_topology_match score(topolist, topolist_estimate):
-    pass
+    return match
 
 
 
