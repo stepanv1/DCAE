@@ -35,7 +35,7 @@ for bl in list_of_branches:
     LSSS = neighbour_onetomany_score(z, Idx, kmax=90, num_cores=16)
 
     outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
-    np.savez(outfile, MSS=MSS, LSSS= LSSS)
+    np.savez(outfile, MSS0=MSS[0], LSSS0= LSSS[0], MSS1=MSS[1], LSSS1= LSSS[1])
 
 # Compute performance for UMAP
 z_dir  = DATA_ROOT + "Artificial_sets/UMAP_output/"
@@ -50,7 +50,7 @@ for bl in list_of_branches:
     lbls = npzfile['lbls']
 
     # read DCAE output
-    npz_res = np.load(z_dir + '/' + str(bl) + '_latent_rep_3D.npz')
+    npz_res = np.load(z_dir + str(bl) + '_UMAP_rep_2D.npz')
     z = npz_res['z']
     #divide by max_r and multiply by 4 pi to level field with DCAE
     S_pr= (np.max(z[:,0])-np.min(z[:,0]))*(np.max(z[:,1])-np.min(z[:,1]))
@@ -60,7 +60,7 @@ for bl in list_of_branches:
     LSSS = neighbour_onetomany_score(z, Idx, kmax=90, num_cores=16)
 
     outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
-    np.savez(outfile, MSS=MSS, LSSS=LSSS)
+    np.savez(outfile, MSS0=MSS[0], LSSS0=LSSS[0], MSS1=MSS[1], LSSS1=LSSS[1])
 
 # Compute performance for SAUCIE
 z_dir = DATA_ROOT + "Artificial_sets/SAUCIE_output/"
@@ -77,7 +77,7 @@ for bl in list_of_branches:
     lbls = npzfile['lbls']
 
     # read DCAE output
-    npz_res = np.load(z_dir + '/' + str(bl) + '_latent_rep_3D.npz')
+    npz_res = np.load(z_dir + '/' + str(bl) + '_SAUCIE_rep_2D.npz')
     z = npz_res['z']
     # divide by max_r and multiply by 4 pi to level field with DCAE
     S_pr = (np.max(z[:, 0]) - np.min(z[:, 0])) * (np.max(z[:, 1]) - np.min(z[:, 1]))
@@ -87,5 +87,5 @@ for bl in list_of_branches:
     LSSS = neighbour_onetomany_score(z, Idx, kmax=90, num_cores=16)
 
     outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
-    np.savez(outfile, MSS=MSS, LSSS=LSSS)
+    np.savez(outfile, MSS0=MSS[0], LSSS0=LSSS[0], MSS1=MSS[1], LSSS1=LSSS[1])
 

@@ -1,5 +1,5 @@
 '''
-Compute mmd-based paerformance scores performance measures on DCAE, UMAP and SAUCIE
+Compute tolpological perormance measures in artificiial sets on DCAE, UMAP and SAUCIE
 '''
 import math
 import pandas as pd
@@ -8,6 +8,10 @@ import os
 from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
     plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
     get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d, plot3D_performance_colors, plot2D_performance_colors
+def get_toplology_list(bl):
+    #Gets a touple defining brnc
+
+
 
 
 os.chdir('/home/stepan/PycharmProjects/BIOIBFO25L/')
