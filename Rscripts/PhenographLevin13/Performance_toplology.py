@@ -8,8 +8,38 @@ import os
 from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
     plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
     get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d, plot3D_performance_colors, plot2D_performance_colors
-def get_toplology_list(bl):
-    #Gets a touple defining brnc
+def get_topology_list(bl):
+    """ Gets a touple defining branches and creates a list of nearest neighbour clusters"""
+    # basic topology shared by 5 clusters in pentagon
+    topolist = [[1,4], [0,2], [1,3], [2,4], [0,3]]
+    #correct by adding the negbour from bl touple
+    topolist[bl[0]].append(5)
+    topolist[bl[1]].append(6)
+    return topolist
+import random
+from scipy.spatial import distance
+def get_representation_topology(z, lbls):
+    """compute actual , returning 3 nearest 3 neighbours per each cluster in pentagon"""
+    #sample each cluster
+    l_list= [-7.,  0.,  1.,  2.,  3.,  4.,  5.,  6.]
+    indx = random.sample(range(len(lbls)), 5000)
+    lbls_s = lbls[indx]
+    z_s = z[indx,:]
+    topolist_estimate = [[], [], [],[], []]
+    for i in range(5):
+        dist = [np.mean(distance.cdist(z_s[lbls_s==i,:], z_s[lbls_s==label,:])) for label in l_list]
+        #get indexes of  closest clusters, and exclude itself, exclude i th cluster
+        seq = sorted(dist)
+        rank = [seq.index(v) for v in dist]
+        #get top 3
+        rank2 = np.array(rank)[np.array(l_list) != np.array(i)]
+        l_list2 = np.array(l_list)[np.array(l_list) != np.array(i)]
+        nn_list =l_list2[rank2.argsort()][:4]
+        topolist_estimate[i] = nn_list
+    return topolist_estimate
+
+def get_topology_match score(topolist, topolist_estimate):
+    pass
 
 
 
