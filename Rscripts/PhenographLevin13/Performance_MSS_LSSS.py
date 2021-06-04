@@ -95,16 +95,19 @@ bor_res_dirs = [DATA_ROOT + "Artificial_sets/DCAE_output/Performance/", DATA_ROO
 methods = ['DCAE', 'UMAP', 'SAUCIE']
 dir = bor_res_dirs[0]
 bl  = list_of_branches[0]
-df = pd.DataFrame()
+
 k=30
+df = pd.DataFrame()
 for i in range(3):
     for bl in list_of_branches:
         outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
         npz_res =  np.load(outfile)
-        MSS0 = npz_res['MSS0'][k]
-        #MSS1 = npz_res['MSS1'][k]
-        LSSS0 = npz_res['LSSS0'][k]
-        #LSSS1 = npz_res['LSSS1'][k]
+        #MSS0 = npz_res['MSS0'][k]
+        MSS1 = npz_res['MSS1']
+        #LSSS0 = npz_res['LSSS0'][k]
+        MSS0 = np.median(MSS1[k,:])
+        LSSS1 = npz_res['LSSS1']
+        LSSS0 = np.median(LSSS1[k, :])
         #discontinuity =np.median(discontinuity)
         #manytoone= np.median(manytoone)
         line = pd.DataFrame([[methods[i], str(bl), MSS0, LSSS0]],   columns =['method','branch','MSS','LSSS'])
@@ -117,10 +120,11 @@ import matplotlib.pyplot as plt
 
 sns.set(rc={'figure.figsize':(14, 4)})
 g = sns.barplot(x='branch', y='MSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
+g.set(ylim=(0, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS +'_'+str(k)+'_'+ "MSS.png")
+plt.savefig(PLOTS +'k_'+str(k)+'_'+ "MSS.png")
 
 g = sns.barplot(x='branch', y='LSSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
-g.set(ylim=(0.34, None))
+g.set(ylim=(0, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS +'_'+str(k)+'_'+ "LSSS.png")
+plt.savefig(PLOTS +'k_'+str(k)+'_'+ "LSSS.png")
