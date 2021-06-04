@@ -5,6 +5,9 @@ import math
 import pandas as pd
 import numpy as np
 import os
+import random
+from scipy.spatial import distance
+
 from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
     plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
     get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d, plot3D_performance_colors, plot2D_performance_colors
@@ -16,8 +19,7 @@ def get_topology_list(bl):
     topolist[bl[0]].append(5)
     topolist[bl[1]].append(6)
     return topolist
-import random
-from scipy.spatial import distance
+
 def get_representation_topology(z, lbls):
     """compute actual , returning 3 nearest 3 neighbours per each cluster in pentagon"""
     #sample each cluster
@@ -25,21 +27,27 @@ def get_representation_topology(z, lbls):
     indx = random.sample(range(len(lbls)), 5000)
     lbls_s = lbls[indx]
     z_s = z[indx,:]
-    topolist_estimate = [[], [], [],[], []]
+    topolist_estimate = [[], [], [], [], []]
     for i in range(5):
         dist = [np.mean(distance.cdist(z_s[lbls_s==i,:], z_s[lbls_s==label,:])) for label in l_list]
+        #dist = [np.sqrt(np.sum((z_s[lbls_s == i, :].mean(0) - z_s[lbls_s == label, :].mean(0))**2)) for label in l_list]
         #get indexes of  closest clusters, and exclude itself, exclude i th cluster
         seq = sorted(dist)
         rank = [seq.index(v) for v in dist]
-        #get top 3
+        #get top 4
         rank2 = np.array(rank)[np.array(l_list) != np.array(i)]
         l_list2 = np.array(l_list)[np.array(l_list) != np.array(i)]
         nn_list =l_list2[rank2.argsort()][:4]
         topolist_estimate[i] = nn_list
     return topolist_estimate
 
-def get_topology_match score(topolist, topolist_estimate):
-    return match
+def get_topology_match_score(topolist, topolist_estimate):
+    """compare match computed and prescribed"""
+    topolist = [np.array(x) for x in topolist]
+    # leave only closest neighbours
+    topolist_estimate = [topolist_estimate[i][:len(topolist[i])] for i in range(len(topolist))]
+    match_score = sum([ len(topolist[i]) - len(np.intersect1d(topolist_estimate[i], topolist[i])) for i in range(len(topolist))])
+    return match_score
 
 
 
@@ -54,71 +62,53 @@ z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"
 #bl = list_of_branches[1]
 for bl in list_of_branches:
-    #read data
     infile = source_dir + 'set_' + str(bl) + '.npz'
     npzfile = np.load(infile)
-    aFrame = npzfile['aFrame'];
-    Idx = npzfile['Idx']
     lbls = npzfile['lbls']
-
     # read DCAE output
     npz_res=np.load(z_dir + '/' + str(bl) + '_latent_rep_3D.npz')
     z= npz_res['z']
-
-    discontinuity, manytoone = get_wsd_scores(aFrame, z, 90, num_meandist=10000, compute_knn_x=False, x_knn=Idx)
-
-    outfile = output_dir + '/' + str(bl) + '_BOREALIS_PerformanceMeasures.npz'
-    np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
+    topolist = get_topology_list(bl)
+    topolist_estimate = get_representation_topology(z, lbls)
+    top_score = get_topology_match_score(topolist, topolist_estimate)
+    print(top_score)
+    outfile = output_dir + '/' + str(bl) + '_Topological_PerformanceMeasures.npz'
+    np.savez(outfile, top_score= top_score)
 
 # Compute performance for UMAP
 z_dir  = DATA_ROOT + "Artificial_sets/UMAP_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/UMAP_output/Performance/"
 #bl = list_of_branches[1]
 for bl in list_of_branches:
-    # read data
     infile = source_dir + 'set_' + str(bl) + '.npz'
     npzfile = np.load(infile)
-    aFrame = npzfile['aFrame'];
-    Idx = npzfile['Idx']
     lbls = npzfile['lbls']
-
     # read DCAE output
-    npz_res = np.load(z_dir + str(bl) + '_UMAP_rep_2D.npz')
-    z = npz_res['z']
-    #divide by max_r and multiply by 4 pi to level field with DCAE
-    S_pr= (np.max(z[:,0])-np.min(z[:,0]))*(np.max(z[:,1])-np.min(z[:,1]))
-    z=z / S_pr * 4 * math.pi
-
-    discontinuity, manytoone = get_wsd_scores(aFrame, z, 90, num_meandist=10000, compute_knn_x=False, x_knn=Idx)
-
-    outfile = output_dir + '/' + str(bl) + '_BOREALIS_PerformanceMeasures.npz'
-    np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
-
+    npz_res=np.load(z_dir + '/' + str(bl) + '_UMAP_rep_2D.npz')
+    z= npz_res['z']
+    topolist = get_topology_list(bl)
+    topolist_estimate = get_representation_topology(z, lbls)
+    top_score = get_topology_match_score(topolist, topolist_estimate)
+    print(top_score)
+    outfile = output_dir + '/' + str(bl) + '_Topological_PerformanceMeasures.npz'
+    np.savez(outfile, top_score= top_score)
 # Compute performance for SAUCIE
 z_dir = DATA_ROOT + "Artificial_sets/SAUCIE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/SAUCIE_output/Performance/"
 #bl = list_of_branches[1]
 for bl in list_of_branches:
-    # read data
     infile = source_dir + 'set_' + str(bl) + '.npz'
     npzfile = np.load(infile)
-    aFrame = npzfile['aFrame'];
-    Dist = npzfile['Dist']
-    Idx = npzfile['Idx']
-    neibALL = npzfile['neibALL']
     lbls = npzfile['lbls']
-
     # read DCAE output
-    npz_res = np.load(z_dir + '/' + str(bl) + '_SAUCIE_rep_2D.npz')
-    z = npz_res['z']
-    # divide by max_r and multiply by 4 pi to level field with DCAE
-    S_pr = (np.max(z[:, 0]) - np.min(z[:, 0])) * (np.max(z[:, 1]) - np.min(z[:, 1]))
-    z = z / S_pr * 4 * math.pi
-
-    discontinuity, manytoone = get_wsd_scores(aFrame, z, 90, num_meandist=10000, compute_knn_x=False, x_knn=Idx)
-
-    outfile = output_dir + '/' + str(bl) + '_BOREALIS_PerformanceMeasures.npz'
-    np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
+    npz_res=np.load(z_dir + '/' + str(bl) + '_SAUCIE_rep_2D.npz')
+    z= npz_res['z']
+    topolist = get_topology_list(bl)
+    topolist_estimate = get_representation_topology(z, lbls)
+    top_score = get_topology_match_score(topolist, topolist_estimate)
+    print(top_score)
+    outfile = output_dir + '/' + str(bl) + '_Topological_PerformanceMeasures.npz'
+    np.savez(outfile, top_score= top_score)
 
 #create Borealis graphs
 PLOTS = DATA_ROOT + "Artificial_sets/PLOTS/"
@@ -129,13 +119,11 @@ bl  = list_of_branches[0]
 df = pd.DataFrame()
 for i in range(3):
     for bl in list_of_branches:
-        outfile = bor_res_dirs[i] + '/' + str(bl) + '_BOREALIS_PerformanceMeasures.npz'
+        outfile = bor_res_dirs[i] + '/' + str(bl) + '_Topological_PerformanceMeasures.npz'
         npz_res =  np.load(outfile)
-        discontinuity = npz_res['discontinuity']
-        manytoone = npz_res['manytoone']
-        discontinuity =np.median(discontinuity)
-        manytoone= np.median(manytoone)
-        line = pd.DataFrame([[methods[i], str(bl), discontinuity, manytoone]],   columns =['method','branch','discontinuity','manytoone'])
+        score = int(npz_res['top_score'])
+
+        line = pd.DataFrame([[methods[i], str(bl), score]],   columns =['method','branch','score'])
         df=  df.append(line)
 
 
@@ -144,11 +132,7 @@ import matplotlib.pyplot as plt
 
 
 sns.set(rc={'figure.figsize':(14, 4)})
-g = sns.barplot(x='branch', y='discontinuity', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
+g = sns.barplot(x='branch', y='score', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS + "Discontinuity.png")
+plt.savefig(PLOTS + "TopoScore_mean.png")
 
-g = sns.barplot(x='branch', y='manytoone', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
-g.set(ylim=(0.34, None))
-g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS + "Manytoone.png")

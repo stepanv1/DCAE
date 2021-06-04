@@ -2,7 +2,7 @@
 Compute MSS and LSS performance measures on DCAE, UMAP and
 '''
 import math
-
+import pandas as pd
 import numpy as np
 import os
 from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
@@ -89,3 +89,38 @@ for bl in list_of_branches:
     outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
     np.savez(outfile, MSS0=MSS[0], LSSS0=LSSS[0], MSS1=MSS[1], LSSS1=LSSS[1])
 
+#create MSS_LSSS graphs
+PLOTS = DATA_ROOT + "Artificial_sets/PLOTS/"
+bor_res_dirs = [DATA_ROOT + "Artificial_sets/DCAE_output/Performance/", DATA_ROOT + "Artificial_sets/UMAP_output/Performance/",DATA_ROOT + "Artificial_sets/SAUCIE_output/Performance/"]
+methods = ['DCAE', 'UMAP', 'SAUCIE']
+dir = bor_res_dirs[0]
+bl  = list_of_branches[0]
+df = pd.DataFrame()
+k=30
+for i in range(3):
+    for bl in list_of_branches:
+        outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
+        npz_res =  np.load(outfile)
+        MSS0 = npz_res['MSS0'][k]
+        #MSS1 = npz_res['MSS1'][k]
+        LSSS0 = npz_res['LSSS0'][k]
+        #LSSS1 = npz_res['LSSS1'][k]
+        #discontinuity =np.median(discontinuity)
+        #manytoone= np.median(manytoone)
+        line = pd.DataFrame([[methods[i], str(bl), MSS0, LSSS0]],   columns =['method','branch','MSS','LSSS'])
+        df=  df.append(line)
+
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+
+sns.set(rc={'figure.figsize':(14, 4)})
+g = sns.barplot(x='branch', y='MSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
+g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
+plt.savefig(PLOTS +'_'+str(k)+'_'+ "MSS.png")
+
+g = sns.barplot(x='branch', y='LSSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
+g.set(ylim=(0.34, None))
+g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
+plt.savefig(PLOTS +'_'+str(k)+'_'+ "LSSS.png")
