@@ -102,8 +102,10 @@ k3 = k * 3
 coeffCAE = 1
 epochs = 500
 ID = 'Levine32_MMD_01_3D_DCAE_h96_h32_hidden_7_layers'+ str(coeffCAE) + '_' + str(epochs) + '_2stages_not+scaled'
-source_dir = '/home/stepan/Documents/CyTOFdataPreprocess/'
-output_dir  = '/home/stepan/Documents/CyTOFdataPreprocess/'
+DATA_ROOT = '/media/stepan/Seagate/'
+source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
+output_dir  = DATA_ROOT + 'Real_sets/DCAE_output/'
+
 '''
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
@@ -127,7 +129,7 @@ aFrame= aFrame/np.max(aFrame)
 #cm=np.corrcoef(aFrame[lbls==0,:], rowvar =False)
 
 
-ly=10
+ly=1
 fig, axs = plt.subplots(nrows=8)
 sns.violinplot(data=aFrame[lbls=='"CD8_T_cells"',:],  ax=axs[0]).set_title('0', rotation=-90, position=(1, 1), ha='left', va='bottom')
 axs[0].set_ylim(0, ly)
