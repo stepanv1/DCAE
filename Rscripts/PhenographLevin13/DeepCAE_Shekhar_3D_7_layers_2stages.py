@@ -95,7 +95,7 @@ class AnnealingCallback(Callback):
 
 import ctypes
 from numpy.ctypeslib import ndpointer
-lib = ctypes.cdll.LoadLibrary("/home/grines02/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
+lib = ctypes.cdll.LoadLibrary("/home/stepan/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
 perp = lib.Perplexity
 perp.restype = None
 perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
@@ -105,6 +105,7 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
                 ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), #Sigma
                 ctypes.c_size_t]
 
+
 # load data
 k = 30
 k3 = k * 3
@@ -112,11 +113,12 @@ coeffCAE = 1
 epochs = 500
 ID = 'Shekhar_MMD_01_3D_DCAE_h120_h16_hidden_7_layers_CAE'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
 
-source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess'
-output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/'
+DATA_ROOT = '/media/stepan/Seagate/'
+source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
+output_dir  = DATA_ROOT + 'Real_sets/DCAE_output/'
 
 '''
-Get Shekhar 2016 following  https://colab.research.google.com/github/KrishnaswamyLab/SingleCellWorkshop/blob/master/
+#Get Shekhar 2016 following  https://colab.research.google.com/github/KrishnaswamyLab/SingleCellWorkshop/blob/master/
 /exercises/Deep_Learning/notebooks/02_Answers_Exploratory_analysis_of_single_cell_data_with_SAUCIE.ipynb#scrollTo=KgaZZU8r4drd
 import scprep
 scprep.io.download.download_google_drive("1GYqmGgv-QY6mRTJhOCE1sHWszRGMFpnf", "data.pickle.gz")
@@ -159,8 +161,11 @@ IDX = np.random.choice(aFrame.shape[0], aFrame.shape[0], replace=False)
 aFrame= aFrame[IDX,:]
 lbls = lbls[IDX]
 len(lbls)
-scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
-scaler.fit_transform(aFrame)
+#scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
+#scaler.fit_transform(aFrame)
+
+aFrame= aFrame/np.max(aFrame)
+
 nb=find_neighbors(aFrame, k3, metric='euclidean', cores=48)
 Idx = nb['idx']; Dist = nb['dist']
 #Dist = Dist[IDX]
@@ -206,7 +211,7 @@ neib_weight=np.array([ neib_weight[i, topk[i]] for i in range(len(topk))])
 neib_weight=sklearn.preprocessing.normalize(neib_weight, axis=1, norm='l1')
 neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
 plt.plot(neib_weight[1,:]);plt.show()
-outfile = source_dir + '/Shenkareuclid_scaled.npz'
+outfile = source_dir + '/Shenkareuclid_not_scaled.npz'
 np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
          neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma)
 '''

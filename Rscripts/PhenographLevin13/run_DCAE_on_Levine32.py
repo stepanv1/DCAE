@@ -64,6 +64,18 @@ class EpochCounterCallback(Callback):
         K.set_value(self.count, new_count)
         #print("  Current AP is " + str(K.get_value(self.count)))
 
+import ctypes
+from numpy.ctypeslib import ndpointer
+lib = ctypes.cdll.LoadLibrary("/home/stepan/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
+perp = lib.Perplexity
+perp.restype = None
+perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
+                ctypes.c_size_t, ctypes.c_size_t,
+                ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
+                ctypes.c_double,  ctypes.c_size_t,
+                ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), #Sigma
+                ctypes.c_size_t]
+
 
 k = 30
 k3 = k * 3

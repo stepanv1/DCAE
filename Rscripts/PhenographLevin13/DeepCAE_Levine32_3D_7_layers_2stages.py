@@ -76,10 +76,9 @@ class EpochCounterCallback(Callback):
 
 
 
-
 import ctypes
 from numpy.ctypeslib import ndpointer
-lib = ctypes.cdll.LoadLibrary("/home/grines02/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
+lib = ctypes.cdll.LoadLibrary("/home/stepan/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
 perp = lib.Perplexity
 perp.restype = None
 perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
@@ -88,8 +87,6 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
                 ctypes.c_double,  ctypes.c_size_t,
                 ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), #Sigma
                 ctypes.c_size_t]
-
-
 
 #d= 5
 # subspace clusters centers
@@ -100,7 +97,7 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 k = 30
 k3 = k * 3
 coeffCAE = 1
-epochs = 500
+epochs = 100
 ID = 'Levine32_MMD_01_3D_DCAE_h96_h32_hidden_7_layers'+ str(coeffCAE) + '_' + str(epochs) + '_2stages_not+scaled'
 DATA_ROOT = '/media/stepan/Seagate/'
 source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
@@ -206,7 +203,7 @@ outfile = source_dir + '/Levine32euclid_not_scaled.npz'
 np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
          neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma)
 '''
-outfile = source_dir + '/Levine32euclid_scaled.npz'
+outfile = source_dir + '/Levine32euclid_not_scaled.npz'
 markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
 # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
 npzfile = np.load(outfile)
@@ -231,6 +228,9 @@ neibF_Tr = neibALL
 weight_neibF_Tr =weight_distALL
 sourceTr = aFrame
 Idx = npzfile['Idx']
+
+
+
 
 
 # "CD16+_NK_cells"
@@ -433,7 +433,7 @@ class plotCallback(Callback):
             html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                                include_mathjax=False, post_script=None, full_html=True,
                                animation_opts=None, default_width='100%', default_height='100%', validate=True)
-            html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
+            html_dir = "/media/stepan/Seagate/Real_sets/DCAE_output"
             Html_file = open(html_dir + "/" + ID +'_epoch=' + str(epoch) + '_' + "_Buttons.html", "w")
             Html_file.write(html_str)
             Html_file.close()
@@ -482,7 +482,7 @@ np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
 encoder.load_weights(output_dir +''+ID + '_3D.h5')
 autoencoder.load_weights(output_dir +'autoencoder_'+ID + '_3D.h5')
 encoder.summary()
-z = encoder.predict([aFrame, neibF_Tr,  Sigma, weight_neibF])
+z = encoder.predict([aFrame, neibF_Tr,  Sigma])
 
 #- visualisation and pefroramnce metric-----------------------------------------------------------------------------------------------
 # np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt', x_test_enc)
@@ -496,7 +496,7 @@ fig.show()
 html_str=to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                   include_mathjax=False, post_script=None, full_html=True,
                   animation_opts=None, default_width='100%', default_height='100%', validate=True)
-html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
+html_dir = "media/stepan/Seagate/Real_sets/DCAE_output"
 Html_file= open(html_dir + "/"+ID + "_Buttons.html","w")
 Html_file.write(html_str)
 Html_file.close()

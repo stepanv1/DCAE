@@ -95,11 +95,9 @@ class AnnealingCallback(Callback):
         new_weight = K.eval(self.kl_weight_lst[epoch])
         K.set_value(self.weight, new_weight)
         print("  Current DCAE Weight is " + str(K.get_value(self.weight)))
-
-"""
 import ctypes
 from numpy.ctypeslib import ndpointer
-lib = ctypes.cdll.LoadLibrary("/home/grines02/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
+lib = ctypes.cdll.LoadLibrary("/home/stepan/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
 perp = lib.Perplexity
 perp.restype = None
 perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
@@ -108,22 +106,23 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
                 ctypes.c_double,  ctypes.c_size_t,
                 ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), #Sigma
                 ctypes.c_size_t]
-"""
+
 # load data
 k = 30
 k3 = k * 3
 coeffCAE = 5
 epochs = 500
 ID = 'Pregnancy_DCAE_h300_h200_hidden_7_layers_CAE'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
-DATA = "/home/stepan/Documents/CyTOFdataPreprocess"
+DATA_ROOT = '/media/stepan/Seagate/'
+source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
+output_dir  = DATA_ROOT + 'Real_sets/DCAE_output/'
 #ID = 'Pr_sample_008_1_MMD_01_3D_DCAE_h128_h63_h32_9_layers'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
 #ID = 'Pr_sample_008_1_Unstim_3D'
 '''
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
 '''
-source_dir = DATA
-output_dir  = DATA
+
 '''
 #data0 = np.genfromtxt(source_dir + "/Gates_PTLG008_1_Unstim.fcs.csv" , names=None, dtype=float,  delimiter=',')
 data0 = pd.read_csv(source_dir + "/Gates_PTLG008_1_Unstim.fcs.csv")
@@ -154,18 +153,21 @@ IDX = np.random.choice(aFrame.shape[0], aFrame.shape[0], replace=False)
 aFrame= aFrame[IDX,:]
 lbls = lbls[IDX]
 len(lbls)
-scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
-scaler.fit_transform(aFrame)
+#scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
+#scaler.fit_transform(aFrame)
+
+aFrame= aFrame/np.max(aFrame)
+
 nb=find_neighbors(aFrame, k3, metric='euclidean', cores=48)
 Idx = nb['idx']; Dist = nb['dist']
 #Dist = Dist[IDX]
 #Idx = Idx[IDX]
 nrow=Idx.shape[0]
 # find nearest neighbours
-def singleInpuvvt(i):
+def singleInput(i):
     nei = noisy_clus[Idx[i, :], :]
-    return [nei, i]vv
-# find nearest neivvvghbours
+    return [nei, i]
+# find nearest neighbours
 nn=30
 rk=range(k3)
 def singleInput(i):
@@ -202,7 +204,7 @@ neib_weight=sklearn.preprocessing.normalize(neib_weight, axis=1, norm='l1')
 neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
 plt.plot(neib_weight[1,:]);plt.show()
 #outfile = source_dir + '/Nowicka2017euclid.npz'
-outfile = source_dir + '/Pr_008_1_Unstim_euclid_scaled.npz'
+outfile = source_dir + '/Pr_008_1_Unstim_euclid_not_scaled.npz'
 np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
          neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma, markers=markers)
 '''
