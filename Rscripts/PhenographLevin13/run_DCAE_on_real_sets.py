@@ -84,16 +84,17 @@ epochs = 50
 DATA_ROOT = '/media/stepan/Seagate/'
 source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
 output_dir  = DATA_ROOT + 'Real_sets/DCAE_output/'
-list_of_inputs = []
-#load earlier generated data
+list_of_inputs = ['Levine32euclid_not_scaled.npz',
+'Levine32euclid_not_scaled.npz',
+    'Shenkareuclid_not_scaled.npz']
+#load earlier preprocessed data
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.compat.v1.disable_eager_execution()
-#bl = list_of_branches[1]
+#bl = list_of_inputs[1]
 for bl in list_of_inputs:
-
-    infile = source_dir + 'set_'+ str(bl)+'.npz'
+    infile = source_dir + bl
     #markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
     # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
     npzfile = np.load(infile)
