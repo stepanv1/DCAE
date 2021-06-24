@@ -12,16 +12,18 @@ from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbou
 
 os.chdir('/home/stepan/PycharmProjects/BIOIBFO25L/')
 DATA_ROOT = '/media/stepan/Seagate/'
-source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
-list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
+DATA_DIR = DATA_ROOT + 'CyTOFdataPreprocess/'
+source_dir = DATA_ROOT + 'Real_sets/'
+list_of_inputs = ['Levine32euclid_not_scaled.npz',
+'Pr_008_1_Unstim_euclid_not_scaled.npz',    'Shenkareuclid_not_scaled.npz']
 
 # Compute performance for DCAE
-z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
-output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"
-#bl = list_of_branches[1]
-for bl in list_of_branches:
+z_dir  = DATA_ROOT + "Real_sets/DCAE_output/"
+output_dir =  DATA_ROOT + "Real_sets/DCAE_output/Performance/"
+#bl = list_of_inputs[0]
+for bl in list_of_inputs:
     #read data
-    infile = source_dir + 'set_' + str(bl) + '.npz'
+    infile = DATA_DIR  + bl
     npzfile = np.load(infile)
     aFrame = npzfile['aFrame'];
     Idx = npzfile['Idx']
@@ -41,9 +43,9 @@ for bl in list_of_branches:
 z_dir  = DATA_ROOT + "Artificial_sets/UMAP_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/UMAP_output/Performance"
 #bl = list_of_branches[1]
-for bl in list_of_branches:
-    # read data
-    infile = source_dir + 'set_' + str(bl) + '.npz'
+for bl in list_of_inputs:
+    #read data
+    infile = DATA_DIR  + bl
     npzfile = np.load(infile)
     aFrame = npzfile['aFrame'];
     Idx = npzfile['Idx']
@@ -66,9 +68,9 @@ for bl in list_of_branches:
 z_dir = DATA_ROOT + "Artificial_sets/SAUCIE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/SAUCIE_output/Performance"
 #bl = list_of_branches[1]
-for bl in list_of_branches:
-    # read data
-    infile = source_dir + 'set_' + str(bl) + '.npz'
+for bl in list_of_inputs:
+    #read data
+    infile = DATA_DIR  + bl
     npzfile = np.load(infile)
     aFrame = npzfile['aFrame'];
     Dist = npzfile['Dist']
@@ -89,12 +91,13 @@ for bl in list_of_branches:
     outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
     np.savez(outfile, MSS0=MSS[0], LSSS0=LSSS[0], MSS1=MSS[1], LSSS1=LSSS[1])
 
-#create MSS_LSSS graphs
+#create MSS_LSSS graphs######STPPED HERE
 PLOTS = DATA_ROOT + "Artificial_sets/PLOTS/"
 bor_res_dirs = [DATA_ROOT + "Artificial_sets/DCAE_output/Performance/", DATA_ROOT + "Artificial_sets/UMAP_output/Performance/",DATA_ROOT + "Artificial_sets/SAUCIE_output/Performance/"]
 methods = ['DCAE', 'UMAP', 'SAUCIE']
 dir = bor_res_dirs[0]
-bl  = list_of_branches[0]
+bl  =list_of_inputs[0]
+
 
 k=30
 df = pd.DataFrame()

@@ -85,8 +85,7 @@ DATA_ROOT = '/media/stepan/Seagate/'
 source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
 output_dir  = DATA_ROOT + 'Real_sets/DCAE_output/'
 list_of_inputs = ['Levine32euclid_not_scaled.npz',
-'Levine32euclid_not_scaled.npz',
-    'Shenkareuclid_not_scaled.npz']
+'Pr_008_1_Unstim_euclid_not_scaled.npz',    'Shenkareuclid_not_scaled.npz']
 #load earlier preprocessed data
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
