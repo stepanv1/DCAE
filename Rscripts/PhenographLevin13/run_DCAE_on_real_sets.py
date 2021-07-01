@@ -21,7 +21,7 @@ num_cores = multiprocessing.cpu_count()
 pool = multiprocessing.Pool(num_cores)
 
 from tensorflow.keras.callbacks import Callback
-
+import matplotlib.pyplot as plt
 
 def table(labels):
     unique, counts = np.unique(labels, return_counts=True)
@@ -80,7 +80,7 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 k = 30
 k3 = k * 3
 coeffCAE = 1
-epochs = 50
+epochs = 300
 DATA_ROOT = '/media/stepan/Seagate/'
 source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
 output_dir  = DATA_ROOT + 'Real_sets/DCAE_output/'
@@ -338,7 +338,25 @@ for bl in list_of_inputs:
                                                   callPlot], verbose=2)
     stop = timeit.default_timer()
     z = encoder.predict([aFrame, Sigma])
+
+
     print(stop - start)
+    st = 5;
+    stp = 100
+    fig01 = plt.figure();
+    plt.plot(history_multiple.history['loss'][st:stp]);
+    plt.title('loss')
+    fig02 = plt.figure();
+    plt.plot(history_multiple.history['DCAE_loss'][st:stp]);
+    plt.title('DCAE_loss')
+    fig03 = plt.figure();
+    plt.plot(history_multiple.history['loss_mmd'][st:stp]);
+    plt.title('loss_mmd')
+    fig04 = plt.figure();
+    plt.plot(history_multiple.history['mean_square_error_NN'][st:stp]);
+    plt.title('mean_square_error')
+    fig = plot3D_cluster_colors(z, lbls=lbls)
+    fig.show()
 
     encoder.save_weights(output_dir + '/' + str(bl) + '_3D.h5')
     autoencoder.save_weights(output_dir + '/autoencoder_' + str(bl) + '_3D.h5')
