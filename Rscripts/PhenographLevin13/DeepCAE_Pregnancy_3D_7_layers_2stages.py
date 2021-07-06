@@ -259,10 +259,7 @@ tf.compat.v1.disable_eager_execution()
 k = 30
 k3 = k * 3
 
-
-
 MMD_weight = K.variable(value=0)
-
 MMD_weight_lst = K.variable( np.array(frange_anneal(int(epochs), ratio=0.95)) )
 
 

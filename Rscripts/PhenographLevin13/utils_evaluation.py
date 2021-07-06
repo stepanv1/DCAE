@@ -24,7 +24,7 @@ import math
 
 import ctypes
 from numpy.ctypeslib import ndpointer
-lib = ctypes.cdll.LoadLibrary("/home/stepan/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
+lib = ctypes.cdll.LoadLibrary("/home/grinek/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
 perp = lib.Perplexity
 perp.restype = None
 perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),

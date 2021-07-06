@@ -66,7 +66,7 @@ class EpochCounterCallback(Callback):
 
 import ctypes
 from numpy.ctypeslib import ndpointer
-lib = ctypes.cdll.LoadLibrary("/home/stepan/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
+lib = ctypes.cdll.LoadLibrary("/home/grinek/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
 perp = lib.Perplexity
 perp.restype = None
 perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
@@ -79,9 +79,9 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 
 k = 30
 k3 = k * 3
-coeffCAE = 1
-epochs = 300
-DATA_ROOT = '/media/stepan/Seagate/'
+coeffCAE = 5
+epochs = 500
+DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
 output_dir  = DATA_ROOT + 'Real_sets/DCAE_output/'
 list_of_inputs = ['Levine32euclid_not_scaled.npz',
@@ -140,13 +140,13 @@ for bl in list_of_inputs:
 
     MMD_weight = K.variable(value=0)
 
-    MMD_weight_lst = K.variable( np.array(frange_anneal(int(epochs), ratio=0.80)) )
+    MMD_weight_lst = K.variable( np.array(frange_anneal(int(epochs), ratio=0.8)) )
 
     batch_size = 256
     latent_dim = 3
     original_dim = aFrame.shape[1]
     intermediate_dim = original_dim * 3
-    intermediate_dim2 = original_dim * 2
+    intermediate_dim2 = original_dim
     # var_dims = Input(shape = (original_dim,))
     #
     initializer = tf.keras.initializers.he_normal(12345)
@@ -267,9 +267,9 @@ for bl in list_of_inputs:
     def loss_mmd(x, x_decoded_mean):
         batch_size = K.shape(z_mean)[0]
         latent_dim = K.int_shape(z_mean)[1]
-        # true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0.0, stddev=1.)
-        true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=-1.5, maxval=1.5)
-        # true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=0.0, maxval=1.0)
+        true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0.0, stddev=1.)
+        #true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=-1.5, maxval=1.5)
+                # true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=0.0, maxval=1.0)
         return compute_mmd(true_samples, z_mean)
 
 
@@ -284,8 +284,8 @@ for bl in list_of_inputs:
     def ae_loss(weight, MMD_weight_lst):
         def loss(x, x_decoded_mean):
             msew = mean_square_error_NN(x, x_decoded_mean)
-            return msew + 1 * (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + 1 * (MMD_weight + coeffCAE) * DCAE_loss(
-                x, x_decoded_mean)  # TODO: try 1-MMD insted 2-MMD
+            return msew + 10 * (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + 1 * (MMD_weight + coeffCAE) * DCAE_loss(
+                x, x_decoded_mean)
             # return msew + 1 * (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (coeffCAE) * DCAE_loss(x,
             # x_decoded_mean)
             # return K.mean(msew)
@@ -315,7 +315,7 @@ for bl in list_of_inputs:
 
     class plotCallback(Callback):
         def on_epoch_end(self, epoch, logs=None):
-            if epoch % save_period == 0 or epoch in range(200):
+            if epoch % save_period == 0 or epoch in range(20):
                 z = encoder.predict([aFrame, Sigma])
                 fig = plot3D_cluster_colors(z, lbls=lbls)
                 html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
@@ -342,7 +342,7 @@ for bl in list_of_inputs:
 
     print(stop - start)
     st = 5;
-    stp = 100
+    stp = epochs
     fig01 = plt.figure();
     plt.plot(history_multiple.history['loss'][st:stp]);
     plt.title('loss')

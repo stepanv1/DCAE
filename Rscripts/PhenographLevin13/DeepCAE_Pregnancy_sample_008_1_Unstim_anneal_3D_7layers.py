@@ -63,7 +63,7 @@ from tensorflow.keras import regularizers
 from tensorflow.keras.callbacks import TensorBoard
 
 
-#/home/grines02/PycharmProjects/BIOIBFO25L/Rscripts/PhenographLevin13/utils_evaluation.py
+#/home/grinek/PycharmProjects/BIOIBFO25L/Rscripts/PhenographLevin13/utils_evaluation.py
 
 tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0,
                           write_graph=True, write_images=True)
@@ -100,7 +100,7 @@ class AnnealingCallback(Callback):
 
 import ctypes
 from numpy.ctypeslib import ndpointer
-lib = ctypes.cdll.LoadLibrary("/home/grines02/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
+lib = ctypes.cdll.LoadLibrary("/home/grinek/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
 perp = lib.Perplexity
 perp.restype = None
 perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
@@ -122,8 +122,8 @@ ID = 'Pr_sample_008_1_MMD_01_3D_DCAE_h300_h200_hidden_7_layers_CAE'+ str(coeffCA
 data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
 https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
 '''
-source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/pregnancy'
-output_dir  = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/pregnancy/output'
+source_dir = '/media/grinek/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/pregnancy'
+output_dir  = '/media/grinek/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/pregnancy/output'
 '''
 #data0 = np.genfromtxt(source_dir + "/Gates_PTLG008_1_Unstim.fcs.csv" , names=None, dtype=float,  delimiter=',')
 data0 = pd.read_csv(source_dir + "/Gates_PTLG008_1_Unstim.fcs.csv")
@@ -405,7 +405,7 @@ fig.show()
 html_str=to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                   include_mathjax=False, post_script=None, full_html=True,
                   animation_opts=None, default_width='100%', default_height='100%', validate=True)
-html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
+html_dir = "/media/grinek/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
 Html_file= open(html_dir + "/"+ID + "_Buttons.html","w")
 Html_file.write(html_str)
 Html_file.close()
@@ -419,7 +419,7 @@ fig.show()
 html_str=to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                   include_mathjax=False, post_script=None, full_html=True,
                   animation_opts=None, default_width='100%', default_height='100%', validate=True)
-html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
+html_dir = "/media/grinek/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
 Html_file= open(html_dir + "/"+ID + "_Markers.html","w")
 Html_file.write(html_str)
 Html_file.close()
@@ -431,7 +431,7 @@ fig.show()
 html_str=to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                   include_mathjax=False, post_script=None, full_html=True,
                   animation_opts=None, default_width='100%', default_height='100%', validate=True)
-html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
+html_dir = "/media/grinek/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
 Html_file= open(html_dir + "/"+ID + "_Smoothed_Markers.html","w")
 Html_file.write(html_str)
 Html_file.close()
@@ -511,7 +511,7 @@ print(compute_cluster_performance(lbls[lbls!='"Unassgined"'], communities[lbls!=
 
 ######################################3
 # try SAUCIE
-sys.path.append("/home/grines02/PycharmProjects/BIOIBFO25L/SAUCIE")
+sys.path.append("/home/grinek/PycharmProjects/BIOIBFO25L/SAUCIE")
 data = aFrame
 from importlib import reload
 import SAUCIE
@@ -549,7 +549,7 @@ fig.show()
 
 # create performance plots for paper
 import os
-os.chdir('/home/grines02/PycharmProjects/BIOIBFO25L')
+os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L')
 os.getcwd()
 
 embedding = np.load('Pregnancy_' + 'embedSAUCIE.npz')['embedding']
@@ -599,7 +599,7 @@ discontinuitySAUCIE, manytooneSAUCIE = get_wsd_scores(aFrame, embedding, 90, num
 onetomany_scoreSAUCIE= neighbour_onetomany_score(embedding, Idx, kmax=90, num_cores=12)[1]
 marker_similarity_scoreSAUCIE = neighbour_marker_similarity_score_per_cell(embedding, aFrame, kmax=90, num_cores=12)
 
-source_dir = '/media/grines02/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/pregnancy'
+source_dir = '/media/grinek/vol1/Box Sync/Box Sync/CyTOFdataPreprocess/pregnancy'
 outfile2 = source_dir + '/' + ID+ '_PerformanceMeasures.npz'
 #np.savez(outfile2, discontinuityDCAE = discontinuityDCAE, manytooneDCAE= manytooneDCAE, onetomany_scoreDCAE= onetomany_scoreDCAE, marker_similarity_scoreDCAE= marker_similarity_scoreDCAE[1],
 #        discontinuityUMAP= discontinuityUMAP, manytooneUMAP= manytooneUMAP, onetomany_scoreUMAP= onetomany_scoreUMAP, marker_similarity_scoreUMAP= marker_similarity_scoreUMAP[1],
