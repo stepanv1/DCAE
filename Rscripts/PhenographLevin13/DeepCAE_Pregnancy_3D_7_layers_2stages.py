@@ -97,7 +97,7 @@ class AnnealingCallback(Callback):
         print("  Current DCAE Weight is " + str(K.get_value(self.weight)))
 import ctypes
 from numpy.ctypeslib import ndpointer
-lib = ctypes.cdll.LoadLibrary("/home/stepan/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
+lib = ctypes.cdll.LoadLibrary("/home/grinek/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
 perp = lib.Perplexity
 perp.restype = None
 perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
@@ -110,10 +110,10 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 # load data
 k = 30
 k3 = k * 3
-coeffCAE = 5
-epochs = 500
+coeffCAE = 1
+epochs = 100
 ID = 'Pregnancy_DCAE_h300_h200_hidden_7_layers_CAE'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
-DATA_ROOT = '/media/stepan/Seagate/'
+DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
 output_dir  = DATA_ROOT + 'Real_sets/DCAE_output/'
 #ID = 'Pr_sample_008_1_MMD_01_3D_DCAE_h128_h63_h32_9_layers'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
@@ -141,10 +141,11 @@ markers = ['CD235ab_CD61',         'CD45',
                 'CD3',         'CCR7',         'CD15',         'CCR2',
               'HLADR',         'CD14',         'CD56']
 data2 = data1[markers]
-aFrame = data2.to_numpy() 
+data3= data2-data2.min()
+aFrame = data3.to_numpy() 
 aFrame.shape
 # set negative values to zero
-
+sns.violinplot(data= aFrame, bw = 0.1);plt.show()
 aFrame[aFrame < 0] = 0
 lbls= np.genfromtxt(source_dir + "/Gates_PTLG008_1_Unstim.fcs_LeafPopulations.csv" , names=None, skip_header=1, delimiter=',', dtype='U100')
 #randomize order
@@ -156,9 +157,15 @@ len(lbls)
 #scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
 #scaler.fit_transform(aFrame)
 
+# arcsinh transform TODO: try dvision by 5 (/%)
+aFrame  = np.arcsinh(aFrame/5)
+
+
+sns.violinplot(data= aFrame[:, :], bw = 0.1);plt.show()
+sns.violinplot(data= aFrame, bw = 0.1);plt.show()
 aFrame= aFrame/np.max(aFrame)
 
-nb=find_neighbors(aFrame, k3, metric='euclidean', cores=48)
+nb=find_neighbors(aFrame, k3, metric='euclidean', cores=16)
 Idx = nb['idx']; Dist = nb['dist']
 #Dist = Dist[IDX]
 #Idx = Idx[IDX]
@@ -180,7 +187,7 @@ from joblib import Parallel, delayed
 from pathos import multiprocessing
 num_cores = 48
 #pool = multiprocessing.Pool(num_cores)
-results = Parallel(n_jobs=48, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
+results = Parallel(n_jobs=16, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
 original_dim=37
 neibALL = np.zeros((nrow, k3, original_dim))
 Distances = np.zeros((nrow, k3))
@@ -204,11 +211,11 @@ neib_weight=sklearn.preprocessing.normalize(neib_weight, axis=1, norm='l1')
 neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
 plt.plot(neib_weight[1,:]);plt.show()
 #outfile = source_dir + '/Nowicka2017euclid.npz'
-outfile = source_dir + '/Pr_008_1_Unstim_euclid_not_scaled.npz'
+outfile = source_dir + '/Pr_008_1_Unstim_euclid_not_scaled_asinh_div5.npz'
 np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
          neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma, markers=markers)
 '''
-outfile = source_dir + '/Pr_008_1_Unstim_euclid_scaled.npz'
+outfile = source_dir + '/Pr_008_1_Unstim_euclid_not_scaled_asinh_div5.npz'
 k=30
 #markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
 # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
@@ -428,7 +435,7 @@ class plotCallback(Callback):
             html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                                include_mathjax=False, post_script=None, full_html=True,
                                animation_opts=None, default_width='100%', default_height='100%', validate=True)
-            html_dir = DATA
+            html_dir = "/media/grinek/Seagate/Real_sets/DCAE_output"
             Html_file = open(html_dir + "/" + ID +'_epoch=' + str(epoch) + '_' + "_Buttons.html", "w")
             Html_file.write(html_str)
             Html_file.close()
@@ -480,8 +487,8 @@ encoder.summary()
 z = encoder.predict([aFrame, neibF_Tr,  Sigma, weight_neibF])
 
 #- visualisation and pefroramnce metric-----------------------------------------------------------------------------------------------
-# np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt', x_test_enc)
-# x_test_enc=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt')
+# np.savetxt('/mnt/f/Brinkman group/current/grinek/WangData/WangDataPatient/x_test_encBcells3d.txt', x_test_enc)
+# x_test_enc=np.loadtxt('/mnt/f/Brinkman group/current/grinek/WangData/WangDataPatient/x_test_encBcells3d.txt')
 x = z[:, 0]
 y = z[:, 1]
 zz = z[:, 2]

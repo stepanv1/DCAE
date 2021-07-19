@@ -78,7 +78,7 @@ class EpochCounterCallback(Callback):
 
 import ctypes
 from numpy.ctypeslib import ndpointer
-lib = ctypes.cdll.LoadLibrary("/home/stepan/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
+lib = ctypes.cdll.LoadLibrary("/home/grinek/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
 perp = lib.Perplexity
 perp.restype = None
 perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
@@ -99,19 +99,27 @@ k3 = k * 3
 coeffCAE = 1
 epochs = 100
 ID = 'Levine32_MMD_01_3D_DCAE_h96_h32_hidden_7_layers'+ str(coeffCAE) + '_' + str(epochs) + '_2stages_not+scaled'
-DATA_ROOT = '/media/stepan/Seagate/'
+DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
 output_dir  = DATA_ROOT + 'Real_sets/DCAE_output/'
 
 '''
-data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
-https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
+#data :CyTOF workflow: differential discovery in high-throughput high-dimensional cytometry datasets
+#https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=8750634913997123816
 
 data0 = np.genfromtxt(source_dir + "/Levine32_data.csv" , names=None, dtype=float, skip_header=1, delimiter=',')
 aFrame = data0[:,:] 
 aFrame.shape
-# set negative values to zero
-aFrame[aFrame < 0] = 0
+aFrame.min(axis=0)
+aFrame.max(axis=0)
+sns.violinplot(data= aFrame, bw = 0.1);plt.show()
+aFrame.min()
+# set negative values to zero and shift minima to zero
+aFrame = aFrame  - aFrame.min(axis=0)
+
+aFrame.min(axis=0)
+aFrame.max(axis=0)
+sns.violinplot(data= aFrame, bw = 0.1);plt.show()
 lbls= np.genfromtxt(source_dir + "Levine32_population.csv" , names=None, skip_header=0, delimiter=',', dtype='U100')
 #randomize order
 IDX = np.random.choice(aFrame.shape[0], aFrame.shape[0], replace=False)
@@ -124,35 +132,32 @@ len(lbls)
 
 aFrame= aFrame/np.max(aFrame)
 #cm=np.corrcoef(aFrame[lbls==0,:], rowvar =False)
+sns.violinplot(data= aFrame, bw = 0.1);plt.show()
 
-
-ly=1
+ly=0.1
+lx=-0.1
 fig, axs = plt.subplots(nrows=8)
 sns.violinplot(data=aFrame[lbls=='"CD8_T_cells"',:],  ax=axs[0]).set_title('0', rotation=-90, position=(1, 1), ha='left', va='bottom')
-axs[0].set_ylim(0, ly)
+axs[0].set_ylim(lx, ly)
 sns.violinplot(data=aFrame[lbls=='"CD16+_NK_cells"',:],  ax=axs[1]).set_title('1', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[1].set_ylim(0, ly)
+axs[1].set_ylim(lx, ly)
 sns.violinplot(data=aFrame[lbls=='"CD16-_NK_cells"',:],  ax=axs[2]).set_title('2', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[2].set_ylim(0, ly)
+axs[2].set_ylim(lx, ly)
 sns.violinplot(data=aFrame[lbls=='"CD34+CD38+CD123+_HSPCs"',:],  ax=axs[3]).set_title('3', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[3].set_ylim(0, ly)
+axs[3].set_ylim(lx, ly)
 sns.violinplot(data=aFrame[lbls=='"CD34+CD38+CD123-_HSPCs"',:],  ax=axs[4]).set_title('4', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[4].set_ylim(0, ly)
+axs[4].set_ylim(lx, ly)
 sns.violinplot(data=aFrame[lbls=='"CD34+CD38lo_HSCs"',:],  ax=axs[5]).set_title('5', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[5].set_ylim(0, ly)
+axs[5].set_ylim(lx, ly)
 sns.violinplot(data=aFrame[lbls=='"CD34+CD38lo_HSCs"',:],  ax=axs[6]).set_title('6', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[6].set_ylim(0, ly)
+axs[6].set_ylim(lx, ly)
 sns.violinplot(data=aFrame[lbls=='"CD8_T_cells"',:], ax=axs[7]).set_title('7', rotation=-90, position=(1, 2), ha='left', va='center')
-axs[7].set_ylim(0, ly)
+axs[7].set_ylim(lx, ly)
+
+
 
 
 cm=np.corrcoef(aFrame[lbls=='"CD16+_NK_cells"',:], rowvar =False)
-
-
-
-
-
-
 nb=find_neighbors(aFrame, k3, metric='euclidean', cores=48)
 Idx = nb['idx']; Dist = nb['dist']
 #Dist = Dist[IDX]
@@ -175,7 +180,7 @@ from joblib import Parallel, delayed
 from pathos import multiprocessing
 num_cores = 48
 #pool = multiprocessing.Pool(num_cores)
-results = Parallel(n_jobs=48, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
+results = Parallel(n_jobs=16, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
 original_dim=32
 neibALL = np.zeros((nrow, k3, original_dim))
 Distances = np.zeros((nrow, k3))
@@ -433,7 +438,7 @@ class plotCallback(Callback):
             html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                                include_mathjax=False, post_script=None, full_html=True,
                                animation_opts=None, default_width='100%', default_height='100%', validate=True)
-            html_dir = "/media/stepan/Seagate/Real_sets/DCAE_output"
+            html_dir = "/media/grinek/Seagate/Real_sets/DCAE_output"
             Html_file = open(html_dir + "/" + ID +'_epoch=' + str(epoch) + '_' + "_Buttons.html", "w")
             Html_file.write(html_str)
             Html_file.close()
@@ -485,8 +490,8 @@ encoder.summary()
 z = encoder.predict([aFrame, neibF_Tr,  Sigma])
 
 #- visualisation and pefroramnce metric-----------------------------------------------------------------------------------------------
-# np.savetxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt', x_test_enc)
-# x_test_enc=np.loadtxt('/mnt/f/Brinkman group/current/Stepan/WangData/WangDataPatient/x_test_encBcells3d.txt')
+# np.savetxt('/mnt/f/Brinkman group/current/grinek/WangData/WangDataPatient/x_test_encBcells3d.txt', x_test_enc)
+# x_test_enc=np.loadtxt('/mnt/f/Brinkman group/current/grinek/WangData/WangDataPatient/x_test_encBcells3d.txt')
 x = z[:, 0]
 y = z[:, 1]
 zz = z[:, 2]
@@ -496,7 +501,7 @@ fig.show()
 html_str=to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                   include_mathjax=False, post_script=None, full_html=True,
                   animation_opts=None, default_width='100%', default_height='100%', validate=True)
-html_dir = "media/stepan/Seagate/Real_sets/DCAE_output"
+html_dir = "media/grinek/Seagate/Real_sets/DCAE_output"
 Html_file= open(html_dir + "/"+ID + "_Buttons.html","w")
 Html_file.write(html_str)
 Html_file.close()
@@ -507,7 +512,7 @@ fig.show()
 html_str=to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                   include_mathjax=False, post_script=None, full_html=True,
                   animation_opts=None, default_width='100%', default_height='100%', validate=True)
-html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
+html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/grinekv1.github.io/_includes"
 Html_file= open(html_dir + "/"+ID + "_Markers.html","w")
 Html_file.write(html_str)
 Html_file.close()
@@ -808,7 +813,7 @@ plt.scatter(zzz0.flatten()[:1000], zzz3.flatten()[:1000])
 1.0-stats.spearmanr(zzz0[zzz0>0.5].flatten(), zzz3[zzz0>0.5].flatten()).correlation**2
 
 # more measures:
-#file:///home/stepan/Downloads/Agreement_Analysis_of_Quality_Measures_for_Dimensi.pdf
+#file:///home/grinek/Downloads/Agreement_Analysis_of_Quality_Measures_for_Dimensi.pdf
 ###########################################################################
 #viisualization using metric as coulurs, add to supplements later
 # try kit and may be modify for subset clustering (use utils evelauation to improve this)
@@ -1004,7 +1009,7 @@ fig.show()
 html_str=plotly.io.to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                   include_mathjax=False, post_script=None, full_html=True,
                   animation_opts=None, default_width='100%', default_height='100%', validate=True)
-html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/stepanv1.github.io/_includes"
+html_dir = "/media/grines02/vol1/Box Sync/Box Sync/github/grinekv1.github.io/_includes"
 Html_file= open(html_dir + "/"+ID + "no_knn_denoising_knHAT_potential_inCAE_MMD_1_scaledButtons.html","w")
 Html_file.write(html_str)
 Html_file.close()

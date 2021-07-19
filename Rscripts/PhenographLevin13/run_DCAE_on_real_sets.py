@@ -80,12 +80,15 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 k = 30
 k3 = k * 3
 coeffCAE = 5
-epochs = 500
+epochs = 100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
 output_dir  = DATA_ROOT + 'Real_sets/DCAE_output/'
-list_of_inputs = ['Levine32euclid_not_scaled.npz',
-'Pr_008_1_Unstim_euclid_not_scaled.npz',    'Shenkareuclid_not_scaled.npz']
+#list_of_inputs = ['Levine32euclid_not_scaled.npz',
+#'Pr_008_1_Unstim_euclid_not_scaled.npz',    'Shenkareuclid_not_scaled.npz']
+# TEMP
+list_of_inputs = 'Pr_008_1_Unstim_euclid_not_scaled_asinh.npz'
+
 #load earlier preprocessed data
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
@@ -118,6 +121,7 @@ for bl in list_of_inputs:
     neibF_Tr = neibALL
     weight_neibF_Tr =weight_distALL
     sourceTr = aFrame
+
 
 
 
@@ -284,7 +288,7 @@ for bl in list_of_inputs:
     def ae_loss(weight, MMD_weight_lst):
         def loss(x, x_decoded_mean):
             msew = mean_square_error_NN(x, x_decoded_mean)
-            return msew + 10 * (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + 1 * (MMD_weight + coeffCAE) * DCAE_loss(
+            return msew + 1 * (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + 1 * (MMD_weight + coeffCAE) * DCAE_loss(
                 x, x_decoded_mean)
             # return msew + 1 * (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (coeffCAE) * DCAE_loss(x,
             # x_decoded_mean)
