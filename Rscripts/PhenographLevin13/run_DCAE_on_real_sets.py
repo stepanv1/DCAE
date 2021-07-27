@@ -79,62 +79,39 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 
 k = 30
 k3 = k * 3
-coeffCAE = 5
-epochs = 100
+coeffCAE = 1
+epochs = 500
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
 output_dir  = DATA_ROOT + 'Real_sets/DCAE_output/'
-#list_of_inputs = ['Levine32euclid_not_scaled.npz',
-#'Pr_008_1_Unstim_euclid_not_scaled.npz',    'Shenkareuclid_not_scaled.npz']
+list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
+'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
 # TEMP
-list_of_inputs = 'Pr_008_1_Unstim_euclid_not_scaled_asinh.npz'
+#list_of_inputs = 'Shenkareuclid_not_scaled.npz'
+
 
 #load earlier preprocessed data
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.compat.v1.disable_eager_execution()
-#bl = list_of_inputs[1]
+#bl = list_of_inputs[2]
 for bl in list_of_inputs:
     infile = source_dir + bl
     #markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
     # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
-    npzfile = np.load(infile)
-    weight_distALL = npzfile['Dist'];
+    npzfile = np.load(infile,  allow_pickle=True)
     # = weight_distALL[IDX,:]
     aFrame = npzfile['aFrame'];
-    Dist = npzfile['Dist']
-    Idx = npzfile['Idx']
     #cut_neibF = npzfile['cut_neibF'];
     #cut_neibF = cut_neibF[IDX,:]
-    neibALL = npzfile['neibALL']
     #neibALL  = neibALL [IDX,:]
     #np.sum(cut_neibF != 0)
     # plt.hist(cut_neibF[cut_neibF!=0],50)
     Sigma = npzfile['Sigma']
     lbls = npzfile['lbls'];
     #neib_weight = npzfile['neib_weight']
-    # [aFrame, neibF, cut_neibF, weight_neibF]
-    # training set
-    # targetTr = np.repeat(aFrame, r, axis=0)
-    targetTr = aFrame
-    neibF_Tr = neibALL
-    weight_neibF_Tr =weight_distALL
-    sourceTr = aFrame
-
-
-
-
-
-    # Model-------------------------------------------------------------------------
-    ######################################################
-    # targetTr = np.repeat(aFrame, r, axis=0)
-
-    # Model-------------------------------------------------------------------------
-    ######################################################
-    # targetTr = np.repeat(aFrame, r, axis=0)
     k = 30
-    k3 = k * 3
     nrow= np.shape(aFrame)[0]
     # TODO try downweight mmd to the end of computation
     #DCAE_weight = K.variable(value=0)
@@ -144,7 +121,7 @@ for bl in list_of_inputs:
 
     MMD_weight = K.variable(value=0)
 
-    MMD_weight_lst = K.variable( np.array(frange_anneal(int(epochs), ratio=0.8)) )
+    MMD_weight_lst = K.variable( np.array(frange_anneal(int(epochs), ratio=0.95)) )
 
     batch_size = 256
     latent_dim = 3
@@ -179,41 +156,9 @@ for bl in list_of_inputs:
 
     lam = 1e-4
 
-
-    def DCAE3D_loss(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
-        U = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
-        W = K.variable(value=encoder.get_layer('intermediate2').get_weights()[0])  # N x N_hidden
-        Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
-        U = K.transpose(U);
-        W = K.transpose(W);
-        Z = K.transpose(Z);  # N_hidden x N
-
-        u = encoder.get_layer('intermediate').output
-        du = tf.linalg.diag((tf.math.sign(u) + 1) / 2)
-        m = encoder.get_layer('intermediate2').output
-        dm = tf.linalg.diag((tf.math.sign(m) + 1) / 2)  # N_batch x N_hidden
-        s = encoder.get_layer('z_mean').output
-        # r = tf.linalg.einsum('aj->a', s ** 2)
-        ds = tf.linalg.diag(tf.math.scalar_mul(0, s) + 1)
-
-        S_0W = tf.einsum('akl,lj->akj', du, U)
-        S_1W = tf.einsum('akl,lj->akj', dm, W)  # N_batch x N_input ??
-        # tf.print((S_1W).shape) #[None, 120]
-        S_2Z = tf.einsum('akl,lj->akj', ds, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
-        # tf.print((S_2Z).shape)
-        diff_tens = tf.einsum('akl,alj->akj', S_2Z,
-                              S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
-        diff_tens = tf.einsum('akl,alj->akj', diff_tens, S_0W)
-        # tf.Print(K.sum(diff_tens ** 2))
-        return 1 / normSigma * (SigmaTsq) * lam * (K.sum(diff_tens ** 2))
-
-
-    def pot(alp, x):
-        return np.select([(x < alp), (x >= alp) * (x <= 1), x > 1], [10, 0, 10])
-
-
+    #def pot(alp, x):
+    #    return np.select([(x < alp), (x >= alp) * (x <= 1), x > 1], [10, 0, 10])
     alp = 0.2
-
 
     def DCAE_loss(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
         U = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
@@ -288,7 +233,7 @@ for bl in list_of_inputs:
     def ae_loss(weight, MMD_weight_lst):
         def loss(x, x_decoded_mean):
             msew = mean_square_error_NN(x, x_decoded_mean)
-            return msew + 1 * (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + 1 * (MMD_weight + coeffCAE) * DCAE_loss(
+            return msew +  (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(
                 x, x_decoded_mean)
             # return msew + 1 * (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (coeffCAE) * DCAE_loss(x,
             # x_decoded_mean)
@@ -326,7 +271,7 @@ for bl in list_of_inputs:
                                    include_mathjax=False, post_script=None, full_html=True,
                                    animation_opts=None, default_width='100%', default_height='100%', validate=True)
                 html_dir = output_dir
-                Html_file = open(html_dir + "/" + str(bl) + '_epoch=' + str(epoch) + '_' + "_Buttons.html", "w")
+                Html_file = open(html_dir + "/" + str(bl) +'epochs'+str(epochs)+ '_epoch=' + str(epoch) + '_' + "_Buttons.html", "w")
                 Html_file.write(html_str)
                 Html_file.close()
 
@@ -362,9 +307,9 @@ for bl in list_of_inputs:
     fig = plot3D_cluster_colors(z, lbls=lbls)
     fig.show()
 
-    encoder.save_weights(output_dir + '/' + str(bl) + '_3D.h5')
-    autoencoder.save_weights(output_dir + '/autoencoder_' + str(bl) + '_3D.h5')
-    np.savez(output_dir + '/' + str(bl) + '_latent_rep_3D.npz', z=z)
+    encoder.save_weights(output_dir + '/' + str(bl) +'epochs'+str(epochs)+ '_3D.h5')
+    autoencoder.save_weights(output_dir + '/autoencoder_' + str(bl) +'epochs'+str(epochs)+ '_3D.h5')
+    np.savez(output_dir + '/' + str(bl) + 'epochs'+str(epochs)+ '_latent_rep_3D.npz', z=z)
 
 
 

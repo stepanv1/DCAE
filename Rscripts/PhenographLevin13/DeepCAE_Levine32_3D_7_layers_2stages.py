@@ -97,8 +97,8 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 k = 30
 k3 = k * 3
 coeffCAE = 1
-epochs = 100
-ID = 'Levine32_MMD_01_3D_DCAE_h96_h32_hidden_7_layers'+ str(coeffCAE) + '_' + str(epochs) + '_2stages_not+scaled'
+epochs = 500
+ID = 'Levine32_MMD_01_3D_DCAE_h96_h32_hidden_7_layers_scaled_no_negative_removed_'+ str(coeffCAE) + '_' + str(epochs) + '_2stages_not+scaled'
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
 output_dir  = DATA_ROOT + 'Real_sets/DCAE_output/'
@@ -113,13 +113,11 @@ aFrame.shape
 aFrame.min(axis=0)
 aFrame.max(axis=0)
 sns.violinplot(data= aFrame, bw = 0.1);plt.show()
-aFrame.min()
 # set negative values to zero and shift minima to zero
-aFrame = aFrame  - aFrame.min(axis=0)
+#aFrame = aFrame  - aFrame.min(axis=0)
 
 aFrame.min(axis=0)
 aFrame.max(axis=0)
-sns.violinplot(data= aFrame, bw = 0.1);plt.show()
 lbls= np.genfromtxt(source_dir + "Levine32_population.csv" , names=None, skip_header=0, delimiter=',', dtype='U100')
 #randomize order
 IDX = np.random.choice(aFrame.shape[0], aFrame.shape[0], replace=False)
@@ -127,14 +125,14 @@ IDX = np.random.choice(aFrame.shape[0], aFrame.shape[0], replace=False)
 aFrame= aFrame[IDX,:]
 lbls = lbls[IDX]
 len(lbls)
-#scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
-#scaler.fit_transform(aFrame)
+scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
+aFrame = scaler.fit_transform(aFrame)
 
-aFrame= aFrame/np.max(aFrame)
+#aFrame= aFrame/np.max(aFrame)
 #cm=np.corrcoef(aFrame[lbls==0,:], rowvar =False)
 sns.violinplot(data= aFrame, bw = 0.1);plt.show()
 
-ly=0.1
+ly=1.5
 lx=-0.1
 fig, axs = plt.subplots(nrows=8)
 sns.violinplot(data=aFrame[lbls=='"CD8_T_cells"',:],  ax=axs[0]).set_title('0', rotation=-90, position=(1, 1), ha='left', va='bottom')
@@ -153,9 +151,6 @@ sns.violinplot(data=aFrame[lbls=='"CD34+CD38lo_HSCs"',:],  ax=axs[6]).set_title(
 axs[6].set_ylim(lx, ly)
 sns.violinplot(data=aFrame[lbls=='"CD8_T_cells"',:], ax=axs[7]).set_title('7', rotation=-90, position=(1, 2), ha='left', va='center')
 axs[7].set_ylim(lx, ly)
-
-
-
 
 cm=np.corrcoef(aFrame[lbls=='"CD16+_NK_cells"',:], rowvar =False)
 nb=find_neighbors(aFrame, k3, metric='euclidean', cores=48)
@@ -204,11 +199,11 @@ neib_weight=sklearn.preprocessing.normalize(neib_weight, axis=1, norm='l1')
 neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
 plt.plot(neib_weight[1,:]);plt.show()
 #outfile = source_dir + '/Nowicka2017euclid.npz'
-outfile = source_dir + '/Levine32euclid_not_scaled.npz'
+outfile = source_dir + '/Levine32euclid_scaled_no_negative_removed.npz'
 np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
          neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma)
 '''
-outfile = source_dir + '/Levine32euclid_not_scaled.npz'
+outfile = source_dir + '/Levine32euclid_scaled_no_negative_removed.npz'
 markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
 # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
 npzfile = np.load(outfile)
@@ -269,8 +264,7 @@ k3 = k * 3
 # check for possible discontinuities/singularities o last epochs, is shape of potenatial  to narroe at the end?
 
 MMD_weight = K.variable(value=0)
-
-MMD_weight_lst = K.variable( np.array(frange_anneal(int(epochs), ratio=0.80)) )
+MMD_weight_lst = K.variable( np.array(frange_anneal(int(epochs), ratio=0.95)) )
 
 
 nrow = aFrame.shape[0]

@@ -95,7 +95,7 @@ class AnnealingCallback(Callback):
 
 import ctypes
 from numpy.ctypeslib import ndpointer
-lib = ctypes.cdll.LoadLibrary("/home/stepan/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
+lib = ctypes.cdll.LoadLibrary("/home/grinek/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
 perp = lib.Perplexity
 perp.restype = None
 perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
@@ -106,6 +106,7 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
                 ctypes.c_size_t]
 
 
+
 # load data
 k = 30
 k3 = k * 3
@@ -113,7 +114,7 @@ coeffCAE = 1
 epochs = 500
 ID = 'Shekhar_MMD_01_3D_DCAE_h120_h16_hidden_7_layers_CAE'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
 
-DATA_ROOT = '/media/stepan/Seagate/'
+DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
 output_dir  = DATA_ROOT + 'Real_sets/DCAE_output/'
 
@@ -142,8 +143,6 @@ plt.ylabel('cumulative explained variance');
 
 data = pca_op.fit_transform(data_raw.to_numpy())
 
-
-
 n_features = data.shape[1]
 n_features
 scprep.plot.scatter2d(data, c=metadata['sample_name'], ticks=False, label_prefix="PC", legend_title="Batch")
@@ -164,9 +163,35 @@ len(lbls)
 #scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
 #scaler.fit_transform(aFrame)
 
+aFrame = aFrame  - aFrame.min(axis=0)
 aFrame= aFrame/np.max(aFrame)
 
-nb=find_neighbors(aFrame, k3, metric='euclidean', cores=48)
+ly=1
+lx=0
+fig, axs = plt.subplots(nrows=8)
+sns.violinplot(data=aFrame[lbls=='17',:],  ax=axs[0]).set_title('0', rotation=-90, position=(1, 1), ha='left', va='bottom')
+axs[0].set_ylim(lx, ly)
+sns.violinplot(data=aFrame[lbls=='Amacrine_2',:],  ax=axs[1]).set_title('1', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[1].set_ylim(lx, ly)
+sns.violinplot(data=aFrame[lbls=='BC3B',:],  ax=axs[2]).set_title('2', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[2].set_ylim(lx, ly)
+sns.violinplot(data=aFrame[lbls=='BC8/9_2',:],  ax=axs[3]).set_title('3', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[3].set_ylim(lx, ly)
+sns.violinplot(data=aFrame[lbls=='Cone PR',:],  ax=axs[4]).set_title('4', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[4].set_ylim(lx, ly)
+sns.violinplot(data=aFrame[lbls=='Rod BC',:],  ax=axs[5]).set_title('5', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[5].set_ylim(lx, ly)
+sns.violinplot(data=aFrame[lbls=='Rod PR',:],  ax=axs[6]).set_title('6', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[6].set_ylim(lx, ly)
+sns.violinplot(data=aFrame[lbls=='Muller Glia',:], ax=axs[7]).set_title('7', rotation=-90, position=(1, 2), ha='left', va='center')
+axs[7].set_ylim(lx, ly)
+
+
+
+
+#
+
+nb=find_neighbors(aFrame, k3, metric='euclidean', cores=16)
 Idx = nb['idx']; Dist = nb['dist']
 #Dist = Dist[IDX]
 #Idx = Idx[IDX]
@@ -186,7 +211,7 @@ nrow = len(lbls)
 inputs = range(nrow)
 from joblib import Parallel, delayed
 from pathos import multiprocessing
-num_cores = 48
+num_cores = 16
 #pool = multiprocessing.Pool(num_cores)
 results = Parallel(n_jobs=6, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
 original_dim=100
@@ -211,7 +236,7 @@ neib_weight=np.array([ neib_weight[i, topk[i]] for i in range(len(topk))])
 neib_weight=sklearn.preprocessing.normalize(neib_weight, axis=1, norm='l1')
 neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
 plt.plot(neib_weight[1,:]);plt.show()
-outfile = source_dir + '/Shenkareuclid_not_scaled.npz'
+outfile = source_dir + '/Shenkareuclid_shifted.npz'
 np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
          neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma)
 '''

@@ -111,7 +111,7 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 k = 30
 k3 = k * 3
 coeffCAE = 1
-epochs = 100
+epochs = 500
 ID = 'Pregnancy_DCAE_h300_h200_hidden_7_layers_CAE'+ str(coeffCAE) + '_' + str(epochs) + '_kernelInit_tf2'
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
@@ -145,8 +145,8 @@ data3= data2-data2.min()
 aFrame = data3.to_numpy() 
 aFrame.shape
 # set negative values to zero
-sns.violinplot(data= aFrame, bw = 0.1);plt.show()
-aFrame[aFrame < 0] = 0
+#sns.violinplot(data= aFrame, bw = 0.1);plt.show()
+#aFrame[aFrame < 0] = 0
 lbls= np.genfromtxt(source_dir + "/Gates_PTLG008_1_Unstim.fcs_LeafPopulations.csv" , names=None, skip_header=1, delimiter=',', dtype='U100')
 #randomize order
 IDX = np.random.choice(aFrame.shape[0], aFrame.shape[0], replace=False)
@@ -154,16 +154,19 @@ IDX = np.random.choice(aFrame.shape[0], aFrame.shape[0], replace=False)
 aFrame= aFrame[IDX,:]
 lbls = lbls[IDX]
 len(lbls)
-#scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
-#scaler.fit_transform(aFrame)
 
 # arcsinh transform TODO: try dvision by 5 (/%)
 aFrame  = np.arcsinh(aFrame/5)
 
+scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
+aFrame = scaler.fit_transform(aFrame)
 
-sns.violinplot(data= aFrame[:, :], bw = 0.1);plt.show()
+
+
+
+#sns.violinplot(data= aFrame[:, :], bw = 0.1);plt.show()
 sns.violinplot(data= aFrame, bw = 0.1);plt.show()
-aFrame= aFrame/np.max(aFrame)
+#aFrame= aFrame/np.max(aFrame)
 
 nb=find_neighbors(aFrame, k3, metric='euclidean', cores=16)
 Idx = nb['idx']; Dist = nb['dist']
@@ -199,7 +202,7 @@ for i in range(nrow):
     Distances[i,] = results[i][1]
 #Compute perpelexities
 nn=30
-perp((Distances[:,0:k3]),       nrow,     original_dim,   neib_weight,          nn,          k3,   Sigma,    12)
+perp((Distances[:,0:k3]),       nrow,     original_dim,   neib_weight,          nn,          k3,   Sigma,    4)
       #(     double* dist,      int N,    int D,       double* P,     double perplexity,    int K, int num_threads)
 np.shape(neib_weight)
 plt.plot(neib_weight[1,])
@@ -211,11 +214,11 @@ neib_weight=sklearn.preprocessing.normalize(neib_weight, axis=1, norm='l1')
 neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
 plt.plot(neib_weight[1,:]);plt.show()
 #outfile = source_dir + '/Nowicka2017euclid.npz'
-outfile = source_dir + '/Pr_008_1_Unstim_euclid_not_scaled_asinh_div5.npz'
+outfile = source_dir + '/Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz'
 np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
          neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma, markers=markers)
 '''
-outfile = source_dir + '/Pr_008_1_Unstim_euclid_not_scaled_asinh_div5.npz'
+outfile = source_dir + '/Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz'
 k=30
 #markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
 # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
@@ -230,14 +233,13 @@ lbls = npzfile['lbls'];
 #neib_weight = npzfile['neib_weight']
 markers = list(npzfile['markers'])
 # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
-npzfile = np.load(outfile)
 #weight_distALL = npzfile['Dist'];
 # = weight_distALL[IDX,:]
 aFrame = npzfile['aFrame'];
-Dist = npzfile['Dist']
+#Dist = npzfile['Dist']
 #cut_neibF = npzfile['cut_neibF'];
 #cut_neibF = cut_neibF[IDX,:]
-neibALL = npzfile['neibALL']
+#neibALL = npzfile['neibALL']
 #neibALL  = neibALL [IDX,:]
 #np.sum(cut_neibF != 0)
 # plt.hist(cut_neibF[cut_neibF!=0],50)
@@ -247,7 +249,7 @@ lbls = npzfile['lbls'];
 # [aFrame, neibF, cut_neibF, weight_neibF]
 # training set
 # targetTr = np.repeat(aFrame, r, axis=0)
-Idx = npzfile['Idx']
+#Idx = npzfile['Idx']
 
 # session set up
 
@@ -275,7 +277,7 @@ batch_size = 256
 latent_dim = 3
 original_dim = aFrame.shape[1]
 intermediate_dim =original_dim*3
-intermediate_dim2=original_dim
+intermediate_dim2=original_dim*2
 # var_dims = Input(shape = (original_dim,))
 #
 initializer = tf.keras.initializers.he_normal(12345)
@@ -484,7 +486,7 @@ np.savez(output_dir +'/'+ ID + '_latent_rep_3D.npz', z = z)
 encoder.load_weights(output_dir +''+ID + '_3D.h5')
 autoencoder.load_weights(output_dir +'autoencoder_'+ID + '_3D.h5')
 encoder.summary()
-z = encoder.predict([aFrame, neibF_Tr,  Sigma, weight_neibF])
+z = encoder.predict([aFrame,  Sigma])
 
 #- visualisation and pefroramnce metric-----------------------------------------------------------------------------------------------
 # np.savetxt('/mnt/f/Brinkman group/current/grinek/WangData/WangDataPatient/x_test_encBcells3d.txt', x_test_enc)
