@@ -1,0 +1,17 @@
+Pipeline description
+
+Artificial data, 25 sets
+1. Generate artificial 25 set sets (generate_artificial_sets.py)
+2. Run DCAE on art set (run_DCAE_on_25_ART_sets.py)
+3. Generate UMAP and SAUCIE for ART sets (generate_UMAP_and_SAUCIE_for_ART_sets.py)
+4. Performance evaluation
+  a. Compute 'Borealis' performance measures (discontinuity, manytoone) (Performance_Borealis.py)
+  b. Compute 'MSS' and 'LSSS' performance measures  (Performance_MSS_LSSS.py)
+  c. Compute topological performace (Performance_toplology.py)
+
+Real data, 3 sets
+1. Run DCAE on art set (run_DCAE_on_real_sets.py)
+3. Generate UMAP and SAUCIE for real sets (generate_UMAP_and_SAUCIE_for_REAL_sets.py)
+4. Performance evaluation
+  a. Compute 'Borealis' performance measures (discontinuity, manytoone) (Performance_Borealis_real_sets.py)
+  b. Compute 'MSS' and 'LSSS' performance measures  (Performance_MSS_LSSS_real_sets.py)

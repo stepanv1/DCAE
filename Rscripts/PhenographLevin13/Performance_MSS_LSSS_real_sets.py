@@ -9,13 +9,14 @@ from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbou
     plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
     get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d, plot3D_performance_colors, plot2D_performance_colors
 
+epochs = 500
 
-os.chdir('/home/stepan/PycharmProjects/BIOIBFO25L/')
-DATA_ROOT = '/media/stepan/Seagate/'
+os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
+DATA_ROOT = '/media/grinek/Seagate/'
 DATA_DIR = DATA_ROOT + 'CyTOFdataPreprocess/'
 source_dir = DATA_ROOT + 'Real_sets/'
-list_of_inputs = ['Levine32euclid_not_scaled.npz',
-'Pr_008_1_Unstim_euclid_not_scaled.npz',    'Shenkareuclid_not_scaled.npz']
+list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
+'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
 
 # Compute performance for DCAE
 z_dir  = DATA_ROOT + "Real_sets/DCAE_output/"
@@ -30,7 +31,7 @@ for bl in list_of_inputs:
     lbls = npzfile['lbls']
 
     # read DCAE output
-    npz_res=np.load(z_dir + '/' + str(bl) + '_latent_rep_3D.npz')
+    npz_res=np.load(z_dir + '/' + str(bl) + 'epochs' +str(epochs) + '_latent_rep_3D.npz')
     z= npz_res['z']
 
     MSS = neighbour_marker_similarity_score_per_cell(z, aFrame, kmax=90, num_cores=16)
@@ -92,18 +93,18 @@ for bl in list_of_inputs:
     np.savez(outfile, MSS0=MSS[0], LSSS0=LSSS[0], MSS1=MSS[1], LSSS1=LSSS[1])
 
 #create MSS_LSSS graphs######STPPED HERE
-PLOTS = DATA_ROOT + "Artificial_sets/PLOTS/"
-bor_res_dirs = [DATA_ROOT + "Artificial_sets/DCAE_output/Performance/", DATA_ROOT + "Artificial_sets/UMAP_output/Performance/",DATA_ROOT + "Artificial_sets/SAUCIE_output/Performance/"]
+PLOTS = DATA_ROOT + "Real_sets/PLOTS/"
+bor_res_dirs = [DATA_ROOT + "Real_sets/DCAE_output/Performance/", DATA_ROOT + "Real_sets/UMAP_output/Performance/",DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"]
 methods = ['DCAE', 'UMAP', 'SAUCIE']
-dir = bor_res_dirs[0]
+i= 0
 bl  =list_of_inputs[0]
 
 
 k=30
 df = pd.DataFrame()
 for i in range(3):
-    for bl in list_of_branches:
-        outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
+    for bl in list_of_inputs:
+        outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'# STOPPED Here
         npz_res =  np.load(outfile)
         #MSS0 = npz_res['MSS0'][k]
         MSS1 = npz_res['MSS1']
@@ -114,7 +115,9 @@ for i in range(3):
         #discontinuity =np.median(discontinuity)
         #manytoone= np.median(manytoone)
         line = pd.DataFrame([[methods[i], str(bl), MSS0, LSSS0]],   columns =['method','branch','MSS','LSSS'])
-        df=  df.append(line)
+        df =  df.append(line)
+
+
 
 
 import seaborn as sns

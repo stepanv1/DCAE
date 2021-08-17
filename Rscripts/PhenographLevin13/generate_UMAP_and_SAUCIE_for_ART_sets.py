@@ -18,8 +18,8 @@ pio.renderers.default = "browser"
 from  utils_evaluation import plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, show3d
 
 
-os.chdir('/home/stepan/PycharmProjects/BIOIBFO25L/')
-DATA_ROOT = '/media/stepan/Seagate/'
+os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
+DATA_ROOT = '/media/grinek/Seagate/'
 
 #UMAP
 output_dir =  DATA_ROOT + "Artificial_sets/UMAP_output/"
@@ -56,8 +56,8 @@ for bl in list_of_branches:
 output_dir =  DATA_ROOT + "Artificial_sets/SAUCIE_output/"
 
 import sys
-sys.path.append("/home/stepan/PycharmProjects/BIOIBFO25L/SAUCIE")
-sys.path.append("/home/stepan/PycharmProjects/BIOIBFO25L")
+sys.path.append("/home/grinek/PycharmProjects/BIOIBFO25L/SAUCIE")
+sys.path.append("/home/grinek/PycharmProjects/BIOIBFO25L")
 import SAUCIE
 from importlib import reload
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
