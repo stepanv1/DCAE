@@ -10,8 +10,8 @@ from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbou
     get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d, plot3D_performance_colors, plot2D_performance_colors
 
 
-os.chdir('/home/stepan/PycharmProjects/BIOIBFO25L/')
-DATA_ROOT = '/media/stepan/Seagate/'
+os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
+DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
 
@@ -107,14 +107,17 @@ for i in range(3):
 
 import seaborn as sns
 import matplotlib.pyplot as plt
-
+import matplotlib
+matplotlib.use('PS')
 
 sns.set(rc={'figure.figsize':(14, 4)})
 g = sns.barplot(x='branch', y='discontinuity', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS + "Discontinuity.png")
+plt.savefig(PLOTS + "Discontinuity.eps", format='eps', dpi = 350)
+plt.close()
 
 g = sns.barplot(x='branch', y='manytoone', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.set(ylim=(0.34, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS + "Manytoone.png")
+plt.savefig(PLOTS + "Manytoone.eps", format='eps', dpi = 350)
+plt.close()
