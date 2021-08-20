@@ -25,13 +25,13 @@ output_dir =  DATA_ROOT + "Real_sets/DCAE_output/Performance/"
 for bl in list_of_inputs:
     #read data
     infile = DATA_DIR  + bl
-    npzfile = np.load(infile)
+    npzfile = np.load(infile,  allow_pickle=True)
     aFrame = npzfile['aFrame'];
     Idx = npzfile['Idx']
     lbls = npzfile['lbls']
 
     # read DCAE output
-    npz_res=np.load(z_dir + '/' + str(bl) + 'epochs' +str(epochs) + '_latent_rep_3D.npz')
+    npz_res=np.load(z_dir + '/' + str(bl) + 'epochs' +str(epochs) + '_latent_rep_3D.npz',  allow_pickle=True)
     z= npz_res['z']
 
     MSS = neighbour_marker_similarity_score_per_cell(z, aFrame, kmax=90, num_cores=16)
@@ -41,19 +41,19 @@ for bl in list_of_inputs:
     np.savez(outfile, MSS0=MSS[0], LSSS0= LSSS[0], MSS1=MSS[1], LSSS1= LSSS[1])
 
 # Compute performance for UMAP
-z_dir  = DATA_ROOT + "Artificial_sets/UMAP_output/"
-output_dir =  DATA_ROOT + "Artificial_sets/UMAP_output/Performance"
+z_dir  = DATA_ROOT + "Real_sets/UMAP_output/"
+output_dir =  DATA_ROOT + "Real_sets/UMAP_output/Performance"
 #bl = list_of_branches[1]
 for bl in list_of_inputs:
     #read data
     infile = DATA_DIR  + bl
-    npzfile = np.load(infile)
+    npzfile = np.load(infile,  allow_pickle=True)
     aFrame = npzfile['aFrame'];
     Idx = npzfile['Idx']
     lbls = npzfile['lbls']
 
     # read DCAE output
-    npz_res = np.load(z_dir + str(bl) + '_UMAP_rep_2D.npz')
+    npz_res = np.load(z_dir + str(bl) + '_UMAP_rep_2D.npz',  allow_pickle=True)
     z = npz_res['z']
     #divide by max_r and multiply by 4 pi to level field with DCAE
     S_pr= (np.max(z[:,0])-np.min(z[:,0]))*(np.max(z[:,1])-np.min(z[:,1]))
@@ -66,13 +66,13 @@ for bl in list_of_inputs:
     np.savez(outfile, MSS0=MSS[0], LSSS0=LSSS[0], MSS1=MSS[1], LSSS1=LSSS[1])
 
 # Compute performance for SAUCIE
-z_dir = DATA_ROOT + "Artificial_sets/SAUCIE_output/"
-output_dir =  DATA_ROOT + "Artificial_sets/SAUCIE_output/Performance"
+z_dir = DATA_ROOT + "Real_sets/SAUCIE_output/"
+output_dir =  DATA_ROOT + "Real_sets/SAUCIE_output/Performance"
 #bl = list_of_branches[1]
 for bl in list_of_inputs:
     #read data
     infile = DATA_DIR  + bl
-    npzfile = np.load(infile)
+    npzfile = np.load(infile,  allow_pickle=True)
     aFrame = npzfile['aFrame'];
     Dist = npzfile['Dist']
     Idx = npzfile['Idx']
@@ -80,7 +80,7 @@ for bl in list_of_inputs:
     lbls = npzfile['lbls']
 
     # read DCAE output
-    npz_res = np.load(z_dir + '/' + str(bl) + '_SAUCIE_rep_2D.npz')
+    npz_res = np.load(z_dir + '/' + str(bl) + '_SAUCIE_rep_2D.npz',  allow_pickle=True)
     z = npz_res['z']
     # divide by max_r and multiply by 4 pi to level field with DCAE
     S_pr = (np.max(z[:, 0]) - np.min(z[:, 0])) * (np.max(z[:, 1]) - np.min(z[:, 1]))
@@ -105,7 +105,7 @@ df = pd.DataFrame()
 for i in range(3):
     for bl in list_of_inputs:
         outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'# STOPPED Here
-        npz_res =  np.load(outfile)
+        npz_res =  np.load(outfile,  allow_pickle=True)
         #MSS0 = npz_res['MSS0'][k]
         MSS1 = npz_res['MSS1']
         #LSSS0 = npz_res['LSSS0'][k]
