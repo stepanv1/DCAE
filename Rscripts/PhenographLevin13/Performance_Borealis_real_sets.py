@@ -1,5 +1,5 @@
 '''
-Compute MSS and LSS performance measures on DCAE, UMAP and
+Compute mmd-based paerformance scores performance measures on DCAE, UMAP and SAUCIE
 '''
 import math
 import pandas as pd
@@ -21,7 +21,7 @@ list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
 # Compute performance for DCAE
 z_dir  = DATA_ROOT + "Real_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Real_sets/DCAE_output/Performance/"
-#bl = list_of_inputs[0]
+#bl = list_of_branches[1]
 for bl in list_of_inputs:
     #read data
     infile = DATA_DIR  + bl
@@ -31,14 +31,13 @@ for bl in list_of_inputs:
     lbls = npzfile['lbls']
 
     # read DCAE output
-    npz_res=np.load(z_dir + '/' + str(bl) + 'epochs' +str(epochs) + '_latent_rep_3D.npz',  allow_pickle=True)
-    z= npz_res['z']
+    npz_res = np.load(z_dir + '/' + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz', allow_pickle=True)
+    z = npz_res['z']
 
-    MSS = neighbour_marker_similarity_score_per_cell(z, aFrame, kmax=90, num_cores=16)
-    LSSS = neighbour_onetomany_score(z, Idx, kmax=90, num_cores=16)
+    discontinuity, manytoone = get_wsd_scores(aFrame, z, 90, num_meandist=10000, compute_knn_x=False, x_knn=Idx)
 
-    outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
-    np.savez(outfile, MSS0=MSS[0], LSSS0= LSSS[0], MSS1=MSS[1], LSSS1= LSSS[1])
+    outfile = output_dir + '/' + str(bl) + '_BOREALIS_PerformanceMeasures.npz'
+    np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
 
 # Compute performance for UMAP
 z_dir  = DATA_ROOT + "Real_sets/UMAP_output/"
@@ -59,11 +58,10 @@ for bl in list_of_inputs:
     S_pr= (np.max(z[:,0])-np.min(z[:,0]))*(np.max(z[:,1])-np.min(z[:,1]))
     z=z / S_pr * 4 * math.pi
 
-    MSS = neighbour_marker_similarity_score_per_cell(z, aFrame, kmax=90, num_cores=16)
-    LSSS = neighbour_onetomany_score(z, Idx, kmax=90, num_cores=16)
+    discontinuity, manytoone = get_wsd_scores(aFrame, z, 90, num_meandist=10000, compute_knn_x=False, x_knn=Idx)
 
-    outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
-    np.savez(outfile, MSS0=MSS[0], LSSS0=LSSS[0], MSS1=MSS[1], LSSS1=LSSS[1])
+    outfile = output_dir + '/' + str(bl) + '_BOREALIS_PerformanceMeasures.npz'
+    np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
 
 # Compute performance for SAUCIE
 z_dir = DATA_ROOT + "Real_sets/SAUCIE_output/"
@@ -86,38 +84,28 @@ for bl in list_of_inputs:
     S_pr = (np.max(z[:, 0]) - np.min(z[:, 0])) * (np.max(z[:, 1]) - np.min(z[:, 1]))
     z = z / S_pr * 4 * math.pi
 
-    MSS = neighbour_marker_similarity_score_per_cell(z, aFrame, kmax=90, num_cores=16)
-    LSSS = neighbour_onetomany_score(z, Idx, kmax=90, num_cores=16)
+    discontinuity, manytoone = get_wsd_scores(aFrame, z, 90, num_meandist=10000, compute_knn_x=False, x_knn=Idx)
 
-    outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
-    np.savez(outfile, MSS0=MSS[0], LSSS0=LSSS[0], MSS1=MSS[1], LSSS1=LSSS[1])
+    outfile = output_dir + '/' + str(bl) + '_BOREALIS_PerformanceMeasures.npz'
+    np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
 
-#create MSS_LSSS graphs######STPPED HERE
+#create Borealis graphs
 PLOTS = DATA_ROOT + "Real_sets/PLOTS/"
 bor_res_dirs = [DATA_ROOT + "Real_sets/DCAE_output/Performance/", DATA_ROOT + "Real_sets/UMAP_output/Performance/",DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"]
 methods = ['DCAE', 'UMAP', 'SAUCIE']
-i= 0
-bl  =list_of_inputs[0]
-
-
-k=30
+dir = bor_res_dirs[0]
+#bl  = list_of_branches[0]
 df = pd.DataFrame()
 for i in range(3):
     for bl in list_of_inputs:
-        outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'# STOPPED Here
+        outfile = bor_res_dirs[i] + '/' + str(bl) + '_BOREALIS_PerformanceMeasures.npz'
         npz_res =  np.load(outfile,  allow_pickle=True)
-        #MSS0 = npz_res['MSS0'][k]
-        MSS1 = npz_res['MSS1']
-        #LSSS0 = npz_res['LSSS0'][k]
-        MSS0 = np.median(MSS1[k,:])
-        LSSS1 = npz_res['LSSS1']
-        LSSS0 = np.median(LSSS1[k, :])
-        #discontinuity =np.median(discontinuity)
-        #manytoone= np.median(manytoone)
-        line = pd.DataFrame([[methods[i], str(bl), MSS0, LSSS0]],   columns =['method','Set','MSS','LSSS'])
-        df =  df.append(line)
-
-
+        discontinuity = npz_res['discontinuity']
+        manytoone = npz_res['manytoone']
+        discontinuity =np.median(discontinuity)
+        manytoone= np.median(manytoone)
+        line = pd.DataFrame([[methods[i], str(bl), discontinuity, manytoone]],   columns =['method','Set','discontinuity','manytoone'])
+        df=  df.append(line)
 
 
 import seaborn as sns
@@ -132,14 +120,13 @@ import matplotlib
 matplotlib.use('PS')
 
 sns.set(rc={'figure.figsize':(14, 4)})
-g = sns.barplot(x='Set', y='MSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
-g.set(ylim=(0.25, None))
+g = sns.barplot(x='Set', y='discontinuity', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-g.figure.savefig(PLOTS +'k_'+str(k)+'_'+ "MSS.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + "Discontinuity.eps", format='eps', dpi = 350)
 plt.close()
 
-g2 = sns.barplot(x='Set', y='LSSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
-g2.set(ylim=(0, None))
+g2 = sns.barplot(x='Set', y='manytoone', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
+g2.set(ylim=(0.05, None))
 g2.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-g2.figure.savefig(PLOTS +'k_'+str(k)+'_'+ "LSSS.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + "Manytoone.eps", format='eps', dpi = 350)
 plt.close()
