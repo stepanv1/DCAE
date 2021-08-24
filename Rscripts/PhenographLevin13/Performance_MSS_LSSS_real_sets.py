@@ -143,3 +143,62 @@ g2.set(ylim=(0, None))
 g2.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
 g2.figure.savefig(PLOTS +'k_'+str(k)+'_'+ "LSSS.eps", format='eps', dpi = 350)
 plt.close()
+
+# plots at each k
+PAPERPLOTS  = './PAPERPLOTS/'
+bor_res_dirs = [DATA_ROOT + "Real_sets/DCAE_output/Performance/", DATA_ROOT + "Real_sets/UMAP_output/Performance/",DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"]
+list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
+'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
+
+df = pd.DataFrame()
+bl = list_of_inputs[0]
+
+for bl in list_of_inputs:
+    measures = {key: [] for key in methods}
+    for i in range(3):
+        outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'  # STOPPED Here
+        npz_res = np.load(outfile, allow_pickle=True)
+        # MSS0 = npz_res['MSS0'][k]
+        MSS1 = npz_res['MSS1']
+        # LSSS0 = npz_res['LSSS0'][k]
+        MSS0 = np.median(MSS1, axis=1)
+        LSSS1 = npz_res['LSSS1']
+        LSSS0 = np.median(LSSS1, axis=1)
+        measures[methods[i]] = [MSS0, LSSS0]
+
+    df_simMSS = pd.DataFrame({'k': range(0, 91)[1:], 'DCAE': measures['DCAE'][0][1:],
+                           'SAUCIE':  measures['SAUCIE'][0][1:],
+                           'UMAP':  measures['UMAP'][0][1:]})
+    plt.plot('k', 'DCAE', data=df_simMSS, marker='o', markersize=5, color='skyblue', linewidth=3)
+    plt.plot('k', 'SAUCIE', data=df_simMSS, marker='v', color='orange', linewidth=2)
+    plt.plot('k', 'UMAP', data=df_simMSS, marker='x', color='olive', linewidth=2)
+    plt.legend()
+    plt.savefig(PLOTS + bl + 'performance_marker_similarity_score.png')
+    plt.show()
+    plt.clf()
+
+    df_simMSS = pd.DataFrame({'k': range(0, 91)[1:], 'DCAE': measures['DCAE'][1][1:],
+                              'SAUCIE': measures['SAUCIE'][1][1:],
+                              'UMAP': measures['UMAP'][1][1:]})
+    plt.plot('k', 'DCAE', data=df_simMSS, marker='o', markersize=5, color='skyblue', linewidth=3)
+    plt.plot('k', 'SAUCIE', data=df_simMSS, marker='v', color='orange', linewidth=2)
+    plt.plot('k', 'UMAP', data=df_simMSS, marker='x', color='olive', linewidth=2)
+    plt.legend()
+    plt.savefig(PLOTS + bl + 'performance_marker_onetomany_score.png')
+    plt.show()
+    plt.clf()
+
+
+
+# tables move to Borealis measures file
+df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.1160, 0.1667, 0.1321], 'discontinuity': [0.0414, 0.0113, 0.0052]})
+df_BORAI.to_csv(PAPERPLOTS  + 'Pregnancy_' + 'Borealis_measures.csv', index=False)
+
+
+
+
+
+
+
+
+

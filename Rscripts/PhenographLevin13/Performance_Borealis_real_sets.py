@@ -130,3 +130,20 @@ g2.set(ylim=(0.05, None))
 g2.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
 plt.savefig(PLOTS + "Manytoone.eps", format='eps', dpi = 350)
 plt.close()
+
+# as tables
+
+# tables move to Borealis measures file
+df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.105856, 0.141267, 0.118188], 'discontinuity': [0.002820, 0.005547, 0.000888]})
+df_BORAI.to_csv(PLOTS  + 'Levine32_' + 'Borealis_measures.csv', index=False)
+
+df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.165165, 0.188827, 0.183314], 'discontinuity': [0.093898, 0.012045, 0.005639]})
+df_BORAI.to_csv(PLOTS + 'Pregnancy_' + 'Borealis_measures.csv', index=False)
+
+
+
+df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.070870, 0.003969, 0.009664 ], 'discontinuity': [0.307553, 0.307055, 0.315236]})
+df_BORAI.to_csv(PLOTS  + 'Shenkar_' + 'Borealis_measures.csv', index=False)
+
+
+
