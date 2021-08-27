@@ -26,14 +26,14 @@ for bl in list_of_branches:
     infile = source_dir + 'set_' + str(bl) + '.npz'
     npzfile = np.load(infile)
     aFrame = npzfile['aFrame'];
-    Idx = npzfile['Idx']
+    Idx = npzfile['Idx'][:,:30]
     lbls = npzfile['lbls']
 
     # read DCAE output
     npz_res=np.load(z_dir + '/' + str(bl) + '_latent_rep_3D.npz')
     z= npz_res['z']
 
-    discontinuity, manytoone = get_wsd_scores_normalized(aFrame, z, 90, num_meandist=10000, compute_knn_x=False, x_knn=Idx, nc=16)
+    discontinuity, manytoone = get_wsd_scores_normalized(aFrame, z, 30, num_meandist=10000, compute_knn_x=False, x_knn=Idx, nc=16)
 
     outfile = output_dir + '/' + str(bl) + '_BOREALIS_PerformanceMeasures_normalized.npz'
     np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
@@ -49,7 +49,7 @@ for bl in list_of_branches:
     infile = source_dir + 'set_' + str(bl) + '.npz'
     npzfile = np.load(infile)
     aFrame = npzfile['aFrame'];
-    Idx = npzfile['Idx']
+    Idx = npzfile['Idx'][:,:30]
     lbls = npzfile['lbls']
 
     # read DCAE output
@@ -57,7 +57,7 @@ for bl in list_of_branches:
     z = npz_res['z']
 
 
-    discontinuity, manytoone = get_wsd_scores_normalized(aFrame, z, 90, num_meandist=10000, compute_knn_x=False, x_knn=Idx, nc=16)
+    discontinuity, manytoone = get_wsd_scores_normalized(aFrame, z, 30, num_meandist=10000, compute_knn_x=False, x_knn=Idx, nc=16)
 
     outfile = output_dir + '/' + str(bl) + '_BOREALIS_PerformanceMeasures_normalized.npz'
     np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
@@ -74,7 +74,7 @@ for bl in list_of_branches:
     npzfile = np.load(infile)
     aFrame = npzfile['aFrame'];
     Dist = npzfile['Dist']
-    Idx = npzfile['Idx']
+    Idx = npzfile['Idx'][:,:30]
     neibALL = npzfile['neibALL']
     lbls = npzfile['lbls']
 
@@ -83,7 +83,7 @@ for bl in list_of_branches:
     z = npz_res['z']
     # divide by max_r and multiply by 4 pi to level field with DCAE
 
-    discontinuity, manytoone = get_wsd_scores_normalized(aFrame, z, 90, num_meandist=10000, compute_knn_x=False, x_knn=Idx, nc=16)
+    discontinuity, manytoone = get_wsd_scores_normalized(aFrame, z, 30, num_meandist=10000, compute_knn_x=False, x_knn=Idx, nc=16)
 
     outfile = output_dir + '/' + str(bl) + '_BOREALIS_PerformanceMeasures_normalized.npz'
     np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
@@ -123,3 +123,11 @@ g.set(ylim=(0.34, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
 plt.savefig(PLOTS + "Manytoone_normalized.eps", format='eps', dpi = 350)
 plt.close()
+
+
+
+
+
+
+
+
