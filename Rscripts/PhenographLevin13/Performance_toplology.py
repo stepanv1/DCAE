@@ -52,8 +52,8 @@ def get_topology_match_score(topolist, topolist_estimate):
 
 
 
-os.chdir('/home/stepan/PycharmProjects/BIOIBFO25L/')
-DATA_ROOT = '/media/stepan/Seagate/'
+os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
+DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
 
@@ -110,7 +110,7 @@ for bl in list_of_branches:
     outfile = output_dir + '/' + str(bl) + '_Topological_PerformanceMeasures.npz'
     np.savez(outfile, top_score= top_score)
 
-#create Borealis graphs
+#create  graphs
 PLOTS = DATA_ROOT + "Artificial_sets/PLOTS/"
 bor_res_dirs = [DATA_ROOT + "Artificial_sets/DCAE_output/Performance/", DATA_ROOT + "Artificial_sets/UMAP_output/Performance/",DATA_ROOT + "Artificial_sets/SAUCIE_output/Performance/"]
 methods = ['DCAE', 'UMAP', 'SAUCIE']
@@ -129,10 +129,11 @@ for i in range(3):
 
 import seaborn as sns
 import matplotlib.pyplot as plt
-
+import matplotlib
+matplotlib.use('PS')
 
 sns.set(rc={'figure.figsize':(14, 4)})
 g = sns.barplot(x='branch', y='score', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS + "TopoScore_mean.png")
+plt.savefig(PLOTS + "TopoScore_mean.eps", format='eps', dpi = 350)
 

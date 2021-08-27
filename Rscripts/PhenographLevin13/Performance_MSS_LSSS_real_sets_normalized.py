@@ -1,12 +1,13 @@
 '''
-Compute MSS and LSS performance measures on DCAE, UMAP and
+Compute MSS and LSS performance measures on DCAE, UMAP and SAUCIE
+using normalized measures
 '''
 import math
 import pandas as pd
 import numpy as np
 import os
 from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
-    plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
+    plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score_normalized, \
     get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d, plot3D_performance_colors, plot2D_performance_colors
 
 epochs = 500
@@ -35,9 +36,9 @@ for bl in list_of_inputs:
     z= npz_res['z']
 
     MSS = neighbour_marker_similarity_score_per_cell(z, aFrame, kmax=90, num_cores=16)
-    LSSS = neighbour_onetomany_score(z, Idx, kmax=90, num_cores=16)
+    LSSS = neighbour_onetomany_score_normalized(z, Idx, kmax=90, num_cores=16)
 
-    outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
+    outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
     np.savez(outfile, MSS0=MSS[0], LSSS0= LSSS[0], MSS1=MSS[1], LSSS1= LSSS[1])
 
 # Compute performance for UMAP
@@ -55,14 +56,11 @@ for bl in list_of_inputs:
     # read UMAP output
     npz_res = np.load(z_dir + str(bl) + '_UMAP_rep_2D.npz',  allow_pickle=True)
     z = npz_res['z']
-    #divide by max_r and multiply by 4 pi to level field with DCAE
-    S_pr= (np.max(z[:,0])-np.min(z[:,0]))*(np.max(z[:,1])-np.min(z[:,1]))
-    z=z / S_pr * 4 * math.pi
 
     MSS = neighbour_marker_similarity_score_per_cell(z, aFrame, kmax=90, num_cores=16)
-    LSSS = neighbour_onetomany_score(z, Idx, kmax=90, num_cores=16)
+    LSSS = neighbour_onetomany_score_normalized(z, Idx, kmax=90, num_cores=16)
 
-    outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
+    outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
     np.savez(outfile, MSS0=MSS[0], LSSS0=LSSS[0], MSS1=MSS[1], LSSS1=LSSS[1])
 
 # Compute performance for SAUCIE
@@ -82,14 +80,11 @@ for bl in list_of_inputs:
     # read DCAE output
     npz_res = np.load(z_dir + '/' + str(bl) + '_SAUCIE_rep_2D.npz',  allow_pickle=True)
     z = npz_res['z']
-    # divide by max_r and multiply by 4 pi to level field with DCAE
-    S_pr = (np.max(z[:, 0]) - np.min(z[:, 0])) * (np.max(z[:, 1]) - np.min(z[:, 1]))
-    z = z / S_pr * 4 * math.pi
 
     MSS = neighbour_marker_similarity_score_per_cell(z, aFrame, kmax=90, num_cores=16)
-    LSSS = neighbour_onetomany_score(z, Idx, kmax=90, num_cores=16)
+    LSSS = neighbour_onetomany_score_normalized(z, Idx, kmax=90, num_cores=16)
 
-    outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
+    outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
     np.savez(outfile, MSS0=MSS[0], LSSS0=LSSS[0], MSS1=MSS[1], LSSS1=LSSS[1])
 
 #create MSS_LSSS graphs######STPPED HERE
@@ -104,7 +99,7 @@ k=30
 df = pd.DataFrame()
 for i in range(3):
     for bl in list_of_inputs:
-        outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'# STOPPED Here
+        outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'# STOPPED Here
         npz_res =  np.load(outfile,  allow_pickle=True)
         #MSS0 = npz_res['MSS0'][k]
         MSS1 = npz_res['MSS1']
@@ -112,8 +107,7 @@ for i in range(3):
         MSS0 = np.median(MSS1[k,:])
         LSSS1 = npz_res['LSSS1']
         LSSS0 = np.median(LSSS1[k, :])
-        #discontinuity =np.median(discontinuity)
-        #manytoone= np.median(manytoone)
+
         line = pd.DataFrame([[methods[i], str(bl), MSS0, LSSS0]],   columns =['method','Set','MSS','LSSS'])
         df =  df.append(line)
 
@@ -135,13 +129,14 @@ sns.set(rc={'figure.figsize':(14, 4)})
 g = sns.barplot(x='Set', y='MSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.set(ylim=(0.25, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-g.figure.savefig(PLOTS +'k_'+str(k)+'_'+ "MSS.eps", format='eps', dpi = 350)
+g.figure.savefig(PLOTS +'k_'+str(k)+'_'+ "MSS_normalized.eps", format='eps', dpi = 350)
 plt.close()
+# the bug is herew
 
 g2 = sns.barplot(x='Set', y='LSSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g2.set(ylim=(0, None))
 g2.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-g2.figure.savefig(PLOTS +'k_'+str(k)+'_'+ "LSSS.eps", format='eps', dpi = 350)
+g2.figure.savefig(PLOTS +'k_'+str(k)+'_'+ "LSSS_normalized.eps", format='eps', dpi = 350)
 plt.close()
 
 # plots at each k
@@ -156,7 +151,7 @@ bl = list_of_inputs[0]
 for bl in list_of_inputs:
     measures = {key: [] for key in methods}
     for i in range(3):
-        outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'  # STOPPED Here
+        outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'  # STOPPED Here
         npz_res = np.load(outfile, allow_pickle=True)
         # MSS0 = npz_res['MSS0'][k]
         MSS1 = npz_res['MSS1']
@@ -166,25 +161,26 @@ for bl in list_of_inputs:
         LSSS0 = np.median(LSSS1, axis=1)
         measures[methods[i]] = [MSS0, LSSS0]
 
-    df_simMSS = pd.DataFrame({'k': range(0, 91)[1:], 'DCAE': measures['DCAE'][0][1:],
-                           'SAUCIE':  measures['SAUCIE'][0][1:],
-                           'UMAP':  measures['UMAP'][0][1:]})
+    df_simMSS = pd.DataFrame({'k': range(0, 90)[:], 'DCAE': measures['DCAE'][0][:],
+                           'SAUCIE':  measures['SAUCIE'][0][:],
+                           'UMAP':  measures['UMAP'][0][:]})
     plt.plot('k', 'DCAE', data=df_simMSS, marker='o', markersize=5, color='skyblue', linewidth=3)
     plt.plot('k', 'SAUCIE', data=df_simMSS, marker='v', color='orange', linewidth=2)
     plt.plot('k', 'UMAP', data=df_simMSS, marker='x', color='olive', linewidth=2)
     plt.legend()
-    plt.savefig(PLOTS + bl + 'performance_marker_similarity_score.png')
+    plt.savefig(PLOTS + bl + 'performance_marker_similarity_score_normalized.eps', format='eps', dpi = 350)
     plt.show()
     plt.clf()
 
-    df_simMSS = pd.DataFrame({'k': range(0, 91)[1:], 'DCAE': measures['DCAE'][1][1:],
-                              'SAUCIE': measures['SAUCIE'][1][1:],
-                              'UMAP': measures['UMAP'][1][1:]})
+    df_simMSS = pd.DataFrame({'k': range(0, 90)[:], 'DCAE': measures['DCAE'][1][:],
+                              'SAUCIE': measures['SAUCIE'][1][:],
+                              'UMAP': measures['UMAP'][1][:]})
     plt.plot('k', 'DCAE', data=df_simMSS, marker='o', markersize=5, color='skyblue', linewidth=3)
     plt.plot('k', 'SAUCIE', data=df_simMSS, marker='v', color='orange', linewidth=2)
     plt.plot('k', 'UMAP', data=df_simMSS, marker='x', color='olive', linewidth=2)
     plt.legend()
-    plt.savefig(PLOTS + bl + 'performance_marker_onetomany_score.png')
+    plt.savefig(PLOTS + bl + 'performance_marker_onetomany_score_normalized.eps', format='eps', dpi = 350)
     plt.show()
     plt.clf()
+
 

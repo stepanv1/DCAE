@@ -22,6 +22,13 @@ import ot
 import faiss
 import math
 
+import random
+
+import numpy as np
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+
+
 import ctypes
 from numpy.ctypeslib import ndpointer
 lib = ctypes.cdll.LoadLibrary("/home/grinek/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
@@ -276,56 +283,77 @@ def compare_neighbours(idx1, idx2, kmax=90):
 
 #compare neighbourhoof assignments
 def neighbour_marker_similarity_score(z, data, kmax=30, num_cores=12):
-    kmax = kmax + 1
     neib_z = find_neighbors(z, kmax, metric='euclidean')['idx']
     nrow = data.shape[0]
     match =  np.zeros(kmax, dtype = 'float')
     def score_per_i(i):
         print(i)
-        match_k = sum([np.sqrt(np.sum((np.mean(data[neib_z[j, :i], :], axis=0) - data[j, :]) ** 2)) for j in range(nrow)])
+        match_k = sum([np.sqrt(np.sum((np.mean(data[neib_z[j, :(i+1)], :], axis=0) - data[j, :]) ** 2)) for j in range(nrow)])
         return match_k / nrow
     results = Parallel(n_jobs=num_cores, verbose=0, backend="threading")(
-          delayed(score_per_i)(i) for i in range(1,kmax))
-    match[1:]  = results
+          delayed(score_per_i)(i) for i in range(0,kmax))
+    match = results
     return match
 
 def neighbour_onetomany_score(z, idx, kmax=30, num_cores=12):
-    kmax=kmax + 1
     nrow = z.shape[0]
     match =  np.zeros(kmax, dtype = 'float')
     per_cell_match = np.zeros((kmax, nrow), dtype = 'float')
     def score_per_i(i):
         print(i)
-        per_cell= np.array([np.sqrt(np.sum((np.mean(z[idx[j, :i], :], axis=0) - z[j, :]) ** 2)) for j in range(nrow)])
+        per_cell= np.array([np.sqrt(np.sum((np.mean(z[idx[j, :(i+1)], :], axis=0) - z[j, :]) ** 2)) for j in range(nrow)])
         match_k = np.sum(per_cell)
         return [match_k / nrow, per_cell]
     results = Parallel(n_jobs=num_cores, verbose=0, backend="threading")(
-          delayed(score_per_i)(i) for i in range(1,kmax))
-    for i in range(1,kmax):
-        match[i] = results[i-1][0]
-    for i in range(1,kmax):
-        per_cell_match[i,:] = results[i-1][1]
+          delayed(score_per_i)(i) for i in range(0,kmax))
+    for i in range(0,kmax):
+        match[i] = results[i][0]
+    for i in range(0,kmax):
+        per_cell_match[i,:] = results[i][1]
+    return [match, per_cell_match]
+
+def neighbour_onetomany_score_normalized(z, idx, kmax=30, num_cores=16):
+    #divide MSS by max distance in the neighbourhood in y-space
+    #kmax=kmax + 1
+    neib_z = find_neighbors(z, kmax, metric='euclidean')['dist']
+    #idx_n = find_neighbors(z, kmax, metric='euclidean')['idx']
+    nrow = z.shape[0]
+    match =  np.zeros(kmax, dtype = 'float')
+    per_cell_match = np.zeros((kmax, nrow), dtype = 'float')
+    def score_per_i(i):
+        print(i)
+        per_cell= np.array([np.sqrt(np.sum((np.mean(z[idx[j, :(i+1)], :], axis=0) - z[j, :]) ** 2))/neib_z[j,i] for j in range(nrow)])
+        #plt.scatter(z[idx[j, :i], :][:,0], z[idx[j, :i], :][:,1], c="blue")
+        #plt.scatter(z[idx_n[j, :i], :][:, 0], z[idx_n[j, :i], :][:, 1], c="red")
+        #plt.hist(per_cell,50) np.median(per_cell)
+        match_k = np.sum(per_cell)
+        return [match_k / nrow, per_cell]
+    results = Parallel(n_jobs=num_cores, verbose=0, backend="threading")(
+          delayed(score_per_i)(i) for i in range(0,kmax))
+    for i in range(0,kmax):
+        match[i] = results[i][0]
+    for i in range(0,kmax):
+        per_cell_match[i,:] = results[i][1]
+    #plt.plot(match, c="red")
     return [match, per_cell_match]
 
 
-
 def neighbour_marker_similarity_score_per_cell(z, data, kmax=30, num_cores=12):
-    kmax=kmax + 1
     nrow = z.shape[0]
     neib_z = find_neighbors(z, kmax, metric='euclidean')['idx']
     match =  np.zeros(kmax, dtype = 'float')
     per_cell_match = np.zeros((kmax, nrow), dtype = 'float')
     def score_per_i(i):
         print(i)
-        per_cell= np.array([np.sqrt(np.sum((np.mean(data[neib_z[j, :i], :], axis=0) - data[j, :]) ** 2)) for j in range(nrow)])
+        per_cell= np.array([np.sqrt(np.sum((np.mean(data[neib_z[j, :(i+1)], :], axis=0) - data[j, :]) ** 2)) for j in range(nrow)])
         match_k = np.sum(per_cell)
         return [match_k / nrow, per_cell]
     results = Parallel(n_jobs=num_cores, verbose=0, backend="threading")(
-          delayed(score_per_i)(i) for i in range(1,kmax))
-    for i in range(1,kmax):
-        match[i] = results[i-1][0]
-    for i in range(1,kmax):
-        per_cell_match[i,:] = results[i-1][1]
+          delayed(score_per_i)(i) for i in range(0,kmax))
+    for i in range(0,kmax):
+        match[i] = results[i][0]
+    for i in range(0,kmax):
+        per_cell_match[i,:] = results[i][1]
     return [match, per_cell_match]
 
 
@@ -689,11 +717,7 @@ def show3d(data, t, ax, view_init=None, cmap=plt.cm.Spectral, linewidth=0.,
         ax.view_init(*view_init)
     tickoff(ax)
 # from wsd.py
-import random
 
-import numpy as np
-from scipy.spatial.distance import pdist
-from scipy.spatial.distance import squareform
 
 
 def get_self_knn_idx(data, k):
@@ -710,7 +734,7 @@ def get_self_knn_idx(data, k):
         index = faiss.IndexFlatL2(dim)
     index.add(data)
 
-    _, kidx = index.search(data, k + 1)
+    zzz, kidx = index.search(data, k + 1)
 
     return kidx[:, 1:]
 
@@ -755,6 +779,42 @@ def get_wsd_scores(x, y, k, num_meandist=None, compute_knn_x=False, x_knn=None):
     )
 
     return discontiuity, manytoone
+
+
+def get_emd2_normalized(pts1, pts2):
+    distmat = ot.dist(pts1, pts2, metric = 'euclidean') #by deafault squared euclidean
+    a = ot.unif(len(pts1))
+    b = ot.unif(len(pts2))
+    return ot.emd2(a, b, distmat)
+
+def get_wsd_scores_normalized(x, y, k, num_meandist=None, compute_knn_x=False, x_knn=None, nc=12):
+    if compute_knn_x:
+        kidx_x = get_self_knn_idx(x, k)
+    else:
+        kidx_x = x_knn
+    #get distanceas and knn in y-space
+    x = normalize_data_by_mean_pdist(x, num_meandist)
+    y = normalize_data_by_mean_pdist(y, num_meandist)
+
+    neib = find_neighbors(y, k, metric='euclidean', cores=nc)
+    dist_y, kidx_y = neib['dist'], neib['idx']
+
+    assert len(kidx_x) == len(kidx_x) == len(x) == len(y)
+
+    discontiuity = np.array(
+        [get_emd2_normalized(y[kidx_x[i]], y[kidx_y[i]])/(dist_y[i,k-1]) for i in range(len(x))]# distance to knn
+    )
+    manytoone = np.array(
+        [get_emd2(x[kidx_x[i]], x[kidx_y[i]]) for i in range(len(x))]
+    )
+
+    return discontiuity, manytoone
+
+
+
+
+
+
 
 # get
 #neib_data = find_neighbors(data, 30, metric='euclidean')
