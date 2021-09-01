@@ -144,11 +144,15 @@ PAPERPLOTS  = './PAPERPLOTS/'
 bor_res_dirs = [DATA_ROOT + "Real_sets/DCAE_output/Performance/", DATA_ROOT + "Real_sets/UMAP_output/Performance/",DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"]
 list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
 'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
-
+names = ['Levine32','Pregnancy', 'Shekhar']
 df = pd.DataFrame()
 bl = list_of_inputs[0]
 
-for bl in list_of_inputs:
+plt.rcParams["figure.figsize"] = (3,1)
+
+k_start = 9
+for n_set in range(3):
+    bl = list_of_inputs[n_set]
     measures = {key: [] for key in methods}
     for i in range(3):
         outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'  # STOPPED Here
@@ -161,25 +165,25 @@ for bl in list_of_inputs:
         LSSS0 = np.median(LSSS1, axis=1)
         measures[methods[i]] = [MSS0, LSSS0]
 
-    df_simMSS = pd.DataFrame({'k': range(0, 90)[:], 'DCAE': measures['DCAE'][0][:],
-                           'SAUCIE':  measures['SAUCIE'][0][:],
-                           'UMAP':  measures['UMAP'][0][:]})
+    df_simMSS = pd.DataFrame({'k': range(k_start  , 90)[:], 'DCAE': measures['DCAE'][0][k_start :],
+                           'SAUCIE':  measures['SAUCIE'][0][k_start :],
+                           'UMAP':  measures['UMAP'][0][k_start :]})
     plt.plot('k', 'DCAE', data=df_simMSS, marker='o', markersize=5, color='skyblue', linewidth=3)
     plt.plot('k', 'SAUCIE', data=df_simMSS, marker='v', color='orange', linewidth=2)
     plt.plot('k', 'UMAP', data=df_simMSS, marker='x', color='olive', linewidth=2)
     plt.legend()
-    plt.savefig(PLOTS + bl + 'performance_marker_similarity_score_normalized.eps', format='eps', dpi = 350)
+    plt.savefig(PLOTS + names[n_set ] + '_' + 'MSS.eps', format='eps', dpi = 350)
     plt.show()
     plt.clf()
 
-    df_simMSS = pd.DataFrame({'k': range(0, 90)[:], 'DCAE': measures['DCAE'][1][:],
-                              'SAUCIE': measures['SAUCIE'][1][:],
-                              'UMAP': measures['UMAP'][1][:]})
+    df_simMSS = pd.DataFrame({'k': range(k_start, 90)[:], 'DCAE': measures['DCAE'][1][k_start:],
+                              'SAUCIE': measures['SAUCIE'][1][k_start:],
+                              'UMAP': measures['UMAP'][1][k_start:]})
     plt.plot('k', 'DCAE', data=df_simMSS, marker='o', markersize=5, color='skyblue', linewidth=3)
     plt.plot('k', 'SAUCIE', data=df_simMSS, marker='v', color='orange', linewidth=2)
     plt.plot('k', 'UMAP', data=df_simMSS, marker='x', color='olive', linewidth=2)
     plt.legend()
-    plt.savefig(PLOTS + bl + 'performance_marker_onetomany_score_normalized.eps', format='eps', dpi = 350)
+    plt.savefig(PLOTS + names[n_set ] + '_' + 'LSSS.eps', format='eps', dpi = 350)
     plt.show()
     plt.clf()
 
