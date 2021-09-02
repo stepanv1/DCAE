@@ -338,7 +338,7 @@ def neighbour_onetomany_score_normalized(z, idx, kmax=30, num_cores=16):
     return [match, per_cell_match]
 
 
-def neighbour_marker_similarity_score_per_cell(z, data, kmax=30, num_cores=12):
+def neighbour_marker_similarity_score_per_cell(z, data, Idx, kmax=30, num_cores=12):
     nrow = z.shape[0]
     neib_z = find_neighbors(z, kmax, metric='euclidean')['idx']
     match =  np.zeros(kmax, dtype = 'float')
@@ -356,27 +356,37 @@ def neighbour_marker_similarity_score_per_cell(z, data, kmax=30, num_cores=12):
         per_cell_match[i,:] = results[i][1]
     return [match, per_cell_match]
 
+# compute manytone ysing jaccard distance
+#data=aFrame
+'''
+def manytoone_jaccard(z, data, Idx, kmax=30, num_cores=12):
+    nrow = z.shape[0]
+    neib_z = find_neighbors(z, kmax, metric='euclidean')['idx']
+    match =  np.zeros(kmax, dtype = 'float')
+    per_cell_match = np.zeros((kmax, nrow), dtype = 'float')
+    def jaccard(a, b):
+        c = np.intersect1d(a,b)
+        return 1-float(len(c)) / (len(a) + len(b) - len(c))
+    def score_per_i(i):
+        print(i)
+        per_cell= np.array([ jaccard(neib_z[j, :(i+1)], Idx[j, :(i+1)]) for j in range(nrow)])
+        match_k = np.sum(per_cell)
+        return [match_k / nrow, per_cell]
+    results = Parallel(n_jobs=num_cores, verbose=0, backend="threading")(
+          delayed(score_per_i)(i) for i in range(0,kmax))
+    for i in range(0,kmax):
+        match[i] = results[i][0]
+    for i in range(0,kmax):
+        per_cell_match[i,:] = results[i][1]
+    return [match, per_cell_match]
+'''
+
+
+
 
 
 #data = aFrame
 #zzz=neighbour_marker_similarity_score(z, data, kmax=90)
-
-'''
-data=aFrame
-idx = find_neighbors(z, k_ = kmax, metric=metric, cores=12)['idx']
-idx = find_neighbors(embedUMAP, k_ = kmax, metric=metric, cores=12)['idx']
-def compute_homogenuity(data, z, idx, kmax=30, metric= 'euclidean'):
-    nrow = idx.shape[0]
-    ncol = idx.shape[1]
-    match =  np.arange(kmax, dtype = 'float')
-    hom_k= np.zeros(kmax)
-    for i in range(1, kmax):
-        hom = sum([sum(np.std(data[idx[j,:(i+1)],:], axis=0)) for j in range(nrow)])/nrow
-        hom_k[i] = hom
-    return hom_k
-hom_kAE = hom_k
-hom_UMAP = hom_k
-'''
 
 #plotly 3D plotting functions
 def plot3D_cluster_colors(z, lbls, camera=None, legend=True, msize=1):

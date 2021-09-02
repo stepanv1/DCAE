@@ -21,7 +21,7 @@ def get_topology_list(bl):
     return topolist
 
 def get_representation_topology(z, lbls):
-    """compute actual , returning 3 nearest 3 neighbours per each cluster in pentagon"""
+    """compute actual , returning 3 nearest neighbours per each cluster in pentagon"""
     #sample each cluster
     l_list= [-7.,  0.,  1.,  2.,  3.,  4.,  5.,  6.]
     indx = random.sample(range(len(lbls)), 5000)
