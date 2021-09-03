@@ -13,22 +13,23 @@ from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbou
     get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d, plot3D_performance_colors, plot2D_performance_colors
 def get_topology_list(bl):
     """ Gets a touple defining branches and creates a list of nearest neighbour clusters"""
-    # basic topology shared by 5 clusters in pentagon
-    topolist = [[1,4], [0,2], [1,3], [2,4], [0,3]]
+    # basic topology shared by 5 clusters in pentagon, nearest neighbours in pentagon and its branches for clusters 0 to 6
+    # for branches, 5 and 6 closest neighbour should bethe  clustr in pentagon to they are attached to
+    topolist = [[1,4], [0,2], [1,3], [2,4], [0,3], bl[0], bl[1]]
     #correct by adding the negbour from bl touple
     topolist[bl[0]].append(5)
     topolist[bl[1]].append(6)
     return topolist
 
 def get_representation_topology(z, lbls):
-    """compute actual , returning 3 nearest neighbours per each cluster in pentagon"""
+    """compute actual, returning 3 nearest neighbours per each cluster in pentagon"""
     #sample each cluster
     l_list= [-7.,  0.,  1.,  2.,  3.,  4.,  5.,  6.]
-    indx = random.sample(range(len(lbls)), 5000)
-    lbls_s = lbls[indx]
-    z_s = z[indx,:]
-    topolist_estimate = [[], [], [], [], []]
-    for i in range(5):
+    #indx = random.sample(range(len(lbls)), 12000)
+    lbls_s = lbls#[indx]
+    z_s = z#[indx,:]
+    topolist_estimate = [[], [], [], [], [], [], []]
+    for i in range(7):
         dist = [np.mean(distance.cdist(z_s[lbls_s==i,:], z_s[lbls_s==label,:])) for label in l_list]
         #dist = [np.sqrt(np.sum((z_s[lbls_s == i, :].mean(0) - z_s[lbls_s == label, :].mean(0))**2)) for label in l_list]
         #get indexes of  closest clusters, and exclude itself, exclude i th cluster
@@ -45,8 +46,11 @@ def get_topology_match_score(topolist, topolist_estimate):
     """compare match computed and prescribed"""
     topolist = [np.array(x) for x in topolist]
     # leave only closest neighbours
-    topolist_estimate = [topolist_estimate[i][:len(topolist[i])] for i in range(len(topolist))]
-    match_score = sum([ len(topolist[i]) - len(np.intersect1d(topolist_estimate[i], topolist[i])) for i in range(len(topolist))])
+    topolist_estimate = [topolist_estimate[i][:len(topolist[i])] if len(topolist[i].shape)!=0  else topolist_estimate[i][0] for i in range(len(topolist))]
+    #match_score = sum([ len(topolist[i]) - len(np.intersect1d(topolist_estimate[i], topolist[i])) for i in range(len(topolist))])
+    match_score = sum(
+        [len(topolist[i]) - len(np.intersect1d(topolist_estimate[i], topolist[i])) if len(topolist[i].shape)!=0
+         else  1- len(np.intersect1d(topolist_estimate[i], topolist[i]))  for i in range(len(topolist))])
     return match_score
 
 
@@ -135,5 +139,5 @@ matplotlib.use('PS')
 sns.set(rc={'figure.figsize':(14, 4)})
 g = sns.barplot(x='branch', y='score', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS + "TopoScore_mean.eps", format='eps', dpi = 350)
-
+plt.savefig(PLOTS + "TopoScore22.eps", format='eps', dpi = 350)
+plt.close()
