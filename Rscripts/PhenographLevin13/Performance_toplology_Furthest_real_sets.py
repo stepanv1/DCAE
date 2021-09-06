@@ -1,5 +1,6 @@
 '''
-Compute tolpological perormance measures in real sets on DCAE, UMAP and SAUCIE, grounds truth is computed
+Compute topological perormance measures in real sets on DCAE, UMAP and SAUCIE, grounds truth is computed as farthest
+cluster
 '''
 import math
 import pandas as pd
@@ -13,9 +14,9 @@ from utils_evaluation import table
 
 def decision(probability):
     return random.random() < probability
-ns_sample = 20000 #size of cluster subsample for distance calculation
+ns_sample = 5000 #size of cluster subsample for distance calculation
 
-def get_real_topology_list(lbls, aFrame):
+def get_real_topology_list_f(lbls, aFrame):
     """ Gets a labels and coordinates in HD and creates a list of nearest neighbour clusters"""
     # k_nn_cl - parameter setting how many nearest neghbout clusters we are tracking
     # exclude ungated
@@ -33,7 +34,8 @@ def get_real_topology_list(lbls, aFrame):
     lbls_s = lbls[indx]
     a_s = aFrame[indx, :]
     topolist_estimateHD = [[] for _ in range(len(l_list))]
-    dist_estimateHD = [[] for _ in range(len(l_list))] # unassigned cluster is labelled at -1 and we do not compute
+    #ncl = len(l_list)
+    #dist_estimateHD = [[] for _ in range(len(l_list))] # unassigned cluster is labelled at -1 and we do not compute
     # nearest neigbours for it
     for i in range(len(l_list)):
         print(i)
@@ -47,12 +49,12 @@ def get_real_topology_list(lbls, aFrame):
         # get top 4
         rank2 = np.array(rank)[np.array(l_list) != np.array(i)]
         l_list2 = np.array(l_list)[np.array(l_list) != np.array(i)]
-        nn_list = l_list2[rank2.argsort()][:k_nn_cl]
+        nn_list = l_list2[rank2.argsort()][-5:-1]
         topolist_estimateHD[i] = nn_list
     return topolist_estimateHD
 
 
-def get_representation_topology(z, lbls):
+def get_representation_topology_f(z, lbls):
     """ Gets a labels and coordinates in LD and creates a list of nearest neighbour clusters"""
     # k_nn_cl - parameter setting how many nearest neghbout clusters we are tracking
     excl = lbls != -1
@@ -81,7 +83,7 @@ def get_representation_topology(z, lbls):
         # get top 4
         rank2 = np.array(rank)[np.array(l_list) != np.array(i)]
         l_list2 = np.array(l_list)[np.array(l_list) != np.array(i)]
-        nn_list = l_list2[rank2.argsort()][:k_nn_cl]
+        nn_list = l_list2[rank2.argsort()][-5:-1]
         topolist_estimate[i] = nn_list
     return topolist_estimate
 
@@ -99,108 +101,105 @@ def get_topology_match_score(topolist, topolist_estimate):
          else 1 - len(np.intersect1d(topolist_estimate[i], topolist[i])) for i in range(len(topolist))])
     return match_score
 
-max_n=5
-for k_nn_cl in range(1,max_n+1):
-    print('max_n=', k_nn_cl)
-    epochs = 500
+epochs = 500
 
-    os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
-    DATA_ROOT = '/media/grinek/Seagate/'
-    DATA_DIR = DATA_ROOT + 'CyTOFdataPreprocess/'
-    source_dir = DATA_ROOT + 'Real_sets/'
-    list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
-    'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
+os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
+DATA_ROOT = '/media/grinek/Seagate/'
+DATA_DIR = DATA_ROOT + 'CyTOFdataPreprocess/'
+source_dir = DATA_ROOT + 'Real_sets/'
+list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
+'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
 
 
-    from sklearn import preprocessing
-    le = preprocessing.LabelEncoder()
+from sklearn import preprocessing
+le = preprocessing.LabelEncoder()
 
-    # Compute performance for DCAE
-    z_dir  = DATA_ROOT + "Real_sets/DCAE_output/"
-    output_dir =  DATA_ROOT + "Real_sets/DCAE_output/Performance/"
-    #bl = list_of_inputs[0]
-    for bl in list_of_inputs:
-        #read data
-        infile = DATA_DIR  + bl
-        npzfile = np.load(infile,  allow_pickle=True)
-        aFrame = npzfile['aFrame'];
-        Idx = npzfile['Idx']
-        lbls = npzfile['lbls']
-        # re-label data making labels numerical, unassigned cells are'-1'
-        lbls[[(l == '"unassigned"') or (l == '"Unassgined"')  for l in lbls]]  = -1
-        le.fit(lbls)
-        y = le.transform(lbls)
-        y[lbls=='-1'] = '-1'
-        lbls=y
-        # read DCAE output
-        npz_res = np.load(z_dir + '/' + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz', allow_pickle=True)
-        z = npz_res['z']
+# Compute performance for DCAE
+z_dir  = DATA_ROOT + "Real_sets/DCAE_output/"
+output_dir =  DATA_ROOT + "Real_sets/DCAE_output/Performance/"
+#bl = list_of_inputs[0]
+for bl in list_of_inputs:
+    #read data
+    infile = DATA_DIR  + bl
+    npzfile = np.load(infile,  allow_pickle=True)
+    aFrame = npzfile['aFrame'];
+    Idx = npzfile['Idx']
+    lbls = npzfile['lbls']
+    # re-label data making labels numerical, unassigned cells are'-1'
+    lbls[[(l == '"unassigned"') or (l == '"Unassgined"')  for l in lbls]]  = -1
+    le.fit(lbls)
+    y = le.transform(lbls)
+    y[lbls=='-1'] = '-1'
+    lbls=y
+    # read DCAE output
+    npz_res = np.load(z_dir + '/' + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz', allow_pickle=True)
+    z = npz_res['z']
 
-        topolist_estimateHD = get_real_topology_list(lbls, aFrame)
-        topolist_estimate = get_representation_topology(z, lbls)
-        top_score = get_topology_match_score(topolist_estimateHD, topolist_estimate)
-        print(top_score)
-        outfile = output_dir + '/' + str(bl) + "_" + str(k_nn_cl)+ '_Topological_PerformanceMeasures.npz'
-        np.savez(outfile, top_score= top_score)
+    topolist_estimateHD = get_real_topology_list_f(lbls, aFrame)
+    topolist_estimate = get_representation_topology_f(z, lbls)
+    top_score = get_topology_match_score(topolist_estimateHD, topolist_estimate)
+    print(top_score)
+    outfile = output_dir + '/' + str(bl) + "_" + 'Farthest' + '_Topological_PerformanceMeasures.npz'
+    np.savez(outfile, top_score= top_score)
 
-    # Compute performance for UMAP
-    z_dir  = DATA_ROOT + "Real_sets/UMAP_output/"
-    output_dir =  DATA_ROOT + "Real_sets/UMAP_output/Performance/"
-    #bl = list_of_inputs[1]
-    for bl in list_of_inputs:
-        infile = DATA_DIR + bl
-        npzfile = np.load(infile, allow_pickle=True)
-        aFrame = npzfile['aFrame'];
-        Idx = npzfile['Idx']
-        lbls = npzfile['lbls']
-        # re-label data making labels numerical, unassigned cells are'-1'
-        lbls[[(l == '"unassigned"') or (l == '"Unassgined"') for l in lbls]] = -1
-        le.fit(lbls)
-        y = le.transform(lbls)
-        y[lbls == '-1'] = '-1'
-        lbls = y
+# Compute performance for UMAP
+z_dir  = DATA_ROOT + "Real_sets/UMAP_output/"
+output_dir =  DATA_ROOT + "Real_sets/UMAP_output/Performance/"
+#bl = list_of_inputs[1]
+for bl in list_of_inputs:
+    infile = DATA_DIR + bl
+    npzfile = np.load(infile, allow_pickle=True)
+    aFrame = npzfile['aFrame'];
+    Idx = npzfile['Idx']
+    lbls = npzfile['lbls']
+    # re-label data making labels numerical, unassigned cells are'-1'
+    lbls[[(l == '"unassigned"') or (l == '"Unassgined"') for l in lbls]] = -1
+    le.fit(lbls)
+    y = le.transform(lbls)
+    y[lbls == '-1'] = '-1'
+    lbls = y
 
-        # read UMAP output
-        npz_res = np.load(z_dir + str(bl) + '_UMAP_rep_2D.npz',  allow_pickle=True)
-        z = npz_res['z']
+    # read UMAP output
+    npz_res = np.load(z_dir + str(bl) + '_UMAP_rep_2D.npz',  allow_pickle=True)
+    z = npz_res['z']
 
-        topolist_estimateHD = get_real_topology_list(lbls, aFrame)
-        topolist_estimate = get_representation_topology(z, lbls)
-        top_score = get_topology_match_score(topolist_estimateHD, topolist_estimate)
-        print(top_score)
-        outfile = output_dir + '/' + str(bl) + "_" + str(k_nn_cl)+'_Topological_PerformanceMeasures.npz'
-        np.savez(outfile, top_score=top_score)
+    topolist_estimateHD = get_real_topology_list_f(lbls, aFrame)
+    topolist_estimate = get_representation_topology_f(z, lbls)
+    top_score = get_topology_match_score(topolist_estimateHD, topolist_estimate)
+    print(top_score)
+    outfile = output_dir + '/' + str(bl) + "_" + 'Farthest' +'_Topological_PerformanceMeasures.npz'
+    np.savez(outfile, top_score=top_score)
 
 
-    # Compute performance for SAUCIE
-    z_dir = DATA_ROOT + "Real_sets/SAUCIE_output/"
-    output_dir =  DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"
-    #bl = list_of_branches[1]
-    for  bl in list_of_inputs:
-        infile = DATA_DIR + bl
-        npzfile = np.load(infile, allow_pickle=True)
-        aFrame = npzfile['aFrame'];
-        Idx = npzfile['Idx']
-        lbls = npzfile['lbls']
-        # re-label data making labels numerical, unassigned cells are'-1'
-        lbls[[(l == '"unassigned"') or (l == '"Unassgined"') for l in lbls]] = -1
-        le.fit(lbls)
-        y = le.transform(lbls)
-        y[lbls == '-1'] = '-1'
-        lbls = y
+# Compute performance for SAUCIE
+z_dir = DATA_ROOT + "Real_sets/SAUCIE_output/"
+output_dir =  DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"
+#bl = list_of_branches[1]
+for  bl in list_of_inputs:
+    infile = DATA_DIR + bl
+    npzfile = np.load(infile, allow_pickle=True)
+    aFrame = npzfile['aFrame'];
+    Idx = npzfile['Idx']
+    lbls = npzfile['lbls']
+    # re-label data making labels numerical, unassigned cells are'-1'
+    lbls[[(l == '"unassigned"') or (l == '"Unassgined"') for l in lbls]] = -1
+    le.fit(lbls)
+    y = le.transform(lbls)
+    y[lbls == '-1'] = '-1'
+    lbls = y
 
-        #read SAUCIE output
-        npz_res = np.load(z_dir + '/' + str(bl) + '_SAUCIE_rep_2D.npz',  allow_pickle=True)
-        z = npz_res['z']
+    #read SAUCIE output
+    npz_res = np.load(z_dir + '/' + str(bl) + '_SAUCIE_rep_2D.npz',  allow_pickle=True)
+    z = npz_res['z']
 
-        topolist_estimateHD = get_real_topology_list(lbls, aFrame)
-        topolist_estimate = get_representation_topology(z, lbls)
-        top_score = get_topology_match_score(topolist_estimateHD, topolist_estimate)
-        print(top_score)
-        outfile = output_dir + '/' + str(bl) + "_" + str(k_nn_cl)+'_Topological_PerformanceMeasures.npz'
-        np.savez(outfile, top_score=top_score)
+    topolist_estimateHD = get_real_topology_list_f(lbls, aFrame)
+    topolist_estimate = get_representation_topology_f(z, lbls)
+    top_score = get_topology_match_score(topolist_estimateHD, topolist_estimate)
+    print(top_score)
+    outfile = output_dir + '/' + str(bl) + "_" + 'Farthest'+'_Topological_PerformanceMeasures.npz'
+    np.savez(outfile, top_score=top_score)
 
-    #create  graphs
+#create  graphs
 PLOTS = DATA_ROOT + "Real_sets/PLOTS/"
 bor_res_dirs = [DATA_ROOT + "Real_sets/DCAE_output/Performance/", DATA_ROOT + "Real_sets/UMAP_output/Performance/",DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"]
 methods = ['DCAE', 'UMAP', 'SAUCIE']
@@ -208,15 +207,14 @@ dir = bor_res_dirs[0]
 bl  = list_of_inputs[0]
 df = pd.DataFrame()
 
-for k_nn_cl in  range(1,max_n+1):
-    for i in range(3):
-        for bl in list_of_inputs:
-            outfile = bor_res_dirs[i] + '/' + str(bl) + "_" + str(k_nn_cl)+'_Topological_PerformanceMeasures.npz'
-            npz_res =  np.load(outfile)
-            score = int(npz_res['top_score'])
+for i in range(3):
+    for bl in list_of_inputs:
+        outfile = bor_res_dirs[i] + '/' + str(bl) + "_" + 'Farthest'+'_Topological_PerformanceMeasures.npz'
+        npz_res =  np.load(outfile)
+        score = int(npz_res['top_score'])
 
-            line = pd.DataFrame([[methods[i], str(bl), score, k_nn_cl]],   columns =['method','Set','score','k_nn_cl'])
-            df=  df.append(line)
+        line = pd.DataFrame([[methods[i], str(bl), score]],   columns =['method','Set','score'])
+        df=  df.append(line)
 
 #rename 'branch' by shorter line
 di = {'Levine32euclid_scaled_no_negative_removed.npz':'Levine32',
@@ -226,7 +224,7 @@ import matplotlib
 matplotlib.use('PS')
 
 
-outfile = DATA_ROOT + 'Real_sets/' + 'Topological_PerformanceMeasures.pkl'
+outfile = DATA_ROOT + 'Real_sets/' + 'Farthest_'+ 'Topological_PerformanceMeasures.pkl'
 df.to_pickle(outfile)
 
 df = pd.read_pickle(outfile)
