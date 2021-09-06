@@ -13,6 +13,7 @@ from utils_evaluation import table
 
 def decision(probability):
     return random.random() < probability
+ns_sample = 10000 #size of cluster subsample for distance calculation
 
 def get_real_topology_list(lbls, aFrame):
     """ Gets a labels and coordinates in HD and creates a list of nearest neighbour clusters"""
@@ -28,7 +29,7 @@ def get_real_topology_list(lbls, aFrame):
     size_dict = dict(zip_iterator)
 
     # indx = random.sample(range(len(lbls)), 10000)  # TODO: create samling which takes small clusters without subsampling
-    indx = [True if size_dict[l] <= 30000 else decision(30000 / size_dict[l]) for l in lbls]
+    indx = [True if size_dict[l] <= ns_sample else decision(ns_sample / size_dict[l]) for l in lbls]
     lbls_s = lbls[indx]
     a_s = aFrame[indx, :]
     topolist_estimateHD = [[] for _ in range(len(l_list))]  # unassigned cluster is labelled at -1 and we do not compute
@@ -62,7 +63,7 @@ def get_representation_topology(z, lbls):
     size_dict = dict(zip_iterator)
 
     # indx = random.sample(range(len(lbls)), 10000)  # TODO: create samling which takes small clusters without subsampling
-    indx = [True if size_dict[l] <= 30000 else decision(30000 / size_dict[l]) for l in lbls]
+    indx = [True if size_dict[l] <= ns_sample else decision(ns_sample / size_dict[l]) for l in lbls]
     lbls_s = lbls[indx]
     z_s = z[indx, :]
     topolist_estimate = [[] for _ in range(
@@ -96,9 +97,9 @@ def get_topology_match_score(topolist, topolist_estimate):
          else 1 - len(np.intersect1d(topolist_estimate[i], topolist[i])) for i in range(len(topolist))])
     return match_score
 
-max_n=10
+max_n=3
 for k_nn_cl in range(1,max_n+1):
-
+    print('max_n=', k_nn_cl)
     epochs = 500
 
     os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
@@ -212,8 +213,16 @@ for k_nn_cl in  range(1,max_n+1):
             npz_res =  np.load(outfile)
             score = int(npz_res['top_score'])
 
-            line = pd.DataFrame([[methods[i], str(bl), score, k_nn_cl]],   columns =['method','branch','score','k_nn_cl'])
+            line = pd.DataFrame([[methods[i], str(bl), score, k_nn_cl]],   columns =['method','Set','score','k_nn_cl'])
             df=  df.append(line)
+
+#rename 'branch' by shorter line
+di = {'Levine32euclid_scaled_no_negative_removed.npz':'Levine32',
+'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz':'Pregnancy',  'Shenkareuclid_shifted.npz':'Shenkar'}
+df =  df.replace({"Set": di})
+import matplotlib
+matplotlib.use('PS')
+
 
 outfile = DATA_ROOT + 'Real_sets/' + 'Topological_PerformanceMeasures.pkl'
 df.to_pickle(outfile)
@@ -228,7 +237,29 @@ import matplotlib
 matplotlib.use('PS')
 
 sns.set(rc={'figure.figsize':(14, 4)})
-g = sns.barplot(x='branch', y='score', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
+g=sns.lineplot(data=df[df["Set"]=='Levine32'],x='k_nn_cl', y='score', hue='method',)
+g.set_xticks(range(1,4)) # <--- set the ticks first
+g.set_xticklabels(['1','2','3'])
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS + "TopoScore33"+ "_" + str(k_nn_cl)+ ".eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + "TopoScore"+ "_" + 'Levine32' + ".eps", format='eps', dpi = 350)
 plt.close()
+
+sns.set(rc={'figure.figsize':(14, 4)})
+g=sns.lineplot(data=df[df["Set"]=='Pregnancy'],x='k_nn_cl', y='score', hue='method',)
+g.set_xticks(range(1,4)) # <--- set the ticks first
+g.set_xticklabels(['1','2','3'])
+g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
+plt.savefig(PLOTS + "TopoScore"+ "_" + 'Pregnancy' + ".eps", format='eps', dpi = 350)
+plt.close()
+
+
+sns.set(rc={'figure.figsize':(14, 4)})
+g=sns.lineplot(data=df[df["Set"]=='Shenkar'],x='k_nn_cl', y='score', hue='method',)
+g.set_xticks(range(1,4)) # <--- set the ticks first
+g.set_xticklabels(['1','2','3'])
+g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
+plt.savefig(PLOTS + "TopoScore"+ "_" + 'Shenkar' + ".eps", format='eps', dpi = 350)
+plt.close()
+
+# create table with just first nearest neighbour
+df_knn_1  =df[df['k_nn_cl']==1]
