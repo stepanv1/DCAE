@@ -1,6 +1,10 @@
 '''
 Runs DCAE
-mappings for artificial clusters
+mappings as well as performance metrics
+for artificial clusters
+tied weight implementation is from here
+https://medium.com/@lmayrandprovencher/building-an-autoencoder-with-tied-weights-in-keras-c4a559c529a2#id_token=eyJhbGciOiJSUzI1NiIsImtpZCI6Ijk5MWIwNjM2YWFkYTM0MWM1YTA4ZTBkOGYyNDA2OTcyMDY0ZGM4ZWQiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJuYmYiOjE2MzExODM4MTksImF1ZCI6IjIxNjI5NjAzNTgzNC1rMWs2cWUwNjBzMnRwMmEyamFtNGxqZGNtczAwc3R0Zy5hcHBzLmdvb2dsZXVzZXJjb250ZW50LmNvbSIsInN1YiI6IjExNjI5OTE0NzA0NDIzMzQ5MDIxNSIsImVtYWlsIjoic3RlcGFudjFAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImF6cCI6IjIxNjI5NjAzNTgzNC1rMWs2cWUwNjBzMnRwMmEyamFtNGxqZGNtczAwc3R0Zy5hcHBzLmdvb2dsZXVzZXJjb250ZW50LmNvbSIsIm5hbWUiOiJTdGVwYW4gR3JpbnlvayIsInBpY3R1cmUiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQVRYQUp6S0FfcHpVMXJDR1NmWW1YYWNXZTZJbkhxWllMTl9NeTdqcDhVPXM5Ni1jIiwiZ2l2ZW5fbmFtZSI6IlN0ZXBhbiIsImZhbWlseV9uYW1lIjoiR3JpbnlvayIsImlhdCI6MTYzMTE4NDExOSwiZXhwIjoxNjMxMTg3NzE5LCJqdGkiOiIzNTEwNmU4ZjhkMTIyNDQ4MzEzYjRlMGFkYTVkOWFiZjFlYTE2Nzg1In0.m8geKRaotPU7k0WjujEuY3BS97Z1v6RU7K_0vu8zxLLyWHoM9_XbeRauY_0ArXk9xmrHG47Dp3AYT9swzIG9-NL4Aqvs2-AYVloHOmaG1VfBX5slI3XyHv0gg80f4XvlCpzNJDwFmOSUaonB4l164_dCprVk4B2A-5x_I5mUdUQcB8bslUi_cIxewf4FUzKmbvkiVzA-HetHexiUiTgZrEwQCaO24Q6dbmnXtzc7cdV3lwxoFCJjs95mXiJGAPZFwnx4WgjNwQwbEfvcNsgr-1W1RvI80AtfasAk2eHtNLMSvPznsJB73hI73xBCusxjSPOJFuEWd2_hz_iJUVwlJg
+argument for transposed instead true inverse: https://stats.stackexchange.com/questions/489429/why-are-the-tied-weights-in-autoencoders-transposed-and-not-inverted
 '''
 
 import timeit
@@ -10,8 +14,9 @@ import numpy as np
 import plotly.io as pio
 import tensorflow as tf
 from plotly.io import to_html
+from tensorflow import keras
 from tensorflow.keras import backend as K
-from tensorflow.keras.layers import Input, Dense
+from tensorflow.keras.layers import Input, Dense, Flatten, Reshape
 from tensorflow.keras.models import Model
 
 pio.renderers.default = "browser"
@@ -23,6 +28,7 @@ num_cores = multiprocessing.cpu_count()
 pool = multiprocessing.Pool(num_cores)
 
 from tensorflow.keras.callbacks import Callback
+
 
 
 def table(labels):
@@ -67,13 +73,29 @@ class EpochCounterCallback(Callback):
         #print("  Current AP is " + str(K.get_value(self.count)))
 
 
+# transposed and tied layers
+class DenseTranspose(keras.layers.Layer):
+    def __init__(self, dense, activation = None, **kwargs):
+        self.dense = dense
+        self.activation = keras.activations.get(activation)
+        super().__init__(**kwargs)
+    def build(self, batch_input_shape):
+        self.biases = self.add_weight(name="bias",
+                                      shape=[self.dense.input_shape[-1]],
+                                      initializer='zeros')
+        super().build(batch_input_shape)
+    def call(self, inputs):
+        z = tf.matmul(inputs, self.dense.weights[0], transpose_b=True)
+        return self.activation(z+self.biases)
+
+
 k = 30
 k3 = k * 3
 coeffCAE = 1
 epochs = 50
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
-output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
+output_dir  = DATA_ROOT + 'Experiments/Artificial_sets/DCAE_output/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
 #load earlier generated data
 
@@ -139,23 +161,28 @@ for bl in list_of_branches:
     intermediate_dim2 = original_dim * 2
     # var_dims = Input(shape = (original_dim,))
     #
-    initializer = tf.keras.initializers.he_normal(12345)
+    #initializer = tf.keras.initializers.he_normal(12345)
     # initializer = None
     SigmaTsq = Input(shape=(1,))
     x = Input(shape=(original_dim,))
-    h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(x)
-    h1 = Dense(intermediate_dim2, activation='relu', name='intermediate2', kernel_initializer=initializer)(h)
-    z_mean = Dense(latent_dim, activation=None, name='z_mean', kernel_initializer=initializer)(h1)
+
+    dense_h = Dense(intermediate_dim, activation='relu', name='intermediate')
+    dense_h1 = Dense(intermediate_dim2, activation='relu', name='intermediate2')
+    dense_z_mean = Dense(latent_dim, activation=None, name='z_mean')
+
+    h = dense_h(x)
+    h1 = dense_h1(h)
+    z_mean = dense_z_mean(h1)
 
     encoder = Model([x, SigmaTsq], z_mean, name='encoder')
 
-    decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer=initializer)
-    decoder_h1 = Dense(intermediate_dim, activation='relu', name='intermediate4', kernel_initializer=initializer)
-    decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)
-    h_decoded = decoder_h(z_mean)
-    h_decoded2 = decoder_h1(h_decoded)
-    x_decoded_mean = decoder_mean(h_decoded2)
-    autoencoder = Model(inputs=[x, SigmaTsq], outputs=x_decoded_mean)
+    decoder_h = DenseTranspose(dense_z_mean , activation='relu')( z_mean )
+    decoder_h1 = DenseTranspose(dense_h1, activation='relu')( decoder_h )
+    decoder_mean = DenseTranspose(dense_h, activation=None)( decoder_h1 )
+    #h_decoded = decoder_h(z_mean)
+    #h_decoded2 = decoder_h1(h_decoded)
+    #x_decoded_mean = decoder_mean(h_decoded2)
+    autoencoder = Model(inputs=[x, SigmaTsq], outputs=decoder_mean)
 
     # Loss and optimizer ------------------------------------------------------
     # rewrite this based on recommendations here
@@ -164,34 +191,6 @@ for bl in list_of_branches:
     normSigma = nrow / sum(1 / Sigma)
 
     lam = 1e-4
-
-
-    def DCAE3D_loss(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
-        U = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
-        W = K.variable(value=encoder.get_layer('intermediate2').get_weights()[0])  # N x N_hidden
-        Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
-        U = K.transpose(U);
-        W = K.transpose(W);
-        Z = K.transpose(Z);  # N_hidden x N
-
-        u = encoder.get_layer('intermediate').output
-        du = tf.linalg.diag((tf.math.sign(u) + 1) / 2)
-        m = encoder.get_layer('intermediate2').output
-        dm = tf.linalg.diag((tf.math.sign(m) + 1) / 2)  # N_batch x N_hidden
-        s = encoder.get_layer('z_mean').output
-        # r = tf.linalg.einsum('aj->a', s ** 2)
-        ds = tf.linalg.diag(tf.math.scalar_mul(0, s) + 1)
-
-        S_0W = tf.einsum('akl,lj->akj', du, U)
-        S_1W = tf.einsum('akl,lj->akj', dm, W)  # N_batch x N_input ??
-        # tf.print((S_1W).shape) #[None, 120]
-        S_2Z = tf.einsum('akl,lj->akj', ds, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
-        # tf.print((S_2Z).shape)
-        diff_tens = tf.einsum('akl,alj->akj', S_2Z,
-                              S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
-        diff_tens = tf.einsum('akl,alj->akj', diff_tens, S_0W)
-        # tf.Print(K.sum(diff_tens ** 2))
-        return 1 / normSigma * (SigmaTsq) * lam * (K.sum(diff_tens ** 2))
 
 
     def pot(alp, x):
