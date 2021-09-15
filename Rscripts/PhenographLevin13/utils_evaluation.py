@@ -338,7 +338,7 @@ def neighbour_onetomany_score_normalized(z, idx, kmax=30, num_cores=16):
     return [match, per_cell_match]
 
 
-def neighbour_marker_similarity_score_per_cell(z, data, Idx, kmax=30, num_cores=12):
+def neighbour_marker_similarity_score_per_cell(z, data, kmax=30, num_cores=12):
     nrow = z.shape[0]
     neib_z = find_neighbors(z, kmax, metric='euclidean')['idx']
     match =  np.zeros(kmax, dtype = 'float')

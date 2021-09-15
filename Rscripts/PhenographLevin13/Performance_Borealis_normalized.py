@@ -1,5 +1,5 @@
 '''
-Compute mmd-based paerformance scores performance measures on DCAE, UMAP and SAUCIE
+Compute emd-based paerformance scores performance measures on DCAE, UMAP and SAUCIE
 '''
 import math
 import pandas as pd

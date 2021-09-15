@@ -1,5 +1,9 @@
 '''
-Compute MSS and LSS performance measures on DCAE, UMAP and SAUCIE
+Compute MSS and LSS performance measures on DCAE, UMAP and Compute MSS and LSS performance measures on DCAE, UMAP and SAUCIE
+for artificial clusters
+tied weight implementation is from here
+https://medium.com/@lmayrandprovencher/building-an-autoencoder-with-tied-weights-in-keras-c4a559c529a2#id_token=eyJhbGciOiJSUzI1NiIsImtpZCI6Ijk5MWIwNjM2YWFkYTM0MWM1YTA4ZTBkOGYyNDA2OTcyMDY0ZGM4ZWQiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJuYmYiOjE2MzExODM4MTksImF1ZCI6IjIxNjI5NjAzNTgzNC1rMWs2cWUwNjBzMnRwMmEyamFtNGxqZGNtczAwc3R0Zy5hcHBzLmdvb2dsZXVzZXJjb250ZW50LmNvbSIsInN1YiI6IjExNjI5OTE0NzA0NDIzMzQ5MDIxNSIsImVtYWlsIjoic3RlcGFudjFAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImF6cCI6IjIxNjI5NjAzNTgzNC1rMWs2cWUwNjBzMnRwMmEyamFtNGxqZGNtczAwc3R0Zy5hcHBzLmdvb2dsZXVzZXJjb250ZW50LmNvbSIsIm5hbWUiOiJTdGVwYW4gR3JpbnlvayIsInBpY3R1cmUiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQVRYQUp6S0FfcHpVMXJDR1NmWW1YYWNXZTZJbkhxWllMTl9NeTdqcDhVPXM5Ni1jIiwiZ2l2ZW5fbmFtZSI6IlN0ZXBhbiIsImZhbWlseV9uYW1lIjoiR3JpbnlvayIsImlhdCI6MTYzMTE4NDExOSwiZXhwIjoxNjMxMTg3NzE5LCJqdGkiOiIzNTEwNmU4ZjhkMTIyNDQ4MzEzYjRlMGFkYTVkOWFiZjFlYTE2Nzg1In0.m8geKRaotPU7k0WjujEuY3BS97Z1v6RU7K_0vu8zxLLyWHoM9_XbeRauY_0ArXk9xmrHG47Dp3AYT9swzIG9-NL4Aqvs2-AYVloHOmaG1VfBX5slI3XyHv0gg80f4XvlCpzNJDwFmOSUaonB4l164_dCprVk4B2A-5x_I5mUdUQcB8bslUi_cIxewf4FUzKmbvkiVzA-HetHexiUiTgZrEwQCaO24Q6dbmnXtzc7cdV3lwxoFCJjs95mXiJGAPZFwnx4WgjNwQwbEfvcNsgr-1W1RvI80AtfasAk2eHtNLMSvPznsJB73hI73xBCusxjSPOJFuEWd2_hz_iJUVwlJg
+argument for transposed instead true inverse: https://stats.stackexchange.com/questions/489429/why-are-the-tied-weights-in-autoencoders-transposed-and-not
 '''
 import math
 import pandas as pd
@@ -16,10 +20,12 @@ source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
 
 # Compute performance for DCAE
-z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
-output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"
+z_dir  = DATA_ROOT + "Experiments/Artificial_sets/DCAE_output/"
+output_dir =  DATA_ROOT + "Experiments/Artificial_sets/DCAE_output/Performance/"
 #bl = list_of_branches[0]
 for bl in list_of_branches:
+    print(z_dir)
+    print('bl=',bl)
     #read data
     infile = source_dir + 'set_' + str(bl) + '.npz'
     npzfile = np.load(infile)
@@ -38,10 +44,12 @@ for bl in list_of_branches:
     np.savez(outfile, MSS0=MSS[0], LSSS0= LSSS[0], MSS1=MSS[1], LSSS1= LSSS[1])
 
 # Compute performance for UMAP
-z_dir  = DATA_ROOT + "Artificial_sets/UMAP_output/"
-output_dir =  DATA_ROOT + "Artificial_sets/UMAP_output/Performance"
+z_dir  = DATA_ROOT + "Experiments/Artificial_sets/UMAP_output/"
+output_dir =  DATA_ROOT + "Experiments/Artificial_sets/UMAP_output/Performance"
 #bl = list_of_branches[1]
 for bl in list_of_branches:
+    print(z_dir)
+    print('bl=', bl)
     # read data
     infile = source_dir + 'set_' + str(bl) + '.npz'
     npzfile = np.load(infile)
@@ -60,10 +68,12 @@ for bl in list_of_branches:
     np.savez(outfile, MSS0=MSS[0], LSSS0=LSSS[0], MSS1=MSS[1], LSSS1=LSSS[1])
 
 # Compute performance for SAUCIE
-z_dir = DATA_ROOT + "Artificial_sets/SAUCIE_output/"
-output_dir =  DATA_ROOT + "Artificial_sets/SAUCIE_output/Performance"
+z_dir = DATA_ROOT + "Experiments/Artificial_sets/SAUCIE_output/"
+output_dir =  DATA_ROOT + "Experiments/Artificial_sets/SAUCIE_output/Performance"
 #bl = list_of_branches[1]
 for bl in list_of_branches:
+    print(z_dir)
+    print('bl=', bl)
     # read data
     infile = source_dir + 'set_' + str(bl) + '.npz'
     npzfile = np.load(infile)
@@ -84,8 +94,10 @@ for bl in list_of_branches:
     np.savez(outfile, MSS0=MSS[0], LSSS0=LSSS[0], MSS1=MSS[1], LSSS1=LSSS[1])
 
 #create MSS_LSSS graphs
-PLOTS = DATA_ROOT + "Artificial_sets/PLOTS/"
-bor_res_dirs = [DATA_ROOT + "Artificial_sets/DCAE_output/Performance/", DATA_ROOT + "Artificial_sets/UMAP_output/Performance/",DATA_ROOT + "Artificial_sets/SAUCIE_output/Performance/"]
+PLOTS = DATA_ROOT + "Experiments/Artificial_sets/PLOTS/"
+bor_res_dirs = [DATA_ROOT + "Experiments/Artificial_sets/DCAE_output/Performance/",
+                DATA_ROOT + "Experiments/Artificial_sets/UMAP_output/Performance/",
+                DATA_ROOT + "Experiments/Artificial_sets/SAUCIE_output/Performance/"]
 methods = ['DCAE', 'UMAP', 'SAUCIE']
 dir = bor_res_dirs[0]
 bl  = list_of_branches[0]

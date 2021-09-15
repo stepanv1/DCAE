@@ -183,7 +183,7 @@ for bl in list_of_branches:
     #h_decoded2 = decoder_h1(h_decoded)
     #x_decoded_mean = decoder_mean(h_decoded2)
     autoencoder = Model(inputs=[x, SigmaTsq], outputs=decoder_mean)
-
+    #tf.keras.utils.plot_model(autoencoder, to_file= output_dir + '/model_1.png', show_shapes=True)
     # Loss and optimizer ------------------------------------------------------
     # rewrite this based on recommendations here
     # https://www.tensorflow.org/guide/keras/train_and_evaluate

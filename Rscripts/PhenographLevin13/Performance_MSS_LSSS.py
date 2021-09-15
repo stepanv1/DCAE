@@ -1,5 +1,5 @@
 '''
-Compute MSS and LSS performance measures on DCAE, UMAP and
+Compute MSS and LSS performance measures on DCAE, UMAP and nd SAUCIE
 '''
 import math
 import pandas as pd

@@ -1,5 +1,5 @@
 '''
-Compute mmd-based paerformance scores performance measures on DCAE, UMAP and SAUCIE
+Compute emd performance measures on DCAE, UMAP and SAUCIE
 '''
 import math
 import pandas as pd
@@ -31,12 +31,12 @@ for bl in list_of_inputs:
     lbls = npzfile['lbls']
 
     # read DCAE output
-    npz_res = np.load(z_dir + '/' + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz', allow_pickle=True)
+    npz_res = np.load(z_dir + '/' + str(bl) + 'epochs' + str(epochs) + '_latent_rep_wider_3D.npz', allow_pickle=True)
     z = npz_res['z']
 
     discontinuity, manytoone = get_wsd_scores(aFrame, z, 90, num_meandist=10000, compute_knn_x=False, x_knn=Idx)
 
-    outfile = output_dir + '/' + str(bl) + '_BOREALIS_PerformanceMeasures.npz'
+    outfile = output_dir + '/' + str(bl) + '_BOREALIS_PerformanceMeasures_wider.npz'
     np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
 
 # Compute performance for UMAP
@@ -98,7 +98,11 @@ dir = bor_res_dirs[0]
 df = pd.DataFrame()
 for i in range(3):
     for bl in list_of_inputs:
-        outfile = bor_res_dirs[i] + '/' + str(bl) + '_BOREALIS_PerformanceMeasures.npz'
+        if i == 0:
+            outfile = bor_res_dirs[i] + '/' + str(
+                bl) + '_BOREALIS_PerformanceMeasures_wider_.npz'  # STOPPED Here
+        else:
+            outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
         npz_res =  np.load(outfile,  allow_pickle=True)
         discontinuity = npz_res['discontinuity']
         manytoone = npz_res['manytoone']
@@ -122,28 +126,28 @@ matplotlib.use('PS')
 sns.set(rc={'figure.figsize':(14, 4)})
 g = sns.barplot(x='Set', y='discontinuity', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS + "Discontinuity.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + "Discontinuity_wider.eps", format='eps', dpi = 350)
 plt.close()
 
 g2 = sns.barplot(x='Set', y='manytoone', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g2.set(ylim=(0.05, None))
 g2.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS + "Manytoone.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + "Manytoone_wider.eps", format='eps', dpi = 350)
 plt.close()
 
 # as tables
 
 # tables move to Borealis measures file
 df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.105856, 0.141267, 0.118188], 'discontinuity': [0.002820, 0.005547, 0.000888]})
-df_BORAI.to_csv(PLOTS  + 'Levine32_' + 'Borealis_measures.csv', index=False)
+df_BORAI.to_csv(PLOTS  + 'Levine32_' + 'Borealis_measures_wider.csv', index=False)
 
 df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.165165, 0.188827, 0.183314], 'discontinuity': [0.093898, 0.012045, 0.005639]})
-df_BORAI.to_csv(PLOTS + 'Pregnancy_' + 'Borealis_measures.csv', index=False)
+df_BORAI.to_csv(PLOTS + 'Pregnancy_' + 'Borealis_measures_wider.csv', index=False)
 
 
 
 df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.070870, 0.003969, 0.009664 ], 'discontinuity': [0.307553, 0.307055, 0.315236]})
-df_BORAI.to_csv(PLOTS  + 'Shenkar_' + 'Borealis_measures.csv', index=False)
+df_BORAI.to_csv(PLOTS  + 'Shenkar_' + 'Borealis_measures_wider.csv', index=False)
 
 
 

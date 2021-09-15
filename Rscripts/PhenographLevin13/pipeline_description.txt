@@ -8,6 +8,8 @@ Artificial data, 25 sets
   a. Compute 'Borealis' performance measures (discontinuity, manytoone) (Performance_Borealis.py)
   b. Compute 'MSS' and 'LSSS' performance measures  (Performance_MSS_LSSS.py)
   c. Compute topological performace (Performance_toplology.py)
+5. Explanation with LRP DCAE_explamation.py
+
 
 Real data, 3 sets
 1. Run DCAE on art set (run_DCAE_on_real_sets.py)

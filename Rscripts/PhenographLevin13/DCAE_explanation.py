@@ -1,6 +1,17 @@
 '''
-Runs DCAE
-mappings for artificial clusters
+DCAE
+explains by clusters
+Deep Taylor decomposition
+https://nbviewer.jupyter.org/github/1202kbs/Understanding-NN/blob/master/2.4%20Deep%20Taylor%20Decomposition%20%281%29.ipynb
+Look there for code: Constrained input space X=Rd+ and the z+-rule
+Sensitivity
+https://nbviewer.jupyter.org/github/1202kbs/Understanding-NN/blob/master/2.1%20Sensitivity%20Analysis.ipynb
+SA_scores = [tf.square(tf.gradients(logits[:,i], X)) for i in range(10)]
+Newer methods
+https://github.com/PAIR-code/saliency
+Patternet
+https://github.com/albermax/innvestigate
+
 '''
 
 import timeit
@@ -13,7 +24,7 @@ from plotly.io import to_html
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.models import Model
-
+import keract
 pio.renderers.default = "browser"
 
 from utils_evaluation import plot3D_cluster_colors
@@ -141,7 +152,7 @@ for bl in list_of_branches:
     #
     initializer = tf.keras.initializers.he_normal(12345)
     # initializer = None
-    SigmaTsq = Input(shape=(1,))
+    SigmaTsq = Input(shape=(1,),  name="Sigma_Layer")
     x = Input(shape=(original_dim,))
     h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(x)
     h1 = Dense(intermediate_dim2, activation='relu', name='intermediate2', kernel_initializer=initializer)(h)
@@ -297,11 +308,12 @@ for bl in list_of_branches:
     #    learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False
     # )
     # autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst), metrics=[DCAE_loss, loss_mmd,  mean_square_error_NN])
+    '''
     from tensorflow.keras.callbacks import Callback
 
     save_period = 10
 
-    
+
     class plotCallback(Callback):
         def on_epoch_end(self, epoch, logs=None):
             if epoch % save_period == 0 or epoch in range(200):
@@ -317,7 +329,7 @@ for bl in list_of_branches:
 
 
     callPlot = plotCallback()
-    
+
     start = timeit.default_timer()
     history_multiple = autoencoder.fit([aFrame, Sigma], aFrame,
                                        batch_size=batch_size,
@@ -332,9 +344,237 @@ for bl in list_of_branches:
     encoder.save_weights(output_dir + '/' + str(bl) + '_3D.h5')
     autoencoder.save_weights(output_dir + '/autoencoder_' + str(bl) + '_3D.h5')
     np.savez(output_dir + '/' + str(bl) + '_latent_rep_3D.npz', z=z)
-
+    '''
     encoder.load_weights(output_dir + '/'+ str(bl) + '_3D.h5')
-    autoencoder.load_weights(output_dir + 'autoencoder_' + ID + '_3D.h5')
+    autoencoder.load_weights(output_dir + '/autoencoder_' + str(bl) + '_3D.h5')
     encoder.summary()
     z = encoder.predict([aFrame, Sigma, ])
+
+    from keract import get_activations, display_activations
+    from random import random
+    def decision(probability):
+        return random() < probability
+
+    ns_sample= 10
+    l_list = np.unique(lbls)
+    size_list = [sum(lbls == l) for l in l_list]
+    zip_iterator = zip(l_list, size_list)
+    size_dict = dict(zip_iterator)
+    indx = [True if size_dict[l] <= ns_sample else decision(ns_sample / size_dict[l]) for l in lbls]
+    indx = np.arange(len(lbls))[indx]
+    table(lbls[indx])
+    activation_lists = [[], [], []]
+    for j in range(len(indx)):
+        keract_inputs = [aFrame[indx[j]:(indx[j]+1), :], Sigma[indx[j]:(indx[j]+1)] ]
+    #keract_targets = target_test[:1]
+        activations = get_activations(encoder,keract_inputs, layer_names=['input_1', 'intermediate', 'intermediate2'])
+        activation_lists[0].append(list(activations['input_1']))
+        activation_lists[1].append(list(activations['intermediate']))
+        activation_lists[2].append(list(activations['intermediate2']))
+        #display_activations(activations, cmap="gray", save=True, directory = output_dir + '/autoencoder_' + str(bl))
+
+    #stack lists into matrices of activations
+    activations_matrices = [np.array(i).squeeze() for i in activation_lists]
+    weights=[]
+    for layer in encoder.layers:
+        weights.append(layer.get_weights())
+
+    # implement LRP for vector output
+    # relevance score would be defined as R_i= sqrt(sum_i (h^i_j**2))
+    from kerassurgeon.operations import delete_layer, insert_layer, delete_channels
+    #encoder2 = Model([aFrame, Sigma], h, name='encoder2')
+    #encoder2.layers[1].set_weights(encoder.get_weights())
+    #endcoder_1 =  [aFrame, Sigma(encoder, encoder.layers[1], np.arange(intermediate_dim)[np.max(activations0,axis=0) < 0.05])
+    from kerassurgeon.operations import delete_layer, insert_layer, delete_channels
+
+    # to remoce Sigmalayer will need reload weights in layer one by one
+    encoder2 = Model([x], z_mean, name='encoder2')
+    encoder2.summary()
+    excl=[0, 1]
+    encoder2 = delete_channels(encoder2, encoder2.layers[3], excl)
+    #encoder2 = delete_layer(encoder2, encoder2.get_layer('Sigma_Layer') )
+    #encoder3 = tf.keras.Model(inputs=encoder2.layers[-3].input, outputs=encoder2.output)
+    encoder2.summary() # to remoce Sigmalayer will need reload weights in layer one by one
+     ##from kerassurgeon import Surgeon
+    #surgeon = Surgeon(encoder2)
+    #surgeon.add_job('delete_layer', encoder2.layers[3])
+    #new_model = surgeon.operate()
+    #new_model = surgeon.operate()
+    activation_lists = [[], [], []]
+    for j in range(len(indx)):
+        keract_inputs = [aFrame[indx[j]:(indx[j] + 1), :]]
+        # keract_targets = target_test[:1]
+        activations = get_activations(encoder2, keract_inputs, layer_names=['input_1', 'intermediate', 'intermediate2'])
+        activation_lists[0].append(list(activations['input_1']))
+        activation_lists[1].append(list(activations['intermediate']))
+        activation_lists[2].append(list(activations['intermediate2']))
+
+    #stack lists into matrices of activations
+    activations_matrices = [np.array(i).squeeze() for i in activation_lists]
+    weights=[]
+    for layer in encoder2.layers:
+        weights.append(layer.get_weights())
+
+    # do LRP on component 0
+    #https: // git.tu - berlin.de / gmontavon / lrp - tutorial yhis contains relu network
+    # get separate lists for weights and biases
+    W =  [weights[l][0] for l in range(1,4)]
+    B = [weights[l][1] for l in range(1, 4)]
+    L = len(W)
+    # compute forward pass
+    A = [aFrame]+[None]*L
+    for l in range(L-1):
+        A[l+1] = np.maximum(0,A[l].dot(W[l])+B[l])
+    #top layer has linear activation:
+    A[L] = A[L-1].dot(W[L-1]) + B[L-1]
+    #  ρ is a function that transform the weights, and ϵ is a small positive increment
+    def rho(w, l):
+        return w + [0.1, 0.1, 0.1, 0.0][l] * np.maximum(0, w)
+    def incr(z, l):
+        return z + [0.1, 0.1, 0.1, 0.0][l] * (z ** 2).mean() ** .5 + 1e-9
+
+    #create a list to store relevance scores at each layer
+    R = [None] * L + [A[L]]
+    for l in range(0, L)[::-1]:
+        w = rho(W[l], l)
+        b = rho(B[l], l)
+
+        z = incr(A[l].dot(w) + b, l)  # step 1
+        s = R[l + 1] / z  # step 2
+        c = s.dot(w.T)  # step 3
+        R[l] = A[l] * c
+
+    '''
+    import seaborn as sns
+    import umap.umap_ as umap
+    import plotly.io as pio
+    pio.renderers.default = "browser"
+    yl =7
+    fig, axs = plt.subplots(nrows=8)
+    sns.violinplot(data=aFrame[lbls==0,:],  ax=axs[0]).set_title('0', rotation=-90, position=(1, 1), ha='left', va='bottom')
+    axs[0].set_ylim(0, yl)
+    sns.violinplot(data=aFrame[lbls==1,:],  ax=axs[1]).set_title('1', rotation=-90, position=(1, 2), ha='left', va='center')
+    axs[1].set_ylim(0, yl)
+    sns.violinplot(data=aFrame[lbls==2,:],  ax=axs[2]).set_title('2', rotation=-90, position=(1, 2), ha='left', va='center')
+    axs[2].set_ylim(0, yl)
+    sns.violinplot(data=aFrame[lbls==3,:],  ax=axs[3]).set_title('3', rotation=-90, position=(1, 2), ha='left', va='center')
+    axs[3].set_ylim(0, yl)
+    sns.violinplot(data=aFrame[lbls==4,:],  ax=axs[4]).set_title('4', rotation=-90, position=(1, 2), ha='left', va='center')
+    axs[4].set_ylim(0, yl)
+    sns.violinplot(data=aFrame[lbls==5,:],  ax=axs[5]).set_title('5', rotation=-90, position=(1, 2), ha='left', va='center')
+    axs[5].set_ylim(0, yl)
+    sns.violinplot(data=aFrame[lbls==6,:],  ax=axs[6]).set_title('6', rotation=-90, position=(1, 2), ha='left', va='center')
+    axs[6].set_ylim(0, yl)
+    sns.violinplot(data=aFrame[lbls==-7,:], ax=axs[7]).set_title('7', rotation=-90, position=(1, 2), ha='left', va='center')
+    axs[7].set_ylim(0, yl)
+    plt.show()
+    
+    SC= (R[0])
+    yl =SC.max()
+    yb =SC.min()
+    fig, axs = plt.subplots(nrows=8)
+    sns.violinplot(data=SC[lbls==0,:],  ax=axs[0]).set_title('0', rotation=-90, position=(1, 1), ha='left', va='bottom')
+    axs[0].set_ylim(yb, yl)
+    sns.violinplot(data=SC[lbls==1,:],  ax=axs[1]).set_title('1', rotation=-90, position=(1, 2), ha='left', va='center')
+    axs[1].set_ylim(yb, yl)
+    sns.violinplot(data=SC[lbls==2,:],  ax=axs[2]).set_title('2', rotation=-90, position=(1, 2), ha='left', va='center')
+    axs[2].set_ylim(yb, yl)
+    sns.violinplot(data=SC[lbls==3,:],  ax=axs[3]).set_title('3', rotation=-90, position=(1, 2), ha='left', va='center')
+    axs[3].set_ylim(yb, yl)
+    sns.violinplot(data=SC[lbls==4,:],  ax=axs[4]).set_title('4', rotation=-90, position=(1, 2), ha='left', va='center')
+    axs[4].set_ylim(yb, yl)
+    sns.violinplot(data=SC[lbls==5,:],  ax=axs[5]).set_title('5', rotation=-90, position=(1, 2), ha='left', va='center')
+    axs[5].set_ylim(yb, yl)
+    sns.violinplot(data=SC[lbls==6,:],  ax=axs[6]).set_title('6', rotation=-90, position=(1, 2), ha='left', va='center')
+    axs[6].set_ylim(yb, yl)
+    sns.violinplot(data=SC[lbls==-7,:], ax=axs[7]).set_title('7', rotation=-90, position=(1, 2), ha='left', va='center')
+    axs[7].set_ylim(yb, yl)
+    
+    [for lbls in lbl_list]
+    
+    
+
+
+
+    mapper = umap.UMAP(n_neighbors=15, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=True).fit(aFrame)
+    yUMAP =  mapper.transform(aFrame)
+
+    from sklearn import decomposition
+    pca = decomposition.PCA(n_components=2)
+    pca.fit(aFrame)
+    yPCA = pca.transform(aFrame)
+
+    pca = decomposition.PCA(n_components=10)
+    pca.fit(aFrame)
+    yPCA3 = pca.transform(aFrame)
+
+
+
+    fig = plot2D_cluster_colors(yUMAP, lbls=lbls, msize=5)
+    fig.show()
+    fig = plot2D_cluster_colors(yPCA, lbls=lbls, msize=5)
+    fig.show()
+    '''
+
+
+
+
+    x_tensor = tf.convert_to_tensor(aFrame, dtype=tf.float32)
+    with tf.GradientTape(persistent=True) as t:
+        t.watch(x_tensor)
+        output = encoder2(x_tensor)
+
+        result = output
+        gradients0 = t.gradient(output[:, 0], x_tensor).numpy()
+        gradients1 = t.gradient(output[:, 1], x_tensor).numpy()
+        gradients2 = t.gradient(output[:, 2], x_tensor).numpy()
+
+    import seaborn as sns
+
+
+    SC = np.sqrt(gradients0**2+ gradients1**2 +gradients2**2)
+    yl = SC.max()
+    yb = SC.min()
+    fig, axs = plt.subplots(nrows=8)
+    sns.violinplot(data= SC[lbls == 0, :]/np.std(aFrame[lbls == 0, :], axis=0), ax=axs[0]).set_title('0', rotation=-90, position=(1, 1), ha='left',
+                                                               va='bottom')
+    axs[0].set_ylim(yb, yl)
+    sns.violinplot(data=SC[lbls == 1, :]/np.std(aFrame[lbls == 1, :], axis=0), ax=axs[1]).set_title('1', rotation=-90, position=(1, 2), ha='left',
+                                                               va='center')
+    axs[1].set_ylim(yb, yl)
+    sns.violinplot(data=SC[lbls == 2, :]/np.std(aFrame[lbls == 2, :], axis=0), ax=axs[2]).set_title('2', rotation=-90, position=(1, 2), ha='left',
+                                                               va='center')
+    axs[2].set_ylim(yb, yl)
+    sns.violinplot(data=SC[lbls == 3, :]/np.std(aFrame[lbls == 3, :], axis=0), ax=axs[3]).set_title('3', rotation=-90, position=(1, 2), ha='left',
+                                                               va='center')
+    axs[3].set_ylim(yb, yl)
+    sns.violinplot(data=SC[lbls == 4, :]/np.std(aFrame[lbls == 4, :], axis=0), ax=axs[4]).set_title('4', rotation=-90, position=(1, 2), ha='left',
+                                                               va='center')
+    axs[4].set_ylim(yb, yl)
+    sns.violinplot(data=SC[lbls == 5, :]/np.std(aFrame[lbls == 5, :], axis=0), ax=axs[5]).set_title('5', rotation=-90, position=(1, 2), ha='left',
+                                                               va='center')
+    axs[5].set_ylim(yb, yl)
+    sns.violinplot(data=SC[lbls == 6, :]/np.std(aFrame[lbls == 6, :], axis=0), ax=axs[6]).set_title('6', rotation=-90, position=(1, 2), ha='left',
+                                                               va='center')
+    axs[6].set_ylim(yb, yl)
+    sns.violinplot(data=SC[lbls == -7, :]/np.std(aFrame[lbls == -7, :], axis=0), ax=axs[7]).set_title('7', rotation=-90, position=(1, 2), ha='left',
+                                                                va='center')
+    axs[7].set_ylim(yb, yl)
+    plt.show()
+
+    zzz=np.ptp(aFrame, axis=0)
+    np.median(SC[lbls == -7, :], axis=0)
+    np.median(SC[lbls == 0, :], axis=0)
+    np.mean(SC[lbls == -7, :], axis=0)
+    np.mean(SC[lbls == 0, :], axis=0)
+
+    np.std(SC[lbls == -7, :], axis=0)
+    np.std(SC[lbls == 0, :], axis=0)
+
+    np.std(aFrame[lbls == -7, :], axis=0)
+    np.std(aFrame[lbls == 0, :], axis=0)
+
+
+
+
 

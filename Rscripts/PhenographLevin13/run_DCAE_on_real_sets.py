@@ -95,7 +95,7 @@ list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.compat.v1.disable_eager_execution()
-#bl = list_of_inputs[2]
+#bl = list_of_inputs[0]
 for bl in list_of_inputs:
     infile = source_dir + bl
     #markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
@@ -121,13 +121,13 @@ for bl in list_of_inputs:
 
     MMD_weight = K.variable(value=0)
 
-    MMD_weight_lst = K.variable( np.array(frange_anneal(int(epochs), ratio=0.95)) )
+    MMD_weight_lst = K.variable(np.array(frange_anneal(int(epochs), ratio=0.80)))
 
     batch_size = 256
     latent_dim = 3
     original_dim = aFrame.shape[1]
     intermediate_dim = original_dim * 3
-    intermediate_dim2 = original_dim
+    intermediate_dim2 = original_dim * 2 #corrected wideness to be the same with artificial sets
     # var_dims = Input(shape = (original_dim,))
     #
     initializer = tf.keras.initializers.he_normal(12345)
@@ -271,7 +271,7 @@ for bl in list_of_inputs:
                                    include_mathjax=False, post_script=None, full_html=True,
                                    animation_opts=None, default_width='100%', default_height='100%', validate=True)
                 html_dir = output_dir
-                Html_file = open(html_dir + "/" + str(bl) +'epochs'+str(epochs)+ '_epoch=' + str(epoch) + '_' + "_Buttons.html", "w")
+                Html_file = open(html_dir + "/" + str(bl) +'epochs'+str(epochs)+ '_epoch=' + str(epoch) + '_' + "wider_Buttons.html", "w")
                 Html_file.write(html_str)
                 Html_file.close()
 
@@ -307,9 +307,38 @@ for bl in list_of_inputs:
     fig = plot3D_cluster_colors(z, lbls=lbls)
     fig.show()
 
-    encoder.save_weights(output_dir + '/' + str(bl) +'epochs'+str(epochs)+ '_3D.h5')
-    autoencoder.save_weights(output_dir + '/autoencoder_' + str(bl) +'epochs'+str(epochs)+ '_3D.h5')
-    np.savez(output_dir + '/' + str(bl) + 'epochs'+str(epochs)+ '_latent_rep_3D.npz', z=z)
+    encoder.save_weights(output_dir + '/' + str(bl) +'epochs'+str(epochs)+ 'wider_3D.h5')
+    autoencoder.save_weights(output_dir + '/autoencoder_' + str(bl) +'epochs'+str(epochs)+ 'wider_3D.h5')
+    np.savez(output_dir + '/' + str(bl) + 'epochs'+str(epochs)+ '_latent_rep_wider_3D.npz', z=z)
+    '''
+    encoder.load_weights(output_dir + '/'+ str(bl) +'epochs'+str(epochs)+ '_3D.h5')
+    autoencoder.load_weights(output_dir + '/autoencoder_' + str(bl) +'epochs'+str(epochs)+ '_3D.h5')
+    encoder.summary()
+    z = encoder.predict([aFrame, Sigma, ])
 
+    from keract import get_activations, display_activations
+    from random import random
+    def decision(probability):
+        return random() < probability
 
+    ns_sample= 10
+    l_list = np.unique(lbls)
+    size_list = [sum(lbls == l) for l in l_list]
+    zip_iterator = zip(l_list, size_list)
+    size_dict = dict(zip_iterator)
+    indx = [True if size_dict[l] <= ns_sample else decision(ns_sample / size_dict[l]) for l in lbls]
+    indx = np.arange(len(lbls))[indx]
+    table(lbls[indx])
+    activation_lists = [[], [], []]
+    for j in range(len(indx)):
+        keract_inputs = [aFrame[indx[j]:(indx[j]+1), :], Sigma[indx[j]:(indx[j]+1)] ]
+    #keract_targets = target_test[:1]
+        activations = get_activations(encoder,keract_inputs, layer_names=['input_2', 'intermediate', 'intermediate2'])
+        activation_lists[0].append(list(activations['input_2']))
+        activation_lists[1].append(list(activations['intermediate']))
+        activation_lists[2].append(list(activations['intermediate2']))
+        #display_activations(activations, cmap="gray", save=True, directory = output_dir + '/autoencoder_' + str(bl))
 
+    #stack lists into matrices of activations
+    activations_matrices = [np.array(i).squeeze() for i in activation_lists]
+    '''
