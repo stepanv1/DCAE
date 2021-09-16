@@ -10,7 +10,8 @@ from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbou
     plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score_normalized, \
     get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d, plot3D_performance_colors, plot2D_performance_colors
 
-epoch_list =  [50, 100, 200, 300, 400, 500]
+epoch_list =  [50, 100, 200, 300, 400, 500, 1000]
+#epoch_list =  [1000]
 for epochs in epoch_list:
     os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
     DATA_ROOT = '/media/grinek/Seagate/'
