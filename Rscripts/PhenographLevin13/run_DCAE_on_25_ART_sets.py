@@ -71,6 +71,7 @@ k = 30
 k3 = k * 3
 coeffCAE = 1
 epochs = 50
+#epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
@@ -311,7 +312,7 @@ for bl in list_of_branches:
                                    include_mathjax=False, post_script=None, full_html=True,
                                    animation_opts=None, default_width='100%', default_height='100%', validate=True)
                 html_dir = output_dir
-                Html_file = open(html_dir + "/" + str(bl) + '_epoch=' + str(epoch) + '_' + "_Buttons.html", "w")
+                Html_file = open(html_dir + "/" + str(bl) + 'epochs'+str(epochs)+ '_epoch=' + str(epoch) + '_' + "_Buttons.html", "w")
                 Html_file.write(html_str)
                 Html_file.close()
 
@@ -329,12 +330,8 @@ for bl in list_of_branches:
     z = encoder.predict([aFrame, Sigma])
     print(stop - start)
 
-    encoder.save_weights(output_dir + '/' + str(bl) + '_3D.h5')
-    autoencoder.save_weights(output_dir + '/autoencoder_' + str(bl) + '_3D.h5')
-    np.savez(output_dir + '/' + str(bl) + '_latent_rep_3D.npz', z=z)
+    encoder.save_weights(output_dir + '/' + str(bl)+ 'epochs'+str(epochs) + '_3D.h5')
+    autoencoder.save_weights(output_dir + '/autoencoder_' + str(bl) + 'epochs'+str(epochs)+ '_3D.h5')
+    np.savez(output_dir + '/' + str(bl) + 'epochs'+str(epochs)+ '_latent_rep_3D.npz', z=z)
 
-    encoder.load_weights(output_dir + '/'+ str(bl) + '_3D.h5')
-    autoencoder.load_weights(output_dir + 'autoencoder_' + ID + '_3D.h5')
-    encoder.summary()
-    z = encoder.predict([aFrame, Sigma, ])
 

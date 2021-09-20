@@ -85,6 +85,7 @@ epochs = 50
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
+PLOTS = DATA_ROOT + "Artificial_sets/PLOTS/"
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
 #load earlier generated data
 
@@ -349,12 +350,13 @@ for bl in list_of_branches:
     autoencoder.load_weights(output_dir + '/autoencoder_' + str(bl) + '_3D.h5')
     encoder.summary()
     z = encoder.predict([aFrame, Sigma, ])
-
+    lbls = [i if i != -7 else 7 for i in lbls]
+    '''
     from keract import get_activations, display_activations
     from random import random
     def decision(probability):
         return random() < probability
-
+    lbls = [i if i !=-7 else 7 for i in lbls ]
     ns_sample= 10
     l_list = np.unique(lbls)
     size_list = [sum(lbls == l) for l in l_list]
@@ -378,28 +380,29 @@ for bl in list_of_branches:
     weights=[]
     for layer in encoder.layers:
         weights.append(layer.get_weights())
-
+    '''
     # implement LRP for vector output
     # relevance score would be defined as R_i= sqrt(sum_i (h^i_j**2))
     from kerassurgeon.operations import delete_layer, insert_layer, delete_channels
     #encoder2 = Model([aFrame, Sigma], h, name='encoder2')
     #encoder2.layers[1].set_weights(encoder.get_weights())
     #endcoder_1 =  [aFrame, Sigma(encoder, encoder.layers[1], np.arange(intermediate_dim)[np.max(activations0,axis=0) < 0.05])
-    from kerassurgeon.operations import delete_layer, insert_layer, delete_channels
+    #from kerassurgeon.operations import delete_layer, insert_layer, delete_channels
 
-    # to remoce Sigmalayer will need reload weights in layer one by one
+    # to remove Sigma layer will need re-create encoder
     encoder2 = Model([x], z_mean, name='encoder2')
     encoder2.summary()
-    excl=[0, 1]
-    encoder2 = delete_channels(encoder2, encoder2.layers[3], excl)
+    #excl=[0, 1]
+    #encoder2 = delete_channels(encoder2, encoder2.layers[3], excl)
     #encoder2 = delete_layer(encoder2, encoder2.get_layer('Sigma_Layer') )
     #encoder3 = tf.keras.Model(inputs=encoder2.layers[-3].input, outputs=encoder2.output)
-    encoder2.summary() # to remoce Sigmalayer will need reload weights in layer one by one
+    # to remoce Sigmalayer will need reload weights in layer one by one
      ##from kerassurgeon import Surgeon
     #surgeon = Surgeon(encoder2)
     #surgeon.add_job('delete_layer', encoder2.layers[3])
     #new_model = surgeon.operate()
     #new_model = surgeon.operate()
+    '''
     activation_lists = [[], [], []]
     for j in range(len(indx)):
         keract_inputs = [aFrame[indx[j]:(indx[j] + 1), :]]
@@ -421,103 +424,7 @@ for bl in list_of_branches:
     W =  [weights[l][0] for l in range(1,4)]
     B = [weights[l][1] for l in range(1, 4)]
     L = len(W)
-    # compute forward pass
-    A = [aFrame]+[None]*L
-    for l in range(L-1):
-        A[l+1] = np.maximum(0,A[l].dot(W[l])+B[l])
-    #top layer has linear activation:
-    A[L] = A[L-1].dot(W[L-1]) + B[L-1]
-    #  ρ is a function that transform the weights, and ϵ is a small positive increment
-    def rho(w, l):
-        return w + [0.1, 0.1, 0.1, 0.0][l] * np.maximum(0, w)
-    def incr(z, l):
-        return z + [0.1, 0.1, 0.1, 0.0][l] * (z ** 2).mean() ** .5 + 1e-9
-
-    #create a list to store relevance scores at each layer
-    R = [None] * L + [A[L]]
-    for l in range(0, L)[::-1]:
-        w = rho(W[l], l)
-        b = rho(B[l], l)
-
-        z = incr(A[l].dot(w) + b, l)  # step 1
-        s = R[l + 1] / z  # step 2
-        c = s.dot(w.T)  # step 3
-        R[l] = A[l] * c
-
     '''
-    import seaborn as sns
-    import umap.umap_ as umap
-    import plotly.io as pio
-    pio.renderers.default = "browser"
-    yl =7
-    fig, axs = plt.subplots(nrows=8)
-    sns.violinplot(data=aFrame[lbls==0,:],  ax=axs[0]).set_title('0', rotation=-90, position=(1, 1), ha='left', va='bottom')
-    axs[0].set_ylim(0, yl)
-    sns.violinplot(data=aFrame[lbls==1,:],  ax=axs[1]).set_title('1', rotation=-90, position=(1, 2), ha='left', va='center')
-    axs[1].set_ylim(0, yl)
-    sns.violinplot(data=aFrame[lbls==2,:],  ax=axs[2]).set_title('2', rotation=-90, position=(1, 2), ha='left', va='center')
-    axs[2].set_ylim(0, yl)
-    sns.violinplot(data=aFrame[lbls==3,:],  ax=axs[3]).set_title('3', rotation=-90, position=(1, 2), ha='left', va='center')
-    axs[3].set_ylim(0, yl)
-    sns.violinplot(data=aFrame[lbls==4,:],  ax=axs[4]).set_title('4', rotation=-90, position=(1, 2), ha='left', va='center')
-    axs[4].set_ylim(0, yl)
-    sns.violinplot(data=aFrame[lbls==5,:],  ax=axs[5]).set_title('5', rotation=-90, position=(1, 2), ha='left', va='center')
-    axs[5].set_ylim(0, yl)
-    sns.violinplot(data=aFrame[lbls==6,:],  ax=axs[6]).set_title('6', rotation=-90, position=(1, 2), ha='left', va='center')
-    axs[6].set_ylim(0, yl)
-    sns.violinplot(data=aFrame[lbls==-7,:], ax=axs[7]).set_title('7', rotation=-90, position=(1, 2), ha='left', va='center')
-    axs[7].set_ylim(0, yl)
-    plt.show()
-    
-    SC= (R[0])
-    yl =SC.max()
-    yb =SC.min()
-    fig, axs = plt.subplots(nrows=8)
-    sns.violinplot(data=SC[lbls==0,:],  ax=axs[0]).set_title('0', rotation=-90, position=(1, 1), ha='left', va='bottom')
-    axs[0].set_ylim(yb, yl)
-    sns.violinplot(data=SC[lbls==1,:],  ax=axs[1]).set_title('1', rotation=-90, position=(1, 2), ha='left', va='center')
-    axs[1].set_ylim(yb, yl)
-    sns.violinplot(data=SC[lbls==2,:],  ax=axs[2]).set_title('2', rotation=-90, position=(1, 2), ha='left', va='center')
-    axs[2].set_ylim(yb, yl)
-    sns.violinplot(data=SC[lbls==3,:],  ax=axs[3]).set_title('3', rotation=-90, position=(1, 2), ha='left', va='center')
-    axs[3].set_ylim(yb, yl)
-    sns.violinplot(data=SC[lbls==4,:],  ax=axs[4]).set_title('4', rotation=-90, position=(1, 2), ha='left', va='center')
-    axs[4].set_ylim(yb, yl)
-    sns.violinplot(data=SC[lbls==5,:],  ax=axs[5]).set_title('5', rotation=-90, position=(1, 2), ha='left', va='center')
-    axs[5].set_ylim(yb, yl)
-    sns.violinplot(data=SC[lbls==6,:],  ax=axs[6]).set_title('6', rotation=-90, position=(1, 2), ha='left', va='center')
-    axs[6].set_ylim(yb, yl)
-    sns.violinplot(data=SC[lbls==-7,:], ax=axs[7]).set_title('7', rotation=-90, position=(1, 2), ha='left', va='center')
-    axs[7].set_ylim(yb, yl)
-    
-    [for lbls in lbl_list]
-    
-    
-
-
-
-    mapper = umap.UMAP(n_neighbors=15, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=True).fit(aFrame)
-    yUMAP =  mapper.transform(aFrame)
-
-    from sklearn import decomposition
-    pca = decomposition.PCA(n_components=2)
-    pca.fit(aFrame)
-    yPCA = pca.transform(aFrame)
-
-    pca = decomposition.PCA(n_components=10)
-    pca.fit(aFrame)
-    yPCA3 = pca.transform(aFrame)
-
-
-
-    fig = plot2D_cluster_colors(yUMAP, lbls=lbls, msize=5)
-    fig.show()
-    fig = plot2D_cluster_colors(yPCA, lbls=lbls, msize=5)
-    fig.show()
-    '''
-
-
-
 
     x_tensor = tf.convert_to_tensor(aFrame, dtype=tf.float32)
     with tf.GradientTape(persistent=True) as t:
@@ -530,86 +437,165 @@ for bl in list_of_branches:
         gradients2 = t.gradient(output[:, 2], x_tensor).numpy()
 
     import seaborn as sns
-
-
+    '''
+    l_list = np.unique(lbls)
     SC = np.sqrt(gradients0**2+ gradients1**2 +gradients2**2)
-    #SC = np.sqrt(gradients2 ** 2)
-    yl = SC.max()
-    yb = SC.min()
+    SC = gradients2
+    SC= np.concatenate([ SC[lbls ==i, :]/np.std(aFrame[lbls == i, :], axis=0) for i in l_list], axis=0)
+
+    yl = np.min(SC)
+    yu = np.max(SC)
     fig, axs = plt.subplots(nrows=8)
-    sns.violinplot(data= SC[lbls == 0, :]/np.std(aFrame[lbls == 0, :], axis=0), ax=axs[0]).set_title('0', rotation=-90, position=(1, 1), ha='left',
+    sns.violinplot(data= SC[lbls == 0, :], ax=axs[0]).set_title('0', rotation=-90, position=(1, 1), ha='left',
                                                                va='bottom')
-    axs[0].set_ylim(yb, yl)
-    sns.violinplot(data=SC[lbls == 1, :]/np.std(aFrame[lbls == 1, :], axis=0), ax=axs[1]).set_title('1', rotation=-90, position=(1, 2), ha='left',
+    axs[0].set_ylim(yl, yu)
+    sns.violinplot(data=SC[lbls == 1, :], ax=axs[1]).set_title('1', rotation=-90, position=(1, 2), ha='left',
                                                                va='center')
-    axs[1].set_ylim(yb, yl)
-    sns.violinplot(data=SC[lbls == 2, :]/np.std(aFrame[lbls == 2, :], axis=0), ax=axs[2]).set_title('2', rotation=-90, position=(1, 2), ha='left',
+    axs[1].set_ylim(yl, yu)
+    sns.violinplot(data=SC[lbls == 2, :], ax=axs[2]).set_title('2', rotation=-90, position=(1, 2), ha='left',
                                                                va='center')
-    axs[2].set_ylim(yb, yl)
-    sns.violinplot(data=SC[lbls == 3, :]/np.std(aFrame[lbls == 3, :], axis=0), ax=axs[3]).set_title('3', rotation=-90, position=(1, 2), ha='left',
+    axs[2].set_ylim(yl, yu)
+    sns.violinplot(data=SC[lbls == 3, :], ax=axs[3]).set_title('3', rotation=-90, position=(1, 2), ha='left',
                                                                va='center')
-    axs[3].set_ylim(yb, yl)
-    sns.violinplot(data=SC[lbls == 4, :]/np.std(aFrame[lbls == 4, :], axis=0), ax=axs[4]).set_title('4', rotation=-90, position=(1, 2), ha='left',
+    axs[3].set_ylim(yl, yu)
+    sns.violinplot(data=SC[lbls == 4, :], ax=axs[4]).set_title('4', rotation=-90, position=(1, 2), ha='left',
                                                                va='center')
-    axs[4].set_ylim(yb, yl)
-    sns.violinplot(data=SC[lbls == 5, :]/np.std(aFrame[lbls == 5, :], axis=0), ax=axs[5]).set_title('5', rotation=-90, position=(1, 2), ha='left',
+    axs[4].set_ylim(yl, yu)
+    sns.violinplot(data=SC[lbls == 5, :], ax=axs[5]).set_title('5', rotation=-90, position=(1, 2), ha='left',
                                                                va='center')
-    axs[5].set_ylim(yb, yl)
-    sns.violinplot(data=SC[lbls == 6, :]/np.std(aFrame[lbls == 6, :], axis=0), ax=axs[6]).set_title('6', rotation=-90, position=(1, 2), ha='left',
+    axs[5].set_ylim(yl, yu)
+    sns.violinplot(data=SC[lbls == 6, :], ax=axs[6]).set_title('6', rotation=-90, position=(1, 2), ha='left',
                                                                va='center')
-    axs[6].set_ylim(yb, yl)
-    sns.violinplot(data=SC[lbls == -7, :]/np.std(aFrame[lbls == -7, :], axis=0), ax=axs[7]).set_title('7', rotation=-90, position=(1, 2), ha='left',
+    axs[6].set_ylim(yl, yu)
+    sns.violinplot(data=SC[lbls == -7, :], ax=axs[7]).set_title('7', rotation=-90, position=(1, 2), ha='left',
                                                                 va='center')
-    axs[7].set_ylim(yb, yl)
+    axs[7].set_ylim(yl, yu)
     plt.show()
 
     SC = np.sqrt(gradients0 ** 2 + gradients1 ** 2 + gradients2 ** 2)
     # SC = np.sqrt(gradients2 ** 2)
-    yl = SC.max()
-    yb = SC.min()
+    yl = SC.min()
+    yu = SC.max()
     fig, axs = plt.subplots(nrows=8)
     sns.violinplot(data=SC[lbls == 0, :] , ax=axs[0]).set_title('0', rotation=-90,
                                                                                                       position=(1, 1),
                                                                                                       ha='left',
                                                                                                       va='bottom')
-    axs[0].set_ylim(yb, yl)
+    axs[0].set_ylim(yl, yu)
     sns.violinplot(data=SC[lbls == 1, :], ax=axs[1]).set_title('1', rotation=-90,
                                                                                                       position=(1, 2),
                                                                                                       ha='left',
                                                                                                       va='center')
-    axs[1].set_ylim(yb, yl)
+    axs[1].set_ylim(yl, yu)
     sns.violinplot(data=SC[lbls == 2, :] , ax=axs[2]).set_title('2', rotation=-90,
                                                                                                       position=(1, 2),
                                                                                                       ha='left',
                                                                                                       va='center')
-    axs[2].set_ylim(yb, yl)
+    axs[2].set_ylim(yl, yu)
     sns.violinplot(data=SC[lbls == 3, :] , ax=axs[3]).set_title('3', rotation=-90,
                                                                                                       position=(1, 2),
                                                                                                       ha='left',
                                                                                                       va='center')
-    axs[3].set_ylim(yb, yl)
+    axs[3].set_ylim(yl, yu)
     sns.violinplot(data=SC[lbls == 4, :] , ax=axs[4]).set_title('4', rotation=-90,
                                                                                                       position=(1, 2),
                                                                                                       ha='left',
                                                                                                       va='center')
-    axs[4].set_ylim(yb, yl)
+    axs[4].set_ylim(yl, yu)
     sns.violinplot(data=SC[lbls == 5, :] , ax=axs[5]).set_title('5', rotation=-90,
                                                                                                       position=(1, 2),
                                                                                                       ha='left',
                                                                                                       va='center')
-    axs[5].set_ylim(yb, yl)
+    axs[5].set_ylim(yl, yu)
     sns.violinplot(data=SC[lbls == 6, :] , ax=axs[6]).set_title('6', rotation=-90,
                                                                                                       position=(1, 2),
                                                                                                       ha='left',
                                                                                                       va='center')
-    axs[6].set_ylim(yb, yl)
+
+    axs[6].set_ylim(yl, yu)
     sns.violinplot(data=SC[lbls == -7, :] , ax=axs[7]).set_title('7',
                                                                                                         rotation=-90,
                                                                                                         position=(1, 2),
                                                                                                         ha='left',
                                                                                                         va='center')
-    axs[7].set_ylim(yb, yl)
+    axs[7].set_ylim(yl, yu)
     plt.show()
+
+    fig, axs = plt.subplots(nrows=2)
+    sns.violinplot(data=SC[lbls == 6, :], ax=axs[0]).set_title('6',
+                                                     rotation=-90,
+                                                     position=(1, 2),
+                                                     ha='left',
+                                                     va='center')
+    axs[0].set_ylim(yl, yu)
+    sns.violinplot(data=SC[lbls == -7, :], ax=axs[1]).set_title('7',
+                                                                rotation=-90,
+                                                                position=(1, 2),
+                                                                ha='left',
+                                                                va='center')
+    axs[1].set_ylim(yl, yu)
+
+    plt.show()
+
+    yl = aFrame.min()
+    yu = aFrame.max()
+    fig, axs = plt.subplots(nrows=8)
+    sns.violinplot(data=aFrame[lbls == 0, :], ax=axs[0]).set_title('0', rotation=-90, position=(1, 1), ha='left',
+                                                                   va='bottom')
+    axs[0].set_ylim(yl, yu)
+    sns.violinplot(data=aFrame[lbls == 1, :], ax=axs[1]).set_title('1', rotation=-90, position=(1, 2), ha='left',
+                                                                   va='center')
+    axs[1].set_ylim(yl, yu)
+    sns.violinplot(data=aFrame[lbls == 2, :], ax=axs[2]).set_title('2', rotation=-90, position=(1, 2), ha='left',
+                                                                   va='center')
+    axs[2].set_ylim(yl, yu)
+    sns.violinplot(data=aFrame[lbls == 3, :], ax=axs[3]).set_title('3', rotation=-90, position=(1, 2), ha='left',
+                                                                   va='center')
+    axs[3].set_ylim(yl, yu)
+    sns.violinplot(data=aFrame[lbls == 4, :], ax=axs[4]).set_title('4', rotation=-90, position=(1, 2), ha='left',
+                                                                   va='center')
+    axs[4].set_ylim(yl, yu)
+    sns.violinplot(data=aFrame[lbls == 5, :], ax=axs[5]).set_title('5', rotation=-90, position=(1, 2), ha='left',
+                                                                   va='center')
+    axs[5].set_ylim(yl, yu)
+    sns.violinplot(data=aFrame[lbls == 6, :], ax=axs[6]).set_title('6', rotation=-90, position=(1, 2), ha='left',
+                                                                   va='center')
+    axs[6].set_ylim(yl, yu)
+    sns.violinplot(data=aFrame[lbls == -7, :], ax=axs[7]).set_title('7', rotation=-90, position=(1, 2), ha='left',
+                                                                    va='center')
+    axs[7].set_ylim(yl, yu)
+    plt.show()
+    '''
+
+    #Mean square sensitivity
+    l_list = np.unique(lbls)
+    SC = np.sqrt(gradients0 ** 2 + gradients1 ** 2 + gradients2 ** 2)
+    SCmean_norm = np.stack([np.mean(SC[lbls == i, :] / np.std(aFrame[lbls == i, :], axis=0), axis=0) for i in l_list], axis=0)
+    # plot a heatmap of this and peform  statistical tests, showing that data is interpreted correctly,
+    # removing influence of non-informative dimensions
+
+    g =  sns.heatmap(SCmean_norm, center=0.2, linewidths=.2, cmap="GnBu", xticklabels=1)
+    plt.savefig(PLOTS+'Sensitivity/' + str(bl)+ "Sensitivity_heatmap"+".eps", format='eps', dpi=350)
+    plt.close()
+
+    SC_norm = np.concatenate([SC[lbls == i, :] / np.std(aFrame[lbls == i, :], axis=0) for i in l_list], axis=0)
+    yl = SC_norm.min()
+    yu = SC_norm.max()
+
+    fig, axs = plt.subplots(nrows=8)
+    for i in l_list:
+        sns.violinplot(data=SC_norm[lbls == i, :], ax=axs[int(i)]).set_title(str(i), rotation=-90,
+                                                                             position=(1, 1),
+                                                                             ha='left',
+                                                                             va='bottom')
+        axs[int(i)].set_ylim(yl, yu)
+    plt.show()
+
+    from scipy.stats import mannwhitneyu
+    for i in l_list:
+        #iterate over all couples of informative versus non-informative
+        U1, p = mannwhitneyu(SC_norm[lbls == i, 26], SC_norm[lbls == i, 17], method="asymptotic")
+        print(p)
 
 
 

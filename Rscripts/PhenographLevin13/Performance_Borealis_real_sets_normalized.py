@@ -8,7 +8,7 @@ import os
 from utils_evaluation import  get_wsd_scores_normalized
 
 epoch_list =  [50, 100, 200, 300, 400, 500]
-#epoch_list =  [1000]
+#epoch_list =  [750]
 for epochs in epoch_list:
     os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
     DATA_ROOT = '/media/grinek/Seagate/'

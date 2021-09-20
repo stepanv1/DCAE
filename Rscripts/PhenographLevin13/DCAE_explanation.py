@@ -407,30 +407,38 @@ for bl in list_of_branches:
        
     classifier =tf.keras.Sequential()
     # Input layer and the first hidden layer
-    classifier.add(Dense(units=10, kernel_initializer= "uniform", activation = "relu", input_dim = 3))
+    #classifier.add(Dense(units=3, kernel_initializer= "uniform", activation = "relu", input_dim = 3))
     # Then Adding the second hidden layer
-    classifier.add(Dense(units=40, kernel_initializer= "uniform", activation = "relu"))
-    classifier.add(Dense(units=30, kernel_initializer="uniform", activation="relu"))
+    #classifier.add(Dense(units=30, kernel_initializer= "uniform", activation = "relu"))
+    #classifier.add(Dense(units=10, kernel_initializer="uniform", activation="relu"))
     # and the output layer
-    classifier.add(Dense(units=len(np.unique(lbls)), kernel_initializer= "uniform", activation = "relu"))
+    classifier.add(Dense(units=len(np.unique(lbls)), kernel_initializer= "uniform", activation = "softmax", input_dim = 3))
     lblsC = [7 if i==-7 else i for i in lbls]
-        classifier.summary()
+    classifier.summary()
     # split into train test sets
 
     from sklearn.model_selection import train_test_split
     X_train, X_test, y_train, y_test = train_test_split(z, lblsC, test_size=0.33)
 
-    classifier.compile(optimizer= "adam", loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True), metrics = ["accuracy"])
-    classifier.fit(X_train, y_train, batch_size=256, epochs=1000)
+    classifier.compile(optimizer= "adam", loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False), metrics = ["accuracy"])
+
+    earlystop_callback = tf.keras.callbacks.EarlyStopping(
+        monitor='val_accuracy', min_delta=0.00001,
+        patience=10)
+    classifier.fit(X_train, y_train, batch_size=512, epochs=10000, callbacks=[earlystop_callback],
+                   validation_data=(X_test, y_test ))
     test_loss, test_acc = classifier.evaluate(X_test, y_test, verbose=2)
     print('\nTest accuracy:', test_acc)
+    #probability_model = tf.keras.Sequential([classifier, tf.keras.layers.Softmax()])
+    probs = classifier.predict(z)
+    #get weights
+    weightsP = []
+    for layer in classifier.layers:
+        weightsP.append(layer.get_weights())
+    Wp = weightsP[0][0]
+    Bp = weightsP[0][1]
+    #backpropagate relevance score, creating scores for 3 componets of
 
-    probability_model = tf.keras.Sequential([classifier, tf.keras.layers.Softmax()])
-
-    predictions = probability_model.predict(z)
-
-    #now add it to the encoder and backpropagate
-    
     
     activation_lists = [[], [], []]
     for j in range(len(indx)):
@@ -450,23 +458,27 @@ for bl in list_of_branches:
     # do LRP on component 0
     #https: // git.tu - berlin.de / gmontavon / lrp - tutorial yhis contains relu network
     # get separate lists for weights and biases
-    W =  [weights[l][0] for l in range(1,4)]
-    B = [weights[l][1] for l in range(1, 4)]
+    W =  [weights[l][0] for l in range(1,4)] + [Wp]
+    B = [weights[l][1] for l in range(1, 4)] + [Bp]
     L = len(W)
     # compute forward pass
-    A = [aFrame]+[None]*L
+    A = [aFrame]+[None]*(L+1)
     for l in range(L-1):
         A[l+1] = np.maximum(0,A[l].dot(W[l])+B[l])
     #top layer has linear activation:
     A[L] = A[L-1].dot(W[L-1]) + B[L-1]
+    # softmax layer has linear activation:
+    # using simply probs
+
     #  ρ is a function that transform the weights, and ϵ is a small positive increment
     def rho(w, l):
-        return w + [0.1, 0.1, 0.0, 0.0][l] * np.maximum(0, w)
+        return w + [1, 1, 1, 1, 1][l] * np.maximum(0, w)
     def incr(z, l):
-        return z + [0.0, 0.0, 0.1, 0.0][l] * (z ** 2).mean() ** .5 + 1e-9
+        return z + [0.0, 0.0, 0.0, 0.1,0.1][l] * (z ** 2).mean() ** .5 + 1e-9
 
     #create a list to store relevance scores at each layer
-    R = [None] * L + [(A[L])]# using activations of as top layer relevances is not agood idea, as they change sign?
+    '''
+    R = [None] * (L) + [probs]  # softmax probabilities as relevances
     for l in range(0, L)[::-1]:
         w = rho(W[l], l)
         b = rho(B[l], l)
@@ -475,10 +487,28 @@ for bl in list_of_branches:
         s = R[l + 1] / z  # step 2
         c = s.dot(w.T)  # step 3
         R[l] = A[l] * c
+    '''
+    R = [None] * (L) + [np.log(probs/(1-probs))]  # softmax probabilities as relevances
+    #w**2 rule
+    for l in range(0, L)[::-1]:
+        w = W[l]
+        b = B[l]
+
+        w2 = np.square(w)# step 1
+        denom  = 1/np.sum(w ** 2, axis=0)
+        share = w2 * denom
+        R[l] =   R[l+1].dot( np.transpose(share))
+
+
+    import seaborn as sns
+    import umap.umap_ as umap
+    import plotly.io as pio
+    pio.renderers.default = "browser"
 
     R[0].max()
     R[0].min()
     SC = (np.arcsinh(R[0]))
+    #SC = R[0]
     yl = SC.max()
     yb = SC.min(); cut=5; gridsize=1000; inner =None
     fig, axs = plt.subplots(nrows=8)
