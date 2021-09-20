@@ -81,7 +81,7 @@ list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.compat.v1.disable_eager_execution()
-#bl = list_of_branches[1]
+#bl = list_of_branches[24]
 for bl in list_of_branches:
 
     infile = source_dir + 'set_'+ str(bl)+'.npz'
@@ -131,7 +131,7 @@ for bl in list_of_branches:
 
     MMD_weight = K.variable(value=0)
 
-    MMD_weight_lst = K.variable( np.array(frange_anneal(int(epochs), ratio=0.80)) )
+    MMD_weight_lst = K.variable( np.array(frange_anneal(int(epochs), ratio=1)) )
 
     batch_size = 256
     latent_dim = 3
@@ -275,11 +275,10 @@ for bl in list_of_branches:
     def ae_loss(weight, MMD_weight_lst):
         def loss(x, x_decoded_mean):
             msew = mean_square_error_NN(x, x_decoded_mean)
-            return msew + 1 * (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + 1 * (MMD_weight + coeffCAE) * DCAE_loss(
-                x, x_decoded_mean)  # TODO: try 1-MMD insted 2-MMD
-            # return msew + 1 * (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (coeffCAE) * DCAE_loss(x,
-            # x_decoded_mean)
-            # return K.mean(msew)
+            #return msew + 1 * (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + 1 * (MMD_weight + coeffCAE) * DCAE_loss(
+            #    x, x_decoded_mean)
+            return  (1 - MMD_weight+0.05) * (loss_mmd(x, x_decoded_mean)+msew) + 1 * (MMD_weight + coeffCAE) * DCAE_loss(
+                x, x_decoded_mean)
 
         return loss
         # return K.switch(tf.equal(Epoch_count, 10),  loss1(x, x_decoded_mean), loss1(x, x_decoded_mean))
@@ -312,7 +311,7 @@ for bl in list_of_branches:
                                    include_mathjax=False, post_script=None, full_html=True,
                                    animation_opts=None, default_width='100%', default_height='100%', validate=True)
                 html_dir = output_dir
-                Html_file = open(html_dir + "/" + str(bl) + 'epochs'+str(epochs)+ '_epoch=' + str(epoch) + '_' + "_Buttons.html", "w")
+                Html_file = open(html_dir + "/" + str(bl) + 'epochs'+str(epochs)+ '_epoch=' + str(epoch) + '_' + "_Buttonszzz.html", "w")
                 Html_file.write(html_str)
                 Html_file.close()
 
@@ -330,8 +329,23 @@ for bl in list_of_branches:
     z = encoder.predict([aFrame, Sigma])
     print(stop - start)
 
-    encoder.save_weights(output_dir + '/' + str(bl)+ 'epochs'+str(epochs) + '_3D.h5')
-    autoencoder.save_weights(output_dir + '/autoencoder_' + str(bl) + 'epochs'+str(epochs)+ '_3D.h5')
-    np.savez(output_dir + '/' + str(bl) + 'epochs'+str(epochs)+ '_latent_rep_3D.npz', z=z)
+    encoder.save_weights(output_dir + '/' + str(bl)+ 'epochs'+str(epochs) + '_3Dzz.h5')
+    autoencoder.save_weights(output_dir + '/autoencoder_' + str(bl) + 'epochs'+str(epochs)+ '_3Dzz.h5')
+    np.savez(output_dir + '/' + str(bl) + 'epochs'+str(epochs)+ '_latent_rep_3Dzz.npz', z=z)
 
-
+    st = 5;
+    stp = epochs
+    fig01 = plt.figure();
+    plt.plot(history_multiple.history['loss'][st:stp]);
+    plt.title('loss')
+    fig02 = plt.figure();
+    plt.plot(history_multiple.history['DCAE_loss'][st:stp]);
+    plt.title('DCAE_loss')
+    fig03 = plt.figure();
+    plt.plot(history_multiple.history['loss_mmd'][st:stp]);
+    plt.title('loss_mmd')
+    fig04 = plt.figure();
+    plt.plot(history_multiple.history['mean_square_error_NN'][st:stp]);
+    plt.title('mean_square_error')
+    fig = plot3D_cluster_colors(z, lbls=lbls)
+    fig.show()
