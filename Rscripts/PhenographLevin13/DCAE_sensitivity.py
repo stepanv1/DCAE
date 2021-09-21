@@ -26,6 +26,7 @@ from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.models import Model
 import keract
 pio.renderers.default = "browser"
+import pandas as pd
 
 from utils_evaluation import plot3D_cluster_colors
 
@@ -570,7 +571,8 @@ for bl in list_of_branches:
     #Mean square sensitivity
     l_list = np.unique(lbls)
     SC = np.sqrt(gradients0 ** 2 + gradients1 ** 2 + gradients2 ** 2)
-    SCmean_norm = np.stack([np.mean(SC[lbls == i, :] / np.std(aFrame[lbls == i, :], axis=0), axis=0) for i in l_list], axis=0)
+    lmbd = np.sqrt(z[:, 0]**2 +  z[:, 1]** 2 +z[:, 2]**2)
+    SCmean_norm = np.stack([np.median(SC[lbls == i, :] * aFrame[lbls == i, :] * np.expand_dims(1/lmbd[lbls == i], -1)  , axis=0) for i in l_list], axis=0)
     # plot a heatmap of this and peform  statistical tests, showing that data is interpreted correctly,
     # removing influence of non-informative dimensions
 
@@ -578,7 +580,7 @@ for bl in list_of_branches:
     plt.savefig(PLOTS+'Sensitivity/' + str(bl)+ "Sensitivity_heatmap"+".eps", format='eps', dpi=350)
     plt.close()
 
-    SC_norm = np.concatenate([SC[lbls == i, :] / np.std(aFrame[lbls == i, :], axis=0) for i in l_list], axis=0)
+    SC_norm = np.concatenate([SC[lbls == i, :] * aFrame[lbls == i, :] * np.expand_dims(1/lmbd[lbls == i], -1) for i in l_list], axis=0)
     yl = SC_norm.min()
     yu = SC_norm.max()
 
@@ -591,11 +593,71 @@ for bl in list_of_branches:
         axs[int(i)].set_ylim(yl, yu)
     plt.show()
 
-    from scipy.stats import mannwhitneyu
-    for i in l_list:
-        #iterate over all couples of informative versus non-informative
-        U1, p = mannwhitneyu(SC_norm[lbls == i, 26], SC_norm[lbls == i, 17], method="asymptotic")
-        print(p)
 
+
+
+    from scipy.stats import brunnermunzel
+
+    #create list of column names
+    inform_dim_list = np.arange(0, 5)
+    noisy_dim_list = np.arange(5, 30)
+    col_names = ['bl', 'cluster']
+    dim_comb =   sum([[str(dim_inf)+' '+ str(dim) for dim in noisy_dim_list] for dim_inf in inform_dim_list], [])
+    col_names = col_names + dim_comb
+
+    Pvals = []
+    for i in l_list[0:7]:
+       #iterate over all couples of informative versus non-informative
+        #U1, p = mannwhitneyu(SC_norm[lbls == i, 26], SC_norm[lbls == i, 17], method="asymptotic")
+
+       inform_dim_list  = np.arange(0,5)
+       noisy_dim_list  = np.arange(5,30)
+       test_res =  [[ brunnermunzel(SC_norm[lbls == i, dim_inf], SC_norm[lbls == i, dim],
+                     alternative='greater', distribution='normal', nan_policy='propagate')
+                     for dim in  noisy_dim_list] for dim_inf in inform_dim_list ]
+
+       test_res = [res[1]  for res in  sum(test_res, [])]
+       test_res = [bl, i] + test_res
+
+       Pvals.append(test_res)
+
+    df = pd.DataFrame(Pvals, columns=col_names)
+
+    #TODO save 2 dataframes  in spartete files  times 25
+
+    #8th cluster
+    Pvals = []
+    inform_dim_list = np.insert(np.arange(26,30), 0, 4, axis=0)
+    noisy_dim_list = np.insert(np.arange(5, 26), 0, np.arange(0, 4), axis=0)
+    col_names = ['bl', 'cluster']
+    dim_comb = sum([[str(dim_inf) + ' ' + str(dim) for dim in noisy_dim_list] for dim_inf in inform_dim_list], [])
+    col_names = col_names + dim_comb
+    Pvals = []
+    i = l_list[7]
+    test_res = [[brunnermunzel(SC_norm[lbls == i, dim_inf], SC_norm[lbls == i, dim],
+                               alternative='greater', distribution='normal', nan_policy='propagate')
+                 for dim in noisy_dim_list] for dim_inf in inform_dim_list]
+
+    test_res = [res[1] for res in sum(test_res, [])]
+    test_res = [bl, i] + test_res
+
+    Pvals.append(test_res)
+    df7 = pd.DataFrame(Pvals, columns=col_names)
+
+
+
+
+
+
+    #https: // stackoverflow.com / questions / 13784192 / creating - an - empty - pandas - dataframe - then - filling - it
+    data = []
+    for a, b, c in some_function_that_yields_data():
+        data.append([a, b, c])
+
+    df = pd.DataFrame(data, columns=['A', 'B', 'C'])
+
+    for j in range(len(test_res)):
+        print(test_res[j][0])
+        print(test_res[j][1][1])
 
 
