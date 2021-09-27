@@ -11,9 +11,9 @@ import plotly.io as pio
 import tensorflow as tf
 from plotly.io import to_html
 from tensorflow.keras import backend as K
-from tensorflow.keras.layers import Input, Dense
+from tensorflow.keras.layers import Input, Dense, LeakyReLU
 from tensorflow.keras.models import Model
-
+import pickle
 pio.renderers.default = "browser"
 
 from utils_evaluation import plot3D_cluster_colors
@@ -70,12 +70,13 @@ class EpochCounterCallback(Callback):
 k = 30
 k3 = k * 3
 coeffCAE = 1
-epochs_list = [50, 100, 200]
+epochs_list = [200]
 #epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
+ID = 'Elu_const_mse'
 #load earlier generated data
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
@@ -143,17 +144,40 @@ for epochs in epochs_list:
         #
         initializer = tf.keras.initializers.he_normal(12345)
         # initializer = None
+        '''
         SigmaTsq = Input(shape=(1,))
         x = Input(shape=(original_dim,))
-        h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(x)
-        h1 = Dense(intermediate_dim2, activation='relu', name='intermediate2', kernel_initializer=initializer)(h)
+        h = Dense(intermediate_dim,  name='intermediate', kernel_initializer=initializer)(x)
+        h = LeakyReLU(alpha=0.3)(h)
+        h1 = Dense(intermediate_dim2, name='intermediate2', kernel_initializer=initializer)(h)
+        h1 = LeakyReLU(alpha=0.3)(h1)
         z_mean = Dense(latent_dim, activation=None, name='z_mean', kernel_initializer=initializer)(h1)
 
         encoder = Model([x, SigmaTsq], z_mean, name='encoder')
 
-        decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer=initializer)
-        decoder_h1 = Dense(intermediate_dim, activation='relu', name='intermediate4', kernel_initializer=initializer)
-        decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)
+        decoder_h = Dense(intermediate_dim2,  name='intermediate3', kernel_initializer=initializer)
+        decoder_h1 = Dense(intermediate_dim,  name='intermediate4', kernel_initializer=initializer)
+        decoder_mean = Dense(original_dim,  name='output', kernel_initializer=initializer)
+        h_decoded = decoder_h(z_mean)
+        h_decoded = LeakyReLU(alpha=0.3)(h_decoded )
+        h_decoded2 = decoder_h1(h_decoded)
+        h_decoded2 = LeakyReLU(alpha=0.3)(h_decoded2)
+        x_decoded_mean = decoder_mean(h_decoded2)
+        x_decoded_mean = LeakyReLU(alpha=0.3)(x_decoded_mean)
+        autoencoder = Model(inputs=[x, SigmaTsq], outputs=x_decoded_mean)
+        '''
+
+        SigmaTsq = Input(shape=(1,))
+        x = Input(shape=(original_dim,))
+        h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(x)
+        h1 = Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
+        z_mean = Dense(latent_dim, activation=None, name='z_mean', kernel_initializer=initializer)(h1)
+
+        encoder = Model([x, SigmaTsq], z_mean, name='encoder')
+
+        decoder_h = Dense(intermediate_dim2, activation='elu', name='intermediate3', kernel_initializer=initializer)
+        decoder_h1 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)
+        decoder_mean = Dense(original_dim, activation='elu', name='output', kernel_initializer=initializer)
         h_decoded = decoder_h(z_mean)
         h_decoded2 = decoder_h1(h_decoded)
         x_decoded_mean = decoder_mean(h_decoded2)
@@ -166,40 +190,6 @@ for epochs in epochs_list:
         normSigma = nrow / sum(1 / Sigma)
 
         lam = 1e-4
-
-
-        def DCAE3D_loss(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
-            U = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
-            W = K.variable(value=encoder.get_layer('intermediate2').get_weights()[0])  # N x N_hidden
-            Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
-            U = K.transpose(U);
-            W = K.transpose(W);
-            Z = K.transpose(Z);  # N_hidden x N
-
-            u = encoder.get_layer('intermediate').output
-            du = tf.linalg.diag((tf.math.sign(u) + 1) / 2)
-            m = encoder.get_layer('intermediate2').output
-            dm = tf.linalg.diag((tf.math.sign(m) + 1) / 2)  # N_batch x N_hidden
-            s = encoder.get_layer('z_mean').output
-            # r = tf.linalg.einsum('aj->a', s ** 2)
-            ds = tf.linalg.diag(tf.math.scalar_mul(0, s) + 1)
-
-            S_0W = tf.einsum('akl,lj->akj', du, U)
-            S_1W = tf.einsum('akl,lj->akj', dm, W)  # N_batch x N_input ??
-            # tf.print((S_1W).shape) #[None, 120]
-            S_2Z = tf.einsum('akl,lj->akj', ds, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
-            # tf.print((S_2Z).shape)
-            diff_tens = tf.einsum('akl,alj->akj', S_2Z,
-                                  S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
-            diff_tens = tf.einsum('akl,alj->akj', diff_tens, S_0W)
-            # tf.Print(K.sum(diff_tens ** 2))
-            return 1 / normSigma * (SigmaTsq) * lam * (K.sum(diff_tens ** 2))
-
-
-        def pot(alp, x):
-            return np.select([(x < alp), (x >= alp) * (x <= 1), x > 1], [10, 0, 10])
-
-
         alp = 0.2
 
 
@@ -210,11 +200,28 @@ for epochs in epochs_list:
             U = K.transpose(U);
             W = K.transpose(W);
             Z = K.transpose(Z);  # N_hidden x N
+            #derivative of leaky relu
+
+            #relu
+            def relu_derivative(a):
+                cond = tf.math.greater_equal(a, tf.constant(0.0))
+                return tf.where(cond, tf.constant(1.0), tf.constant(0.0))
+            #elu
+            def elu_derivative(a):
+                cond = tf.math.greater_equal(a, tf.constant(0.0))
+                return tf.where(cond,  tf.constant(1.0), tf.math.exp(a))
+
+            #def leaky relu
+            def leaky_relu_derivative(a):
+                cond = tf.math.greater_equal(a, tf.constant(0.0))
+                return tf.where(cond, tf.constant(1.0), tf.constant(0.3))
+
+
 
             u = encoder.get_layer('intermediate').output
-            du = tf.linalg.diag((tf.math.sign(u) + 1) / 2)
+            du = tf.linalg.diag(elu_derivative(u))
             m = encoder.get_layer('intermediate2').output
-            dm = tf.linalg.diag((tf.math.sign(m) + 1) / 2)  # N_batch x N_hidden
+            dm = tf.linalg.diag(elu_derivative(m))  # N_batch x N_hidden
             s = encoder.get_layer('z_mean').output
 
             r = tf.linalg.einsum('aj->a', s ** 2)
@@ -276,10 +283,10 @@ for epochs in epochs_list:
         def ae_loss(weight, MMD_weight_lst):
             def loss(x, x_decoded_mean):
                 msew = mean_square_error_NN(x, x_decoded_mean)
-                #return msew + 1 * (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + 1 * (MMD_weight + coeffCAE) * DCAE_loss(
-                #    x, x_decoded_mean)
-                return  (1 - MMD_weight+0.1) * (loss_mmd(x, x_decoded_mean)+msew) + 1 * (MMD_weight + coeffCAE) * DCAE_loss(
+                return msew + 1 * (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + 1 * (MMD_weight + coeffCAE) * DCAE_loss(
                     x, x_decoded_mean)
+                #return  (1 - MMD_weight+0.1) * (loss_mmd(x, x_decoded_mean)+msew) + 1 * (MMD_weight + coeffCAE) * DCAE_loss(
+                    #x, x_decoded_mean)
 
             return loss
             # return K.switch(tf.equal(Epoch_count, 10),  loss1(x, x_decoded_mean), loss1(x, x_decoded_mean))
@@ -298,21 +305,23 @@ for epochs in epochs_list:
         #    learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False
         # )
         # autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst), metrics=[DCAE_loss, loss_mmd,  mean_square_error_NN])
-        from tensorflow.keras.callbacks import Callback
+        from tensorflow.keras.callbacks import Callback, EarlyStopping
 
         save_period = 10
 
+        DCAEStop = EarlyStopping(monitor='DCAE_loss', min_delta=1e-4, patience=10, mode = 'min',
+                                 restore_best_weights =True)
 
         class plotCallback(Callback):
             def on_epoch_end(self, epoch, logs=None):
-                if epoch % save_period == 0 or epoch in range(200):
+                if epoch % save_period == 0 or epoch in range(0,20):
                     z = encoder.predict([aFrame, Sigma])
                     fig = plot3D_cluster_colors(z, lbls=lbls)
                     html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                                        include_mathjax=False, post_script=None, full_html=True,
                                        animation_opts=None, default_width='100%', default_height='100%', validate=True)
                     html_dir = output_dir
-                    Html_file = open(html_dir + "/" + str(bl) + 'epochs'+str(epochs)+ '_epoch=' + str(epoch) + '_' + "_Buttons.html", "w")
+                    Html_file = open(html_dir + "/" + ID + "_" + str(bl) + 'epochs'+str(epochs)+ '_epoch=' + str(epoch) + '_' + "_Buttons.html", "w")
                     Html_file.write(html_str)
                     Html_file.close()
 
@@ -325,30 +334,41 @@ for epochs in epochs_list:
                                            epochs=epochs,
                                            shuffle=True,
                                            callbacks=[AnnealingCallback(MMD_weight, MMD_weight_lst),
-                                                      callPlot], verbose=2)
+                                                      callPlot, DCAEStop], verbose=2)
         stop = timeit.default_timer()
         z = encoder.predict([aFrame, Sigma])
         print(stop - start)
 
-        encoder.save_weights(output_dir + '/' + str(bl)+ 'epochs'+str(epochs) + '_3D.h5')
-        autoencoder.save_weights(output_dir + '/autoencoder_' + str(bl) + 'epochs'+str(epochs)+ '_3D.h5')
-        np.savez(output_dir + '/' + str(bl) + 'epochs'+str(epochs)+ '_latent_rep_3D.npz', z=z)
+        encoder.save_weights(output_dir + '/' + ID + "_" + str(bl)+ 'epochs'+str(epochs) + '_3D.h5')
+        autoencoder.save_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs'+str(epochs)+ '_3D.h5')
+        np.savez(output_dir + '/' + ID + "_" + str(bl) + 'epochs'+str(epochs)+ '_latent_rep_3D.npz', z=z)
         #np.savez(output_dir + '/' + str(bl) + 'epochs'+str(epochs)+ '_history.npz', history_multiple)
+        with open(output_dir + '/' + ID + str(bl) + 'epochs'+str(epochs)+ '_history', 'wb') as file_pi:
+            pickle.dump(history_multiple.history , file_pi)
 
 
-        st = 5;
-        stp = epochs
-        fig01 = plt.figure();
-        plt.plot(history_multiple.history['loss'][st:stp]);
-        plt.title('loss')
-        fig02 = plt.figure();
-        plt.plot(history_multiple.history['DCAE_loss'][st:stp]);
-        plt.title('DCAE_loss')
-        fig03 = plt.figure();
-        plt.plot(history_multiple.history['loss_mmd'][st:stp]);
-        plt.title('loss_mmd')
-        fig04 = plt.figure();
-        plt.plot(history_multiple.history['mean_square_error_NN'][st:stp]);
-        plt.title('mean_square_error')
-        fig = plot3D_cluster_colors(z, lbls=lbls)
-        fig.show()
+    # for bl in list_of_branches[20:24]:
+    #     #bl = list_of_branches[20]
+    #
+    #     npzfile = np.load(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz')
+    #     z = npzfile['z']
+    #
+    #     history = pickle.load(open(output_dir + '/' + str(bl) + 'epochs'+str(epochs)+ '_history',  "rb"))
+    #
+    #
+    #     st = 4;
+    #     stp = len(history['loss'])
+    #     fig01 = plt.figure();
+    #     plt.plot(history['loss'][st:stp]);
+    #     plt.title('loss')
+    #     fig02 = plt.figure();
+    #     plt.plot(history['DCAE_loss'][st:stp]);
+    #     plt.title('DCAE_loss')
+    #     fig03 = plt.figure();
+    #     plt.plot(history['loss_mmd'][st:stp]);
+    #     plt.title('loss_mmd')
+    #     fig04 = plt.figure();
+    #     plt.plot(history['mean_square_error_NN'][st:stp]);
+    #     plt.title('mean_square_error')
+    #     fig = plot3D_cluster_colors(z, lbls=lbls)
+    #     fig.show()

@@ -1,7 +1,7 @@
 '''
 Compute MSS and LSS performance measures on DCAE, UMAP and SAUCIE
 '''
-import math
+
 import pandas as pd
 import numpy as np
 import os
@@ -14,7 +14,8 @@ os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-
+ID = 'Elu_const_mse'
+epochs = 200
 # Compute performance for DCAE
 z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"
@@ -28,7 +29,7 @@ for bl in list_of_branches:
     lbls = npzfile['lbls']
 
     # read DCAE output
-    npz_res=np.load(z_dir + '/' + str(bl) + '_latent_rep_3D.npz')
+    npz_res = np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz')
     z= npz_res['z']
 
     MSS = neighbour_marker_similarity_score_per_cell(z, aFrame, kmax=90, num_cores=16)
@@ -36,7 +37,7 @@ for bl in list_of_branches:
 
     outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
     np.savez(outfile, MSS0=MSS[0], LSSS0= LSSS[0], MSS1=MSS[1], LSSS1= LSSS[1])
-
+'''
 # Compute performance for UMAP
 z_dir  = DATA_ROOT + "Artificial_sets/UMAP_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/UMAP_output/Performance"
@@ -82,7 +83,7 @@ for bl in list_of_branches:
 
     outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
     np.savez(outfile, MSS0=MSS[0], LSSS0=LSSS[0], MSS1=MSS[1], LSSS1=LSSS[1])
-
+'''
 #create MSS_LSSS graphs
 PLOTS = DATA_ROOT + "Artificial_sets/PLOTS/"
 bor_res_dirs = [DATA_ROOT + "Artificial_sets/DCAE_output/Performance/", DATA_ROOT + "Artificial_sets/UMAP_output/Performance/",DATA_ROOT + "Artificial_sets/SAUCIE_output/Performance/"]

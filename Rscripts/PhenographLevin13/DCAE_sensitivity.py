@@ -430,6 +430,7 @@ for bl in list_of_branches:
     col_names = ['bl', 'cluster']
     dim_comb = sum([[str(dim_inf) + ' ' + str(dim) for dim in noisy_dim_list] for dim_inf in inform_dim_list], [])
     col_names = col_names + dim_comb
+
     i = l_list[7]
     test_res = [[brunnermunzel(SC[lbls == i, dim_inf], SC[lbls == i, dim],
                                alternative='greater', distribution='normal', nan_policy='propagate')
@@ -447,34 +448,36 @@ for bl in list_of_branches:
     df7.to_csv(outfile,encoding ='utf-8')
 
 #combine dataframes and create summary information on sensitivity in all 25 clusters
-df_all =np.array([] ).reshape(0,127)
-df7_all = np.array([]).reshape(0,127)
+df_all = list()
+df7_all = list()
 #bl = list_of_branches[0]
 for bl in list_of_branches:
-    outfile = sensitivity_dir + str(bl) + '_sensitivity_tables.npz'
-    df  = pd.read_csv(outfile, encoding = 'unicode_escape', engine ='python')
-    df = npz_res['df']
-    df7 = npz_res['df7']
-    df_all= np.append(df_all, df, axis=0)
-    df7_all= np.append(df7_all, df7, axis=0)
+    outfile = sensitivity_dir + str(bl) + '_df7_sensitivity_table.csv'
+    df7  = pd.read_csv(outfile).iloc[: , 1:]
+    outfile = sensitivity_dir + str(bl) + '_df_sensitivity_table.csv'
+    df = pd.read_csv(outfile).iloc[: , 1:]
+    df_all.append(df)
+    df7_all.append(df7)
+df7_all = pd.concat(df7_all)
+df_all = pd.concat(df_all)
 
 #total summ of pairs where p<1e-10 in pentagone clusters
-df7_num = df7_all[:, 2:127].astype('float64')
+df7_num = df7_all.iloc[:, 2:127].astype('float64').to_numpy()
 np.sum(df7_num>1e-10)
 np.sum(df7_num>1e-10)/df7_num.shape[0]/df7_num.shape[1]
 
-df_num = df_all[:, 2:127].astype('float64')
+df_num = df_all.iloc[:, 2:127].astype('float64').to_numpy()
 np.sum(df_num>1e-10)
 np.sum(df_num>1e-10)/df_num.shape[0]/df_num.shape[1]
 
 #exclude from the above calculation dimensions not varyyin in pentagone, namely dim 4
 inform_dim_list = np.arange(0, 4)
-noisy_dim_list = np.arange(4, 30)
+noisy_dim_list = np.arange(5, 30)
 col_names = ['bl', 'cluster']
-dim_comb = sum([[str(dim_inf) + ' ' + str(dim) for dim in noisy_dim_list] for dim_inf in inform_dim_list], [])
+dim_comb = sum([[str(dim_inf) + ' ' + str(dim) for dim in  inform_dim_list ] for dim_inf in noisy_dim_list], [])
 col_names = col_names + dim_comb
 
-df_num_pentagon_dims =
+df_num_pentagon_dims = df_all[col_names[1:10]]
 
 
 

@@ -1,6 +1,18 @@
 '''
-Runs DCAE
-mappings for artificial clusters
+Runs DCAE with adaptive lost
+TODO: create adaptive loss callback function, with  weight losses on DCAE loss balanced relatively
+to stretching losses (mse + MMD), using changes per 10  epochs
+stretch/DCAE * (delta DCAE_10 / delta stretch_10) < eps ~ 1e-4
+TODO: Early stopping on delta DCAE_10 after 50 epochs
+
+delta DCAE_10 - change after 10 epochs
+
+Code examples for similar problems:
+https://stackoverflow.com/questions/57234360/tensorflow-keras-how-to-add-loss-weight-as-a-non-trainable-variable
+https://github.com/keras-team/keras/issues/2595#issuecomment-216757728
+https://stackoverflow.com/questions/50124158/keras-loss-function-with-additional-dynamic-parameter
+https://stackoverflow.com/questions/63630875/change-keras-model-variable
+
 '''
 
 import timeit
@@ -335,20 +347,19 @@ for epochs in epochs_list:
         np.savez(output_dir + '/' + str(bl) + 'epochs'+str(epochs)+ '_latent_rep_3D.npz', z=z)
         #np.savez(output_dir + '/' + str(bl) + 'epochs'+str(epochs)+ '_history.npz', history_multiple)
 
-
-        st = 5;
-        stp = epochs
-        fig01 = plt.figure();
-        plt.plot(history_multiple.history['loss'][st:stp]);
-        plt.title('loss')
-        fig02 = plt.figure();
-        plt.plot(history_multiple.history['DCAE_loss'][st:stp]);
-        plt.title('DCAE_loss')
-        fig03 = plt.figure();
-        plt.plot(history_multiple.history['loss_mmd'][st:stp]);
-        plt.title('loss_mmd')
-        fig04 = plt.figure();
-        plt.plot(history_multiple.history['mean_square_error_NN'][st:stp]);
-        plt.title('mean_square_error')
-        fig = plot3D_cluster_colors(z, lbls=lbls)
-        fig.show()
+        # st = 5;
+        # stp = epochs
+        # fig01 = plt.figure();
+        # plt.plot(history_multiple.history['loss'][st:stp]);
+        # plt.title('loss')
+        # fig02 = plt.figure();
+        # plt.plot(history_multiple.history['DCAE_loss'][st:stp]);
+        # plt.title('DCAE_loss')
+        # fig03 = plt.figure();
+        # plt.plot(history_multiple.history['loss_mmd'][st:stp]);
+        # plt.title('loss_mmd')
+        # fig04 = plt.figure();
+        # plt.plot(history_multiple.history['mean_square_error_NN'][st:stp]);
+        # plt.title('mean_square_error')
+        # fig = plot3D_cluster_colors(z, lbls=lbls)
+        # fig.show()

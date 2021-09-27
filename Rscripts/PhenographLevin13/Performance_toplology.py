@@ -60,7 +60,8 @@ os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-
+ID = 'Elu_const_mse'
+epochs = 200
 # Compute performance for DCAE
 z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"
@@ -70,7 +71,7 @@ for bl in list_of_branches:
     npzfile = np.load(infile)
     lbls = npzfile['lbls']
     # read DCAE output
-    npz_res=np.load(z_dir + '/' + str(bl) + '_latent_rep_3D.npz')
+    npz_res=np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz')
     z= npz_res['z']
     topolist = get_topology_list(bl)
     topolist_estimate = get_representation_topology(z, lbls)
@@ -78,7 +79,7 @@ for bl in list_of_branches:
     print(top_score)
     outfile = output_dir + '/' + str(bl) + '_Topological_PerformanceMeasures.npz'
     np.savez(outfile, top_score= top_score)
-
+'''
 # Compute performance for UMAP
 z_dir  = DATA_ROOT + "Artificial_sets/UMAP_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/UMAP_output/Performance/"
@@ -113,7 +114,7 @@ for bl in list_of_branches:
     print(top_score)
     outfile = output_dir + '/' + str(bl) + '_Topological_PerformanceMeasures.npz'
     np.savez(outfile, top_score= top_score)
-
+'''
 #create  graphs
 PLOTS = DATA_ROOT + "Artificial_sets/PLOTS/"
 bor_res_dirs = [DATA_ROOT + "Artificial_sets/DCAE_output/Performance/", DATA_ROOT + "Artificial_sets/UMAP_output/Performance/",DATA_ROOT + "Artificial_sets/SAUCIE_output/Performance/"]
@@ -139,5 +140,5 @@ matplotlib.use('PS')
 sns.set(rc={'figure.figsize':(14, 4)})
 g = sns.barplot(x='branch', y='score', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS + "TopoScore.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + ID +"_" + "TopoScore.eps", format='eps', dpi = 350)
 plt.close()
