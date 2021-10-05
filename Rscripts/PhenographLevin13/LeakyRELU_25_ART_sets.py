@@ -13,6 +13,7 @@ from plotly.io import to_html
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Input, Dense, LeakyReLU
 from tensorflow.keras.models import Model
+from tensorflow.keras.callbacks import Callback, EarlyStopping
 import pickle
 pio.renderers.default = "browser"
 
@@ -305,7 +306,6 @@ for epochs in epochs_list:
         #    learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False
         # )
         # autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst), metrics=[DCAE_loss, loss_mmd,  mean_square_error_NN])
-        from tensorflow.keras.callbacks import Callback, EarlyStopping
 
         save_period = 10
 
@@ -372,3 +372,22 @@ for epochs in epochs_list:
     #     plt.title('mean_square_error')
     #     fig = plot3D_cluster_colors(z, lbls=lbls)
     #     fig.show()
+    #
+    # autoencoder.load_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
+    # A_rest = autoencoder.predict([aFrame, Sigma, ])
+    # import seaborn as sns
+    #
+    # lblsC = [7 if i == -7 else i for i in lbls]
+    # l_list = np.unique(lblsC)
+    # fig, axs = plt.subplots(nrows=8)
+    # yl = aFrame.min()
+    # yu = aFrame.max()
+    # for i in l_list:
+    #     sns.violinplot(data=A_rest[lblsC == i, :], ax=axs[int(i)])
+    #     axs[int(i)].set_ylim(yl, yu)
+    #     axs[int(i)].set_title(str(int(i)), rotation=-90, x=1.05, y=0.5)
+    # fig.savefig(PLOTS + 'Sensitivity/' + str(bl) + "Signal_violinplot" + ".eps", format='eps', dpi=350)
+    # plt.close()
+    #
+    # sns.violinplot(data=A_rest)
+    # sns.violinplot(data=aFrame)

@@ -21,6 +21,7 @@ z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"
 #bl = list_of_branches[1]
 for bl in list_of_branches:
+    print('bl =', bl)
     # read data
     infile = source_dir + 'set_' + str(bl) + '.npz'
     npzfile = np.load(infile)
@@ -92,12 +93,12 @@ for bl in list_of_branches:
 PLOTS = DATA_ROOT + "Artificial_sets/PLOTS/"
 bor_res_dirs = [DATA_ROOT + "Artificial_sets/DCAE_output/Performance/", DATA_ROOT + "Artificial_sets/UMAP_output/Performance/",DATA_ROOT + "Artificial_sets/SAUCIE_output/Performance/"]
 methods = ['DCAE', 'UMAP', 'SAUCIE']
-dir = bor_res_dirs[0]
-bl  = list_of_branches[0]
+#dir = bor_res_dirs[0]
+#bl  = list_of_branches[0]
 df = pd.DataFrame()
 for i in range(3):
     for bl in list_of_branches:
-        bor_res_dirs[i] + '/' +  str(bl) +  '_BOREALIS_PerformanceMeasures_normalized.npz'
+        outfile= bor_res_dirs[i] + '/' +  str(bl) +  '_BOREALIS_PerformanceMeasures_normalized.npz'
         npz_res =  np.load(outfile)
         discontinuity = npz_res['discontinuity']
         manytoone = npz_res['manytoone']
@@ -115,13 +116,13 @@ matplotlib.use('PS')
 sns.set(rc={'figure.figsize':(14, 4)})
 g = sns.barplot(x='branch', y='discontinuity', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS +  + ID + "_" + str(bl) + 'epochs' + str(epochs)+ "Discontinuity.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS +   ID + "_" +  'epochs' + str(epochs)+ "Discontinuity.eps", format='eps', dpi = 350)
 plt.close()
 
 g = sns.barplot(x='branch', y='manytoone', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.set(ylim=(0.34, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS +  + ID + "_" + str(bl) + 'epochs' + str(epochs)+  "Manytoone.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS +   ID + "_" + 'epochs' + str(epochs)+  "Manytoone.eps", format='eps', dpi = 350)
 plt.close()
 
 

@@ -116,7 +116,7 @@ matplotlib.use('PS')
 
 
 sns.set(rc={'figure.figsize':(14, 4)})
-g = sns.barplot(x='branch', y='MSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
+g = sns.barplot(x='branch', y='MSS', hue='method', data=df.reset_index(), estimator=np.mean, ci=95, palette=['tomato','yellow','limegreen'])
 g.set(ylim=(0, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
 plt.savefig(PLOTS +'k_'+str(k)+'_'+ "MSS_normalized.eps", format='eps', dpi = 350)

@@ -93,8 +93,8 @@ list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
-#tf.compat.v1.disable_eager_execution() disabled to use to_numpy function of tf
-#bl = list_of_branches[1]
+#tf.compat.v1.disable_eager_execution() # commented out  to use to_numpy function of tf
+#bl = list_of_branches[0]
 for bl in list_of_branches:
 
     infile = source_dir + 'set_'+ str(bl)+'.npz'
@@ -470,14 +470,20 @@ df_num = df_all.iloc[:, 2:127].astype('float64').to_numpy()
 np.sum(df_num>1e-10)
 np.sum(df_num>1e-10)/df_num.shape[0]/df_num.shape[1]
 
-#exclude from the above calculation dimensions not varyyin in pentagone, namely dim 4
+#exclude from the above calculation dimensions taking part in defining pentagone, namely dim 4
+# dim 4 is not used
 inform_dim_list = np.arange(0, 4)
 noisy_dim_list = np.arange(5, 30)
 col_names = ['bl', 'cluster']
-dim_comb = sum([[str(dim_inf) + ' ' + str(dim) for dim in  inform_dim_list ] for dim_inf in noisy_dim_list], [])
+dim_comb = sum([[str(dim) + ' ' + str(dim_noi) for dim in  inform_dim_list ] for dim_noi in noisy_dim_list], [])
 col_names = col_names + dim_comb
 
-df_num_pentagon_dims = df_all[col_names[1:10]]
+#df_num_pentagon_dims = df_all[col_names[1:10]]
+# stats without 4th dimension
+df_all_no4 = df_all[col_names]
+df_num = df_all[dim_comb].astype('float64').to_numpy()
+np.sum(df_num>1e-10)
+np.sum(df_num>1e-10)/df_num.shape[0]/df_num.shape[1]
 
 
 
