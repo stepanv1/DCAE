@@ -91,7 +91,7 @@ source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
 output_dir  = DATA_ROOT + 'Real_sets/DCAE_output/'
 list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
 'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
-ID = 'ReELU_'
+ID = 'RELU_'
 
 #load earlier preprocessed data
 
@@ -279,7 +279,7 @@ for epochs in epochs_list:
 
         save_period = 10
 
-        DCAEStop = EarlyStopping(monitor='DCAE_loss', min_delta=1e-5, patience=int(epochs/200 * 50), mode='min',
+        DCAEStop = EarlyStopping(monitor='DCAE_loss', min_delta=1e-4, patience=int(epochs/200 * 10), mode='min',
                                  restore_best_weights=False)
 
         class plotCallback(Callback):
@@ -334,47 +334,47 @@ for epochs in epochs_list:
         with open(output_dir + '/' + ID + str(bl) + 'epochs' + str(epochs) + '_history', 'wb') as file_pi:
             pickle.dump(history_multiple.history, file_pi)
 
-   # for bl in list_of_branches[20:24]:
-   #      #bl = list_of_branches[20]
-   #
-   #      npzfile = np.load(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz')
-   #      z = npzfile['z']
-   #
-   #      history = pickle.load(open(output_dir + '/'  + ID + str(bl) + 'epochs'+str(epochs)+ '_history',  "rb"))
-   #
-   #
-   #      st = 4;
-   #      stp = len(history['loss'])
-   #      fig01 = plt.figure();
-   #      plt.plot(history['loss'][st:stp]);
-   #      plt.title('loss')
-   #      fig02 = plt.figure();
-   #      plt.plot(history['DCAE_loss'][st:stp]);
-   #      plt.title('DCAE_loss')
-   #      fig03 = plt.figure();
-   #      plt.plot(history['loss_mmd'][st:stp]);
-   #      plt.title('loss_mmd')
-   #      fig04 = plt.figure();
-   #      plt.plot(history['mean_square_error_NN'][st:stp]);
-   #      plt.title('mean_square_error')
-   #      fig = plot3D_cluster_colors(z, lbls=lbls)
-   #      fig.show()
-   #
-   #  autoencoder.load_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
-   #  A_rest = autoencoder.predict([aFrame, Sigma, ])
-   #  import seaborn as sns
-   #
-   #  lblsC = [7 if i == -7 else i for i in lbls]
-   #  l_list = np.unique(lblsC)
-   #  fig, axs = plt.subplots(nrows=8)
-   #  yl = aFrame.min()
-   #  yu = aFrame.max()
-   #  for i in l_list:
-   #      sns.violinplot(data=A_rest[lblsC == i, :], ax=axs[int(i)])
-   #      axs[int(i)].set_ylim(yl, yu)
-   #      axs[int(i)].set_title(str(int(i)), rotation=-90, x=1.05, y=0.5)
-   #  fig.savefig(PLOTS + 'Sensitivity/' + str(bl) + "Signal_violinplot" + ".eps", format='eps', dpi=350)
-   #  plt.close()
-   #
-   #  sns.violinplot(data=A_rest)
-   #  sns.violinplot(data=aFrame)
+
+    #     bl = list_of_inputs[2]
+    #
+    #     npzfile = np.load(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz')
+    #     z = npzfile['z']
+    #
+    #     history = pickle.load(open(output_dir + '/'  + ID + str(bl) + 'epochs'+str(epochs)+ '_history',  "rb"))
+    #
+    #
+    #     st = 50;
+    #     stp = len(history['loss'])
+    #     fig01 = plt.figure();
+    #     plt.plot(history['loss'][st:stp]);
+    #     plt.title('loss')
+    #     fig02 = plt.figure();
+    #     plt.plot(history['DCAE_loss'][st:stp]);
+    #     plt.title('DCAE_loss')
+    #     fig03 = plt.figure();
+    #     plt.plot(history['loss_mmd'][st:stp]);
+    #     plt.title('loss_mmd')
+    #     fig04 = plt.figure();
+    #     plt.plot(history['mean_square_error_NN'][st:stp]);
+    #     plt.title('mean_square_error')
+    #     fig = plot3D_cluster_colors(z, lbls=lbls)
+    #     fig.show()
+    #
+    # autoencoder.load_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
+    # A_rest = autoencoder.predict([aFrame, Sigma, ])
+    # import seaborn as sns
+    #
+    # lblsC = [7 if i == -7 else i for i in lbls]
+    # l_list = np.unique(lblsC)
+    # fig, axs = plt.subplots(nrows=8)
+    # yl = aFrame.min()
+    # yu = aFrame.max()
+    # for i in l_list:
+    #     sns.violinplot(data=A_rest[lblsC == i, :], ax=axs[int(i)])
+    #     axs[int(i)].set_ylim(yl, yu)
+    #     axs[int(i)].set_title(str(int(i)), rotation=-90, x=1.05, y=0.5)
+    # fig.savefig(PLOTS + 'Sensitivity/' + str(bl) + "Signal_violinplot" + ".eps", format='eps', dpi=350)
+    # plt.close()
+    #
+    # sns.violinplot(data=A_rest)
+    # sns.violinplot(data=aFrame)

@@ -14,8 +14,6 @@ https://github.com/albermax/innvestigate
 
 '''
 
-import timeit
-
 import matplotlib.pyplot as plt
 import numpy as np
 import plotly.io as pio
@@ -93,10 +91,12 @@ list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
+ID = 'RELU'
+epochs = 500
 #tf.compat.v1.disable_eager_execution() # commented out  to use to_numpy function of tf
-#bl = list_of_branches[0]
+#bl = list_of_branches[1]
 for bl in list_of_branches:
-
+    print(bl)
     infile = source_dir + 'set_'+ str(bl)+'.npz'
     #markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
     # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
@@ -115,17 +115,6 @@ for bl in list_of_branches:
     Sigma = npzfile['Sigma']
     lbls = npzfile['lbls'];
     #neib_weight = npzfile['neib_weight']
-    # [aFrame, neibF, cut_neibF, weight_neibF]
-    # training set
-    # targetTr = np.repeat(aFrame, r, axis=0)
-    targetTr = aFrame
-    neibF_Tr = neibALL
-    weight_neibF_Tr =weight_distALL
-    sourceTr = aFrame
-
-
-
-
     # Model-------------------------------------------------------------------------
     ######################################################
     # targetTr = np.repeat(aFrame, r, axis=0)
@@ -312,33 +301,17 @@ for bl in list_of_branches:
     # )
     # autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst), metrics=[DCAE_loss, loss_mmd,  mean_square_error_NN])
 
-    encoder.load_weights(output_dir + '/'+ str(bl) + '_3D.h5')
-    autoencoder.load_weights(output_dir + '/autoencoder_' + str(bl) + '_3D.h5')
+    encoder.load_weights(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
+    autoencoder.load_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
     encoder.summary()
     z = encoder.predict([aFrame, Sigma, ])
     lbls = [i if i != -7 else 7 for i in lbls]
 
-    # implement LRP for vector output
-    # relevance score would be defined as R_i= sqrt(sum_i (h^i_j**2))
-    from kerassurgeon.operations import delete_layer, insert_layer, delete_channels
-    #encoder2 = Model([aFrame, Sigma], h, name='encoder2')
-    #encoder2.layers[1].set_weights(encoder.get_weights())
-    #endcoder_1 =  [aFrame, Sigma(encoder, encoder.layers[1], np.arange(intermediate_dim)[np.max(activations0,axis=0) < 0.05])
-    #from kerassurgeon.operations import delete_layer, insert_layer, delete_channels
+    out = autoencoder.predict([aFrame, Sigma, ])
 
     # to remove Sigma layer will need re-create encoder
     encoder2 = Model([x], z_mean, name='encoder2')
     encoder2.summary()
-    #excl=[0, 1]
-    #encoder2 = delete_channels(encoder2, encoder2.layers[3], excl)
-    #encoder2 = delete_layer(encoder2, encoder2.get_layer('Sigma_Layer') )
-    #encoder3 = tf.keras.Model(inputs=encoder2.layers[-3].input, outputs=encoder2.output)
-    # to remoce Sigmalayer will need reload weights in layer one by one
-     ##from kerassurgeon import Surgeon
-    #surgeon = Surgeon(encoder2)
-    #surgeon.add_job('delete_layer', encoder2.layers[3])
-    #new_model = surgeon.operate()
-    #new_model = surgeon.operate()
 
     x_tensor = tf.convert_to_tensor(aFrame, dtype=tf.float32)
     with tf.GradientTape(persistent=True) as t:
@@ -355,21 +328,68 @@ for bl in list_of_branches:
 
     #Mean square elasticity
     l_list = np.unique(lbls)
-    SC = np.sqrt(gradients0 ** 2 + gradients1 ** 2 + gradients2 ** 2)
-    lmbd = np.sqrt(z[:, 0]**2 +  z[:, 1]** 2 +z[:, 2]**2)
+    SCgrad = np.sqrt(gradients0 ** 2 + gradients1 ** 2 + gradients2 ** 2)
+    #tangent SC, only components tangent to sphere at the cente at (0,0,0,) contribute
+    # radius = np.sqrt(z[:,0] ** 2 + z[:,1] ** 2 + z[:,2] ** 2)
+    # #orthogonal vector to sphere
+    # ort  = z/radius[:,None]
+    #
+    # par_grad_0 = gradients0 - ort[:, 0][:, None] * (
+    #             gradients0 * ort[:, 0][:, None] + gradients1 * ort[:, 1][:, None] + gradients2 * ort[:, 2][:, None])
+    # par_grad_1 = gradients1 - ort[:, 1][:, None] * (
+    #             gradients0 * ort[:, 0][:, None] + gradients1 * ort[:, 1][:, None] + gradients2 * ort[:, 2][:, None])
+    # par_grad_2 = gradients2 - ort[:, 2][:, None] * (
+    #             gradients0 * ort[:, 0][:, None] + gradients1 * ort[:, 1][:, None] + gradients2 * ort[:, 2][:, None])
+
+
+    # ort_grad_0 = ort[:, 0][:, None] * ( gradients0 *ort[:,0][:, None] + gradients1 *ort[:,1][:, None] +  gradients2 *ort[:,2][:, None])
+    # ort_grad_1 = ort[:, 1][:, None] * (
+    #             gradients0 * ort[:, 0][:, None] + gradients1 * ort[:, 1][:, None] + gradients2 * ort[:, 2][:, None])
+    # ort_grad_2 = ort[:, 2][:, None] * (
+    #             gradients0 * ort[:, 0][:, None] + gradients1 * ort[:, 1][:, None] + gradients2 * ort[:, 2][:, None])
+
+    #SC_ort = np.sqrt(ort_grad_0 ** 2 + ort_grad_1 ** 2 + ort_grad_2 ** 2)
+    #SC = np.sqrt(par_grad_0 ** 2 + par_grad_1 ** 2 + par_grad_2** 2)
+
+
+    #lmbd = np.sqrt(z[:, 0]**2 +  z[:, 1]** 2 +z[:, 2]**2)
     #elasticity score per cluster
-    SC_mean = np.stack([np.median(SC[lbls == i, :] * aFrame[lbls == i, :] * np.expand_dims(1/lmbd[lbls == i], -1)  , axis=0) for i in l_list], axis=0)
+    #SC_mean = np.stack([np.median(SC[lbls == i, :] * (aFrame[lbls == i, :] - np.median(aFrame[lbls == i, :], axis=0))
+    #                              * np.expand_dims(lmbd[lbls == i], -1)  , axis=0) for i in l_list], axis=0)
+    #SC_mean = np.stack(
+    #    [np.median(SC[lbls == i, :] , axis=0) for i in
+    #     l_list], axis=0)
+
+    #SC_mean2 = np.stack([np.median(SC[lbls == i, :] / np.abs(aFrame[lbls == i, :] - np.median(aFrame[lbls == i, :], axis=0)) *
+    #                              np.expand_dims(lmbd[lbls == i], -1)  , axis=0) for i in l_list], axis=0)
+    # SC = np.vstack(
+    #     [SCgrad[lbls == i, :] / np.abs(aFrame[lbls == i, :] - np.median(aFrame[lbls == i, :], axis=0)) for i in l_list])
+    #
+    # SC_mean = np.stack(
+    #     [np.median(SCgrad[lbls == i, :] / np.abs(aFrame[lbls == i, :] - np.median(aFrame[lbls == i, :], axis=0)), axis=0) for i in l_list], axis=0)
+
+    from scipy.stats import iqr
+    SC = np.vstack(
+        [SCgrad[lbls == i, :] / iqr(aFrame[lbls == i, :], axis=0) for i in l_list])
+
+    SC_mean = np.stack(
+        [np.median(SCgrad[lbls == i, :] /iqr(aFrame[lbls == i, :], axis=0),
+                   axis=0) for i in l_list], axis=0)
+
     # plot a heatmap of this and peform  statistical tests, showing that data is interpreted correctly,
     # removing influence of non-informative dimensions
 
     from sklearn import preprocessing
-    SC_mean_norm = preprocessing.normalize(SC_mean, norm = 'l1')
+    #SC_mean_norm = preprocessing.normalize(SC_mean, norm = 'l1')
+    SC_mean_norm =SC_mean
     plt.figure(figsize=(14, 10))
     g =  sns.heatmap(SC_mean_norm, center=0.1, linewidths=.2, cmap="GnBu",  annot=True, fmt='1.2f',  annot_kws={"fontsize":8})
-    plt.savefig(PLOTS+'Sensitivity/' + str(bl)+ "Sensitivity_heatmap"+".eps", format='eps', dpi=350)
+    plt.savefig(PLOTS+'Sensitivity/' + str(bl)+ "Sensitivity_heatmap_experiment"+".eps", format='eps', dpi=350)
     plt.close()
     #elasticity score per point
-    SC = np.concatenate([SC[lbls == i, :] * aFrame[lbls == i, :] * np.expand_dims(1/lmbd[lbls == i], -1) for i in l_list], axis=0)
+    #SC = np.concatenate([SC[lbls == i, :] * aFrame[lbls == i, :] * np.expand_dims(1/lmbd[lbls == i], -1) for i in l_list], axis=0)
+    #SC = np.concatenate(
+    #    [SC[lbls == i, :] for i in l_list], axis=0)
 
     fig, axs = plt.subplots(nrows=8)
     yl = SC.min()
@@ -378,7 +398,7 @@ for bl in list_of_branches:
         sns.violinplot(data=SC[lbls == i, :], ax=axs[int(i)])
         axs[int(i)].set_ylim(yl, yu)
         axs[int(i)].set_title(str(int(i)), rotation=-90, x=1.05, y =0.5)
-    fig.savefig(PLOTS+'Sensitivity/' + str(bl)+ "Sensitivity_violinplot"+".eps", format='eps', dpi=700)
+    fig.savefig(PLOTS+'Sensitivity/' + str(bl)+ "Sensitivity_violinplot_experiment"+".eps", format='eps', dpi=700)
     plt.close()
 
     fig, axs = plt.subplots(nrows=8)
@@ -388,9 +408,18 @@ for bl in list_of_branches:
         sns.violinplot(data=aFrame[lbls == i, :], ax=axs[int(i)])
         axs[int(i)].set_ylim(yl, yu)
         axs[int(i)].set_title(str(int(i)), rotation=-90, x=1.05, y =0.5)
-    fig.savefig(PLOTS + 'Sensitivity/' + str(bl) + "Signal_violinplot" + ".eps", format='eps', dpi=350)
+    fig.savefig(PLOTS + 'Sensitivity/' + str(bl) + "Signal_violinplot_experiment" + ".eps", format='eps', dpi=350)
     plt.close()
 
+    fig, axs = plt.subplots(nrows=8)
+    yl = out.min()
+    yu = out.max()
+    for i in l_list:
+        sns.violinplot(data=out[lbls == i, :], ax=axs[int(i)])
+        axs[int(i)].set_ylim(yl, yu)
+        axs[int(i)].set_title(str(int(i)), rotation=-90, x=1.05, y=0.5)
+    fig.savefig(PLOTS + 'Sensitivity/' + str(bl) + "Autoencoder_out" + ".eps", format='eps', dpi=350)
+    plt.close()
 
 
 
@@ -420,7 +449,7 @@ for bl in list_of_branches:
        Pvals.append(test_res)
 
     df = pd.DataFrame(Pvals, columns=col_names)
-    outfile = output_dir + '/' + str(bl) + '_BOREALIS_PerformanceMeasures.npz'
+
     #TODO save 2 dataframes  in spartete files  times 25
 
     #8th cluster
@@ -442,9 +471,9 @@ for bl in list_of_branches:
     Pvals.append(test_res)
     df7 = pd.DataFrame(Pvals, columns=col_names)
 
-    outfile = sensitivity_dir + str(bl) + '_df_sensitivity_table.csv'
+    outfile = sensitivity_dir + str(bl) + '_df_sensitivity_table_experiment.csv'
     df.to_csv(outfile,encoding ='utf-8')
-    outfile = sensitivity_dir + str(bl) + '_df7_sensitivity_table.csv'
+    outfile = sensitivity_dir + str(bl) + '_df7_sensitivity_table_experiment.csv'
     df7.to_csv(outfile,encoding ='utf-8')
 
 #combine dataframes and create summary information on sensitivity in all 25 clusters
@@ -452,9 +481,9 @@ df_all = list()
 df7_all = list()
 #bl = list_of_branches[0]
 for bl in list_of_branches:
-    outfile = sensitivity_dir + str(bl) + '_df7_sensitivity_table.csv'
+    outfile = sensitivity_dir + str(bl) + '_df7_sensitivity_table_experiment.csv'
     df7  = pd.read_csv(outfile).iloc[: , 1:]
-    outfile = sensitivity_dir + str(bl) + '_df_sensitivity_table.csv'
+    outfile = sensitivity_dir + str(bl) + '_df_sensitivity_table_experiment.csv'
     df = pd.read_csv(outfile).iloc[: , 1:]
     df_all.append(df)
     df7_all.append(df7)
@@ -465,11 +494,11 @@ df_all = pd.concat(df_all)
 df7_num = df7_all.iloc[:, 2:127].astype('float64').to_numpy()
 np.sum(df7_num>1e-10)
 np.sum(df7_num>1e-10)/df7_num.shape[0]/df7_num.shape[1]
-
+# 0.0416
 df_num = df_all.iloc[:, 2:127].astype('float64').to_numpy()
 np.sum(df_num>1e-10)
 np.sum(df_num>1e-10)/df_num.shape[0]/df_num.shape[1]
-
+# 0.02592
 #exclude from the above calculation dimensions taking part in defining pentagone, namely dim 4
 # dim 4 is not used
 inform_dim_list = np.arange(0, 4)
@@ -484,12 +513,5 @@ df_all_no4 = df_all[col_names]
 df_num = df_all[dim_comb].astype('float64').to_numpy()
 np.sum(df_num>1e-10)
 np.sum(df_num>1e-10)/df_num.shape[0]/df_num.shape[1]
-
-
-
-
-
-
-
-
+# 0.017
 

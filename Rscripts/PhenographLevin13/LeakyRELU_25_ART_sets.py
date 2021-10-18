@@ -71,13 +71,14 @@ class EpochCounterCallback(Callback):
 k = 30
 k3 = k * 3
 coeffCAE = 1
-epochs_list = [200]
+coeffMSE = 1
+epochs_list = [500]
 #epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'Elu_const_mse'
+ID = 'RELU'
 #load earlier generated data
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
@@ -170,15 +171,15 @@ for epochs in epochs_list:
 
         SigmaTsq = Input(shape=(1,))
         x = Input(shape=(original_dim,))
-        h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(x)
-        h1 = Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
+        h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(x)
+        h1 = Dense(intermediate_dim2, activation='relu', name='intermediate2', kernel_initializer=initializer)(h)
         z_mean = Dense(latent_dim, activation=None, name='z_mean', kernel_initializer=initializer)(h1)
 
         encoder = Model([x, SigmaTsq], z_mean, name='encoder')
 
-        decoder_h = Dense(intermediate_dim2, activation='elu', name='intermediate3', kernel_initializer=initializer)
-        decoder_h1 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)
-        decoder_mean = Dense(original_dim, activation='elu', name='output', kernel_initializer=initializer)
+        decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer=initializer)
+        decoder_h1 = Dense(intermediate_dim, activation='relu', name='intermediate4', kernel_initializer=initializer)
+        decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)
         h_decoded = decoder_h(z_mean)
         h_decoded2 = decoder_h1(h_decoded)
         x_decoded_mean = decoder_mean(h_decoded2)
@@ -284,8 +285,7 @@ for epochs in epochs_list:
         def ae_loss(weight, MMD_weight_lst):
             def loss(x, x_decoded_mean):
                 msew = mean_square_error_NN(x, x_decoded_mean)
-                return msew + 1 * (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + 1 * (MMD_weight + coeffCAE) * DCAE_loss(
-                    x, x_decoded_mean)
+                return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 #return  (1 - MMD_weight+0.1) * (loss_mmd(x, x_decoded_mean)+msew) + 1 * (MMD_weight + coeffCAE) * DCAE_loss(
                     #x, x_decoded_mean)
 
