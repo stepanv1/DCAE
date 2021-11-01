@@ -73,18 +73,22 @@ k3 = k * 3
 coeffCAE = 1
 coeffMSE = 1
 epochs_list = [500]
+alp = 0.2
+patience = 500
+min_delta = 1e-5
 #epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'RELU'
+ID = 'RELU_validation_testing'
 #load earlier generated data
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.compat.v1.disable_eager_execution()
-#bl = list_of_branches[24]
+#bl = list_of_branches[1]
+#epochs=500
 for epochs in epochs_list:
     for bl in list_of_branches:
 
@@ -142,6 +146,9 @@ for epochs in epochs_list:
         original_dim = aFrame.shape[1]
         intermediate_dim = original_dim * 3
         intermediate_dim2 = original_dim * 2
+        #intermediate_dim = original_dim
+        #intermediate_dim2 = original_dim
+
         # var_dims = Input(shape = (original_dim,))
         #
         initializer = tf.keras.initializers.he_normal(12345)
@@ -192,9 +199,6 @@ for epochs in epochs_list:
         normSigma = nrow / sum(1 / Sigma)
 
         lam = 1e-4
-        alp = 0.2
-
-
         def DCAE_loss(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
             U = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
             W = K.variable(value=encoder.get_layer('intermediate2').get_weights()[0])  # N x N_hidden
@@ -221,9 +225,9 @@ for epochs in epochs_list:
 
 
             u = encoder.get_layer('intermediate').output
-            du = tf.linalg.diag(elu_derivative(u))
+            du = tf.linalg.diag(relu_derivative(u))
             m = encoder.get_layer('intermediate2').output
-            dm = tf.linalg.diag(elu_derivative(m))  # N_batch x N_hidden
+            dm = tf.linalg.diag(relu_derivative(m))  # N_batch x N_hidden
             s = encoder.get_layer('z_mean').output
 
             r = tf.linalg.einsum('aj->a', s ** 2)
@@ -241,7 +245,7 @@ for epochs in epochs_list:
                                   S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
             diff_tens = tf.einsum('akl,alj->akj', diff_tens, S_0W)
             # tf.Print(K.sum(diff_tens ** 2))
-            return 1 / normSigma * (SigmaTsq) * lam * (K.sum(diff_tens ** 2))
+            return 1 / normSigma * (SigmaTsq) * lam * (K.sum(K.sqrt(K.abs(diff_tens))))
 
 
         # 1000.0*  np.less(r, alp).astype(int)  + \
@@ -263,6 +267,17 @@ for epochs in epochs_list:
             y_kernel = compute_kernel(y, y)
             xy_kernel = compute_kernel(x, y)
             return tf.reduce_mean(x_kernel) + tf.reduce_mean(y_kernel) - 2 * tf.reduce_mean(xy_kernel)
+
+        # experimensting with matching distributions in high and different dimensions
+        def compute_mmd_HDLD(x, y):  # [batch_size, z_dim] [batch_size, z_dim]
+            x_kernel = compute_kernel(x, x)
+            y_kernel = compute_kernel_Y(y, y)
+            xy_kernel = compute_kernel_XY(x, y)
+            return tf.reduce_mean(x_kernel) + tf.reduce_mean(y_kernel) - 2 * tf.reduce_mean(xy_kernel)
+
+
+
+
 
 
         def loss_mmd(x, x_decoded_mean):
@@ -286,6 +301,7 @@ for epochs in epochs_list:
             def loss(x, x_decoded_mean):
                 msew = mean_square_error_NN(x, x_decoded_mean)
                 return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
+                #return coeffMSE * msew + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 #return  (1 - MMD_weight+0.1) * (loss_mmd(x, x_decoded_mean)+msew) + 1 * (MMD_weight + coeffCAE) * DCAE_loss(
                     #x, x_decoded_mean)
 
@@ -309,8 +325,8 @@ for epochs in epochs_list:
 
         save_period = 10
 
-        DCAEStop = EarlyStopping(monitor='DCAE_loss', min_delta=1e-4, patience=10, mode = 'min',
-                                 restore_best_weights =True)
+        DCAEStop = EarlyStopping(monitor='DCAE_loss', min_delta=min_delta, patience=patience, mode = 'min',
+                                 restore_best_weights =False)
 
         class plotCallback(Callback):
             def on_epoch_end(self, epoch, logs=None):
@@ -325,16 +341,31 @@ for epochs in epochs_list:
                     Html_file.write(html_str)
                     Html_file.close()
 
+        class saveEncoder(Callback):
+            def on_epoch_end(self, epoch, logs=None):
+                if epoch % save_period == 0 and epoch != 0:
+                    encoder.save_weights(output_dir + '/' + ID + "_encoder_" + str(bl) + 'epochs' + str(epochs) + '_epoch=' + str(epoch) + '_3D.h5')
+
 
         callPlot = plotCallback()
+        callSave = saveEncoder()
+
+        from sklearn.model_selection import train_test_split
+
+        X_train, X_val, Sigma_train, Sigma_val = train_test_split(
+            aFrame, Sigma, test_size=0.25, random_state=0,  shuffle= True)
+
+
 
         start = timeit.default_timer()
-        history_multiple = autoencoder.fit([aFrame, Sigma], aFrame,
+        history_multiple = autoencoder.fit([X_train, Sigma_train], X_train,
                                            batch_size=batch_size,
                                            epochs=epochs,
                                            shuffle=True,
                                            callbacks=[AnnealingCallback(MMD_weight, MMD_weight_lst),
-                                                      callPlot, DCAEStop], verbose=2)
+                                                      callSave, callPlot, DCAEStop],
+                                           validation_data =  ([ X_val, Sigma_val], X_val),
+                                            verbose=2)
         stop = timeit.default_timer()
         z = encoder.predict([aFrame, Sigma])
         print(stop - start)
@@ -346,48 +377,73 @@ for epochs in epochs_list:
         with open(output_dir + '/' + ID + str(bl) + 'epochs'+str(epochs)+ '_history', 'wb') as file_pi:
             pickle.dump(history_multiple.history , file_pi)
 
+        fig = plot3D_cluster_colors(z, lbls=lbls)
+        html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
+                           include_mathjax=False, post_script=None, full_html=True,
+                           animation_opts=None, default_width='100%', default_height='100%', validate=True)
+        html_dir = output_dir
+        Html_file = open(html_dir + "/" + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_epoch=' + 'Final' + '_' + "_Buttons.html", "w")
+        Html_file.write(html_str)
+        Html_file.close()
 
-    # for bl in list_of_branches[20:24]:
-    #     #bl = list_of_branches[20]
-    #
-    #     npzfile = np.load(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz')
-    #     z = npzfile['z']
-    #
-    #     history = pickle.load(open(output_dir + '/' + str(bl) + 'epochs'+str(epochs)+ '_history',  "rb"))
-    #
-    #
-    #     st = 4;
-    #     stp = len(history['loss'])
-    #     fig01 = plt.figure();
-    #     plt.plot(history['loss'][st:stp]);
-    #     plt.title('loss')
-    #     fig02 = plt.figure();
-    #     plt.plot(history['DCAE_loss'][st:stp]);
-    #     plt.title('DCAE_loss')
-    #     fig03 = plt.figure();
-    #     plt.plot(history['loss_mmd'][st:stp]);
-    #     plt.title('loss_mmd')
-    #     fig04 = plt.figure();
-    #     plt.plot(history['mean_square_error_NN'][st:stp]);
-    #     plt.title('mean_square_error')
-    #     fig = plot3D_cluster_colors(z, lbls=lbls)
-    #     fig.show()
-    #
-    # autoencoder.load_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
-    # A_rest = autoencoder.predict([aFrame, Sigma, ])
-    # import seaborn as sns
-    #
-    # lblsC = [7 if i == -7 else i for i in lbls]
-    # l_list = np.unique(lblsC)
-    # fig, axs = plt.subplots(nrows=8)
-    # yl = aFrame.min()
-    # yu = aFrame.max()
-    # for i in l_list:
-    #     sns.violinplot(data=A_rest[lblsC == i, :], ax=axs[int(i)])
-    #     axs[int(i)].set_ylim(yl, yu)
-    #     axs[int(i)].set_title(str(int(i)), rotation=-90, x=1.05, y=0.5)
-    # fig.savefig(PLOTS + 'Sensitivity/' + str(bl) + "Signal_violinplot" + ".eps", format='eps', dpi=350)
-    # plt.close()
-    #
-    # sns.violinplot(data=A_rest)
-    # sns.violinplot(data=aFrame)
+
+    for bl in list_of_branches[0:2]:
+        #bl = list_of_branches[20]
+
+        npzfile = np.load(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz')
+        z = npzfile['z']
+
+        history = pickle.load(open(output_dir + '/'  + ID +  str(bl) + 'epochs'+str(epochs)+ '_history',  "rb"))
+
+
+        st = 4;
+        stp = len(history['loss'])
+        fig01 = plt.figure();
+        plt.plot(history['loss'][st:stp]);
+        plt.title('loss')
+        fig02 = plt.figure();
+        plt.plot(history['DCAE_loss'][st:stp]);
+        plt.title('DCAE_loss')
+        fig03 = plt.figure();
+        plt.plot(history['loss_mmd'][st:stp]);
+        plt.title('loss_mmd')
+        fig04 = plt.figure();
+        plt.plot(history['mean_square_error_NN'][st:stp]);
+        plt.title('mean_square_error')
+
+
+        fig = plot3D_cluster_colors(z, lbls=lbls)
+        fig.show()
+
+        fig1 = plt.figure();
+        plt.plot(history['val_loss'][st:stp]);
+        plt.title('val_loss')
+        fig2 = plt.figure();
+        plt.plot(history['val_DCAE_loss'][st:stp]);
+        plt.title('val_DCAE_loss')
+        fig3 = plt.figure();
+        plt.plot(history['val_loss_mmd'][st:stp]);
+        plt.title('val_loss_mmd')
+        fig4 = plt.figure();
+        plt.plot(history['val_mean_square_error_NN'][st:stp]);
+        plt.title('val_mean_square_error')
+
+
+    autoencoder.load_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
+    A_rest = autoencoder.predict([aFrame, Sigma, ])
+    import seaborn as sns
+
+    lblsC = [7 if i == -7 else i for i in lbls]
+    l_list = np.unique(lblsC)
+    fig, axs = plt.subplots(nrows=8)
+    yl = aFrame.min()
+    yu = aFrame.max()
+    for i in l_list:
+        sns.violinplot(data=A_rest[lblsC == i, :], ax=axs[int(i)])
+        axs[int(i)].set_ylim(yl, yu)
+        axs[int(i)].set_title(str(int(i)), rotation=-90, x=1.05, y=0.5)
+    fig.savefig(PLOTS + 'Sensitivity/' + str(bl) + "Signal_violinplot" + ".eps", format='eps', dpi=350)
+    plt.close()
+
+    sns.violinplot(data=A_rest)
+    sns.violinplot(data=aFrame)

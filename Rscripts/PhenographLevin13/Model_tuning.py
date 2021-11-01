@@ -1,6 +1,7 @@
 '''
 DCAE
-sensitivity analysis in artificial sets
+modeltuning using sensitivity/
+Assumption is that we have majority of non-informative dimensions
 '''
 
 import matplotlib.pyplot as plt
@@ -12,16 +13,18 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.models import Model
 import keract
+import pickle
 pio.renderers.default = "browser"
 import pandas as pd
+import seaborn as sns
 
 from utils_evaluation import plot3D_cluster_colors
 
 from pathos import multiprocessing
 num_cores = multiprocessing.cpu_count()
 pool = multiprocessing.Pool(num_cores)
-
-from tensorflow.keras.callbacks import Callback
+from scipy.stats import iqr
+from utils_evaluation import plot3D_marker_colors
 
 
 def table(labels):
@@ -45,27 +48,6 @@ def frange_anneal(n_epoch, ratio=0.25, shape='sin'):
             L[c]=1
     return L
 
-class AnnealingCallback(Callback):
-    def __init__(self, weight, kl_weight_lst):
-        self.weight = weight
-        self.kl_weight_lst = kl_weight_lst
-
-    def on_epoch_end(self, epoch, logs={}):
-        new_weight = K.eval(self.kl_weight_lst[epoch])
-        K.set_value(self.weight, new_weight)
-        print("  Current AP is " + str(K.get_value(self.weight)))
-
-class EpochCounterCallback(Callback):
-    def __init__(self, count, count_lst):
-        self.count = count
-        self.count_lst = count_lst
-
-    def on_epoch_end(self, epoch, logs={}):
-        new_count = K.eval(self.count_lst[epoch])
-        K.set_value(self.count, new_count)
-        #print("  Current AP is " + str(K.get_value(self.count)))
-
-
 k = 30
 k3 = k * 3
 coeffCAE = 1
@@ -79,33 +61,26 @@ list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
-ID = 'ELU'
-epochs = 200
+ID =  'RELU_sqrtD'
+epochs = 500
 #tf.compat.v1.disable_eager_execution() # commented out  to use to_numpy function of tf
-#bl = list_of_branches[1]
+#bl = list_of_branches[0]
 for bl in list_of_branches:
     print(bl)
     infile = source_dir + 'set_'+ str(bl)+'.npz'
-    #markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
-    # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
+
     npzfile = np.load(infile)
     weight_distALL = npzfile['Dist'];
-    # = weight_distALL[IDX,:]
+
     aFrame = npzfile['aFrame'];
     Dist = npzfile['Dist']
     Idx = npzfile['Idx']
-    #cut_neibF = npzfile['cut_neibF'];
-    #cut_neibF = cut_neibF[IDX,:]
+
     neibALL = npzfile['neibALL']
-    #neibALL  = neibALL [IDX,:]
-    #np.sum(cut_neibF != 0)
-    # plt.hist(cut_neibF[cut_neibF!=0],50)
+
     Sigma = npzfile['Sigma']
     lbls = npzfile['lbls'];
-    #neib_weight = npzfile['neib_weight']
-    # Model-------------------------------------------------------------------------
-    ######################################################
-    # targetTr = np.repeat(aFrame, r, axis=0)
+
 
     # Model-------------------------------------------------------------------------
     ######################################################
@@ -113,11 +88,6 @@ for bl in list_of_branches:
     k = 30
     k3 = k * 3
     nrow= np.shape(aFrame)[0]
-    # TODO try downweight mmd to the end of computation
-    #DCAE_weight = K.variable(value=0)
-    #DCAE_weight_lst = K.variable(np.array(frange_anneal(epochs, ratio=0)))
-    # TODO: Possible bug in here ast ther end of training after the switch
-    # check for possible discontinuities/singularities o last epochs, is shape of potenatial  to narroe at the end?
 
     MMD_weight = K.variable(value=0)
 
@@ -134,15 +104,15 @@ for bl in list_of_branches:
     # initializer = None
     SigmaTsq = Input(shape=(1,),  name="Sigma_Layer")
     x = Input(shape=(original_dim,))
-    h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(x)
-    h1 = Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
+    h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(x)
+    h1 = Dense(intermediate_dim2, activation='relu', name='intermediate2', kernel_initializer=initializer)(h)
     z_mean = Dense(latent_dim, activation=None, name='z_mean', kernel_initializer=initializer)(h1)
 
     encoder = Model([x, SigmaTsq], z_mean, name='encoder')
 
-    decoder_h = Dense(intermediate_dim2, activation='elu', name='intermediate3', kernel_initializer=initializer)
-    decoder_h1 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)
-    decoder_mean = Dense(original_dim, activation='elu', name='output', kernel_initializer=initializer)
+    decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer=initializer)
+    decoder_h1 = Dense(intermediate_dim, activation='relu', name='intermediate4', kernel_initializer=initializer)
+    decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)
     h_decoded = decoder_h(z_mean)
     h_decoded2 = decoder_h1(h_decoded)
     x_decoded_mean = decoder_mean(h_decoded2)
@@ -157,39 +127,12 @@ for bl in list_of_branches:
     lam = 1e-4
 
 
-    def DCAE3D_loss(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
-        U = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
-        W = K.variable(value=encoder.get_layer('intermediate2').get_weights()[0])  # N x N_hidden
-        Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
-        U = K.transpose(U);
-        W = K.transpose(W);
-        Z = K.transpose(Z);  # N_hidden x N
 
-        u = encoder.get_layer('intermediate').output
-        du = tf.linalg.diag((tf.math.sign(u) + 1) / 2)
-        m = encoder.get_layer('intermediate2').output
-        dm = tf.linalg.diag((tf.math.sign(m) + 1) / 2)  # N_batch x N_hidden
-        s = encoder.get_layer('z_mean').output
-        # r = tf.linalg.einsum('aj->a', s ** 2)
-        ds = tf.linalg.diag(tf.math.scalar_mul(0, s) + 1)
-
-        S_0W = tf.einsum('akl,lj->akj', du, U)
-        S_1W = tf.einsum('akl,lj->akj', dm, W)  # N_batch x N_input ??
-        # tf.print((S_1W).shape) #[None, 120]
-        S_2Z = tf.einsum('akl,lj->akj', ds, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
-        # tf.print((S_2Z).shape)
-        diff_tens = tf.einsum('akl,alj->akj', S_2Z,
-                              S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
-        diff_tens = tf.einsum('akl,alj->akj', diff_tens, S_0W)
-        # tf.Print(K.sum(diff_tens ** 2))
-        return 1 / normSigma * (SigmaTsq) * lam * (K.sum(diff_tens ** 2))
 
 
     def pot(alp, x):
         return np.select([(x < alp), (x >= alp) * (x <= 1), x > 1], [10, 0, 10])
 
-
-    alp = 0.2
 
 
     def DCAE_loss(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
@@ -289,11 +232,93 @@ for bl in list_of_branches:
     # )
     # autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst), metrics=[DCAE_loss, loss_mmd,  mean_square_error_NN])
 
+    #lbls = [i if i != -7 else 7 for i in lbls]
+    # read history
+
+    history = pickle.load(open(output_dir + '/' + ID + str(bl) + 'epochs' + str(epochs) + '_history', "rb"))
+    hist_len = len(history['loss'])
+    #load and evaluate sensituvuties in each dimensions at all dimensions
+    df_sens_mean = []
+    for i in range(10, hist_len, 10):
+        encoder.load_weights(output_dir + '/' + ID + "_encoder_"
+                             + str(bl) + 'epochs' + str(epochs) + '_epoch=' + str(i)+ '_3D.h5')
+        #sesitivity
+        z = encoder.predict([aFrame, Sigma, ])
+        # to remove Sigma input
+        encoder2 = Model([x], z_mean, name='encoder2')
+        #compute dh/dX
+        x_tensor = tf.convert_to_tensor(aFrame, dtype=tf.float32)
+        with tf.GradientTape(persistent=True) as t:
+            t.watch(x_tensor)
+            output = encoder2(x_tensor)
+
+            result = output
+            gradients0 = t.gradient(output[:, 0], x_tensor).numpy()
+            gradients1 = t.gradient(output[:, 1], x_tensor).numpy()
+            gradients2 = t.gradient(output[:, 2], x_tensor).numpy()
+        SCgrad = np.sqrt(gradients0 ** 2 + gradients1 ** 2 + gradients2 ** 2)
+        SC = SCgrad / iqr(aFrame, axis=0)
+        SC_mean = np.median(SC, axis=0)
+        df_sens_mean.append(SC_mean)
+        # read models and compute sensitivity per model
+        #add final model
+    encoder.load_weights(output_dir + '/' + ID + '_'+  str(bl) + 'epochs' + str(epochs) + '_3D.h5')
+    # sesitivity
+    z = encoder.predict([aFrame, Sigma, ])
+        # to remove Sigma input
+    encoder2 = Model([x], z_mean, name='encoder2')
+        # compute dh/dX
+    x_tensor = tf.convert_to_tensor(aFrame, dtype=tf.float32)
+    with tf.GradientTape(persistent=True) as t:
+        t.watch(x_tensor)
+        output = encoder2(x_tensor)
+
+        result = output
+        gradients0 = t.gradient(output[:, 0], x_tensor).numpy()
+        gradients1 = t.gradient(output[:, 1], x_tensor).numpy()
+        gradients2 = t.gradient(output[:, 2], x_tensor).numpy()
+    SCgrad = np.sqrt(gradients0 ** 2 + gradients1 ** 2 + gradients2 ** 2)
+    SC = SCgrad / iqr(aFrame, axis=0)
+    SC_mean = np.median(SC, axis=0)
+    df_sens_mean.append(SC_mean)
+    df_sens = np.stack(df_sens_mean ,axis=0)
+    from sklearn.preprocessing import normalize
+    df_sens_norm = normalize(df_sens , norm="l1")
+
+    #crete heatmap
+    plt.figure(figsize=(14, 10))
+    g = sns.heatmap(df_sens_norm, center=0.1, linewidths=.2, cmap="GnBu", annot=True, fmt='1.2f',
+                    annot_kws={"fontsize": 8})
+    plt.savefig(PLOTS + 'Sensitivity/' + ID + '_' + str(bl) + "Timeline_heatmap" + ".eps", format='eps', dpi=350)
+    plt.close()
+
+    # plot sensitivity components
+    figSENS = plot3D_marker_colors(z, normalize(SC, norm="l1"), markers = np.char.mod('%d', np.arange(30)).tolist(), sub_s=50000, lbls=lbls, msize=1)
+    figSENS.show()
+
+    figSENS = plot3D_marker_colors(z, aFrame, markers=np.char.mod('%d', np.arange(30)).tolist(),
+                                   sub_s=50000, lbls=lbls, msize=1)
+    figSENS.show()
+
+    encoder.load_weights(output_dir + '/' + ID + "_encoder_"
+                         + str(bl) + 'epochs' + str(epochs) + '_epoch=' + str(60) + '_3D.h5')
+    z = encoder.predict([aFrame, Sigma, ])
+    figSENS = plot3D_marker_colors(z, aFrame, markers=np.char.mod('%d', np.arange(30)).tolist(),
+                                   sub_s=50000, lbls=lbls, msize=1)
+    figSENS.show()
+
+    # 'elbow plot'
+    sens_sq = np.sum(df_sens_norm**4, axis=1)
+    plt.plot(sens_sq)
+
+
+    # plot sensitivity heatmaps and violinplots per 10 epochs
+
     encoder.load_weights(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
     autoencoder.load_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
     encoder.summary()
     z = encoder.predict([aFrame, Sigma, ])
-    lbls = [i if i != -7 else 7 for i in lbls]
+
 
     out = autoencoder.predict([aFrame, Sigma, ])
 
@@ -317,44 +342,6 @@ for bl in list_of_branches:
     #Mean square elasticity
     l_list = np.unique(lbls)
     SCgrad = np.sqrt(gradients0 ** 2 + gradients1 ** 2 + gradients2 ** 2)
-    #tangent SC, only components tangent to sphere at the cente at (0,0,0,) contribute
-    # radius = np.sqrt(z[:,0] ** 2 + z[:,1] ** 2 + z[:,2] ** 2)
-    # #orthogonal vector to sphere
-    # ort  = z/radius[:,None]
-    #
-    # par_grad_0 = gradients0 - ort[:, 0][:, None] * (
-    #             gradients0 * ort[:, 0][:, None] + gradients1 * ort[:, 1][:, None] + gradients2 * ort[:, 2][:, None])
-    # par_grad_1 = gradients1 - ort[:, 1][:, None] * (
-    #             gradients0 * ort[:, 0][:, None] + gradients1 * ort[:, 1][:, None] + gradients2 * ort[:, 2][:, None])
-    # par_grad_2 = gradients2 - ort[:, 2][:, None] * (
-    #             gradients0 * ort[:, 0][:, None] + gradients1 * ort[:, 1][:, None] + gradients2 * ort[:, 2][:, None])
-
-
-    # ort_grad_0 = ort[:, 0][:, None] * ( gradients0 *ort[:,0][:, None] + gradients1 *ort[:,1][:, None] +  gradients2 *ort[:,2][:, None])
-    # ort_grad_1 = ort[:, 1][:, None] * (
-    #             gradients0 * ort[:, 0][:, None] + gradients1 * ort[:, 1][:, None] + gradients2 * ort[:, 2][:, None])
-    # ort_grad_2 = ort[:, 2][:, None] * (
-    #             gradients0 * ort[:, 0][:, None] + gradients1 * ort[:, 1][:, None] + gradients2 * ort[:, 2][:, None])
-
-    #SC_ort = np.sqrt(ort_grad_0 ** 2 + ort_grad_1 ** 2 + ort_grad_2 ** 2)
-    #SC = np.sqrt(par_grad_0 ** 2 + par_grad_1 ** 2 + par_grad_2** 2)
-
-
-    #lmbd = np.sqrt(z[:, 0]**2 +  z[:, 1]** 2 +z[:, 2]**2)
-    #elasticity score per cluster
-    #SC_mean = np.stack([np.median(SC[lbls == i, :] * (aFrame[lbls == i, :] - np.median(aFrame[lbls == i, :], axis=0))
-    #                              * np.expand_dims(lmbd[lbls == i], -1)  , axis=0) for i in l_list], axis=0)
-    #SC_mean = np.stack(
-    #    [np.median(SC[lbls == i, :] , axis=0) for i in
-    #     l_list], axis=0)
-
-    #SC_mean2 = np.stack([np.median(SC[lbls == i, :] / np.abs(aFrame[lbls == i, :] - np.median(aFrame[lbls == i, :], axis=0)) *
-    #                              np.expand_dims(lmbd[lbls == i], -1)  , axis=0) for i in l_list], axis=0)
-    # SC = np.vstack(
-    #     [SCgrad[lbls == i, :] / np.abs(aFrame[lbls == i, :] - np.median(aFrame[lbls == i, :], axis=0)) for i in l_list])
-    #
-    # SC_mean = np.stack(
-    #     [np.median(SCgrad[lbls == i, :] / np.abs(aFrame[lbls == i, :] - np.median(aFrame[lbls == i, :], axis=0)), axis=0) for i in l_list], axis=0)
 
     from scipy.stats import iqr
     SC = np.vstack(
