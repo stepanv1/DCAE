@@ -74,14 +74,14 @@ coeffCAE = 1
 coeffMSE = 1
 epochs_list = [500]
 alp = 0.2
-patience = 500
+patience = 10
 min_delta = 1e-5
 #epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'RELU_validation_testing'
+ID = 'RELU_experiment'
 #load earlier generated data
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
@@ -196,9 +196,9 @@ for epochs in epochs_list:
         # rewrite this based on recommendations here
         # https://www.tensorflow.org/guide/keras/train_and_evaluate
 
-        normSigma = nrow / sum(1 / Sigma)
-
-        lam = 1e-4
+        #normSigma = nrow / sum(1 / Sigma)
+        normSigma = 1
+        lam = 1e-3
         def DCAE_loss(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
             U = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
             W = K.variable(value=encoder.get_layer('intermediate2').get_weights()[0])  # N x N_hidden
@@ -244,8 +244,8 @@ for epochs in epochs_list:
             diff_tens = tf.einsum('akl,alj->akj', S_2Z,
                                   S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
             diff_tens = tf.einsum('akl,alj->akj', diff_tens, S_0W)
-            # tf.Print(K.sum(diff_tens ** 2))
-            return 1 / normSigma * (SigmaTsq) * lam * (K.sum(K.sqrt(K.abs(diff_tens))))
+            return tf.transpose(1 / normSigma * SigmaTsq * lam) * K.sum(K.sqrt(K.abs(diff_tens)), axis=[1, 2])
+            #return tf.transpose(1 / normSigma * SigmaTsq * lam) * K.sum(K.abs(diff_tens), axis=[1, 2])
 
 
         # 1000.0*  np.less(r, alp).astype(int)  + \
@@ -269,11 +269,11 @@ for epochs in epochs_list:
             return tf.reduce_mean(x_kernel) + tf.reduce_mean(y_kernel) - 2 * tf.reduce_mean(xy_kernel)
 
         # experimensting with matching distributions in high and different dimensions
-        def compute_mmd_HDLD(x, y):  # [batch_size, z_dim] [batch_size, z_dim]
-            x_kernel = compute_kernel(x, x)
-            y_kernel = compute_kernel_Y(y, y)
-            xy_kernel = compute_kernel_XY(x, y)
-            return tf.reduce_mean(x_kernel) + tf.reduce_mean(y_kernel) - 2 * tf.reduce_mean(xy_kernel)
+        # def compute_mmd_HDLD(x, y):  # [batch_size, z_dim] [batch_size, z_dim]
+        #     x_kernel = compute_kernel(x, x)
+        #     y_kernel = compute_kernel_Y(y, y)
+        #     xy_kernel = compute_kernel_XY(x, y)
+        #     return tf.reduce_mean(x_kernel) + tf.reduce_mean(y_kernel) - 2 * tf.reduce_mean(xy_kernel)
 
 
 
@@ -288,13 +288,15 @@ for epochs in epochs_list:
             # true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=0.0, maxval=1.0)
             return compute_mmd(true_samples, z_mean)
 
-
+        #
+        # y_true = np.random.normal(loc=0, scale=0, size=(250, 30))
+        # y_pred = np.random.normal(loc=0, scale=0, size=(250, 30))
         def mean_square_error_NN(y_true, y_pred):
             # dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1)) / (tf.expand_dims(cut_neib,1) + 1)), axis=-1)
             msew = tf.keras.losses.mean_squared_error(y_true, y_pred)
             # return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
-            return tf.multiply(msew,
-                               normSigma * 1 / SigmaTsq)  # TODO Sigma -denomiator or nominator? try reverse, schek hpw sigma computed in UMAP
+            return tf.multiply(tf.transpose(normSigma * 1 / SigmaTsq),
+                               msew)  # TODO Sigma -denomiator or nominator? try reverse, schek hpw sigma computed in UMAP
 
 
         def ae_loss(weight, MMD_weight_lst):

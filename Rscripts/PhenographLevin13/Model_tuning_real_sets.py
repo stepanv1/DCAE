@@ -296,9 +296,10 @@ for bl in list_of_inputs:
     plt.close()
 
 
-    # # plot sensitivity components
-    # figSENS = plot3D_marker_colors(z, normalize(SC, norm="l1"), markers = np.char.mod('%d', np.arange(30)).tolist(), sub_s=50000, lbls=lbls, msize=1)
-    # figSENS.show()
+     # plot sensitivity components
+    figSENS = plot3D_marker_colors(z, normalize(SC, norm="l1"),
+        markers = np.char.mod('%d', np.arange(aFrame.shape[1])).tolist(), sub_s=50000, lbls=lbls, msize=1)
+    figSENS.show()
     #
     # figSENS = plot3D_marker_colors(z, aFrame, markers=np.char.mod('%d', np.arange(30)).tolist(),
     #                                sub_s=50000, lbls=lbls, msize=1)

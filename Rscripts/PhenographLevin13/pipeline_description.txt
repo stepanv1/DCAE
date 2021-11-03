@@ -13,7 +13,7 @@ Artificial data, 25 sets
 
 
 Real data, 3 sets
-1. Run DCAE on art set (run_DCAE_on_real_sets.py)
+1. Run DCAE on real sets set (run_DCAE_on_real_sets.py)
 3. Generate UMAP and SAUCIE for real sets (generate_UMAP_and_SAUCIE_for_REAL_sets.py)
 4. Performance evaluation
   a. Compute 'Borealis' performance measures (discontinuity, manytoone) (Performance_Borealis_real_sets.py)
