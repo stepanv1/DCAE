@@ -430,6 +430,50 @@ for epochs in epochs_list:
         plt.plot(history['val_mean_square_error_NN'][st:stp]);
         plt.title('val_mean_square_error')
 
+        import umap
+        # experiment with umap. Neede if some post-[rpcessing the output gives better plot
+        # Initial idea run umap on z few epochs to see if splitting is cured
+        from scipy.optimize import curve_fit
+        def find_ab_params(spread, min_dist):
+            """Fit a, b params for the differentiable curve used in lower
+            dimensional fuzzy simplicial complex construction. We want the
+            smooth curve (from a pre-defined family with simple gradient) that
+            best matches an offset exponential decay.
+            """
+
+            def curve(x, a, b):
+                return 1.0 / (1.0 + a * x ** (2 * b))
+
+            xv = np.linspace(0, spread * 3, 300)
+            yv = np.zeros(xv.shape)
+            yv[xv < min_dist] = 1.0
+            yv[xv >= min_dist] = np.exp(-(xv[xv >= min_dist] - min_dist) / spread)
+            params, covar = curve_fit(curve, xv, yv)
+            return params[0], params[1]
+
+
+
+        fss, _, _ = umap.umap_.fuzzy_simplicial_set(aFrame, n_neighbors=15, random_state=1,
+                                                    metric='euclidean', metric_kwds={},
+                                                    knn_indices=Idx[:, 0:90], knn_dists=Dist[:, 0:90],
+                                                    angular=False, set_op_mix_ratio=1.0, local_connectivity=1.0,
+                                                    apply_set_operations=True, verbose=True)
+
+        spread, min_dist = 1, 0.001
+        a, b = find_ab_params(spread, min_dist)
+        zzz = umap.umap_.simplicial_set_embedding(aFrame, fss,  n_components =3, n_epochs = 15, init = z,  random_state=np.random.RandomState(1),
+                                                  initial_alpha=1, gamma= 0.1, negative_sample_rate=150, a=a, b=b,densmap=False,
+                                                  densmap_kwds = {'lambda':2.0, 'frac':0.3, 'var_shift':0.1, 'n_neighbors':15, "graph_dists":Dist},output_dens= False,
+                                                        metric='euclidean', metric_kwds={} )
+
+        fig = plot3D_cluster_colors(zzz[0], lbls=lbls)
+        fig.show()
+
+        fig0 = plot3D_cluster_colors(z, lbls=lbls)
+        fig0.show()
+
+
+
 
     autoencoder.load_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
     A_rest = autoencoder.predict([aFrame, Sigma, ])
