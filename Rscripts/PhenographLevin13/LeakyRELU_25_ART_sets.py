@@ -73,22 +73,23 @@ k3 = k * 3
 coeffCAE = 1
 coeffMSE = 1
 epochs_list = [500]
+batch_size =1024
 alp = 0.2
-patience = 10
+patience = 50
 min_delta = 1e-5
 #epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'RELU_experiment'
+ID = 'ELU'
 #load earlier generated data
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.compat.v1.disable_eager_execution()
-#bl = list_of_branches[1]
-#epochs=500
+bl = list_of_branches[1]
+epochs=500
 for epochs in epochs_list:
     for bl in list_of_branches:
 
@@ -141,13 +142,12 @@ for epochs in epochs_list:
 
         MMD_weight_lst = K.variable( np.array(frange_anneal(int(epochs), ratio=1)) )
 
-        batch_size = 256
         latent_dim = 3
         original_dim = aFrame.shape[1]
         intermediate_dim = original_dim * 3
         intermediate_dim2 = original_dim * 2
-        #intermediate_dim = original_dim
-        #intermediate_dim2 = original_dim
+        #intermediate_dim = original_dim * 2
+        #intermediate_dim2 = original_dim * 3
 
         # var_dims = Input(shape = (original_dim,))
         #
@@ -196,9 +196,9 @@ for epochs in epochs_list:
         # rewrite this based on recommendations here
         # https://www.tensorflow.org/guide/keras/train_and_evaluate
 
-        #normSigma = nrow / sum(1 / Sigma)
+
         normSigma = 1
-        lam = 1e-3
+        lam = 0.1
         def DCAE_loss(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
             U = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
             W = K.variable(value=encoder.get_layer('intermediate2').get_weights()[0])  # N x N_hidden
@@ -223,29 +223,34 @@ for epochs in epochs_list:
                 return tf.where(cond, tf.constant(1.0), tf.constant(0.3))
 
 
-
             u = encoder.get_layer('intermediate').output
-            du = tf.linalg.diag(relu_derivative(u))
+            du = elu_derivative(u)
             m = encoder.get_layer('intermediate2').output
-            dm = tf.linalg.diag(relu_derivative(m))  # N_batch x N_hidden
+            dm = elu_derivative(m)  # N_batch x N_hidden
             s = encoder.get_layer('z_mean').output
+            ds = elu_derivative(s)  # N_batch x N_hidden
 
-            r = tf.linalg.einsum('aj->a', s ** 2)
+            r = tf.linalg.einsum('aj->a', s ** 2)# R^2 in reality. to think this trough
 
-            ds = 500 * tf.math.square(tf.math.abs(alp - r)) * tf.dtypes.cast(tf.less(r, alp), tf.float32) + \
-                 (r ** 2 - 1) * tf.dtypes.cast(tf.greater_equal(r, 1), tf.float32) + 0.1
+            pot = 50 * tf.math.square(alp - r) * tf.dtypes.cast(tf.less(r, alp), tf.float32) + \
+                  5 * (r**2 - 1) * tf.dtypes.cast(tf.greater_equal(r, 1), tf.float32) + 0.1
+            dsU = tf.einsum('ak,a->ak', ds, pot)
+
+
             # 0 * tf.dtypes.cast(tf.math.logical_and(tf.greater_equal(r, alp), tf.less(r, 1)), tf.float32) + \
             # ds = pot(0.1, r)
-            S_0W = tf.einsum('akl,lj->akj', du, U)
-            S_1W = tf.einsum('akl,lj->akj', dm, W)  # N_batch x N_input ??
+            S_0W = tf.einsum('al,lj->alj', du, U)
+            S_1W = tf.einsum('al,lj->alj', dm, W)  # N_batch x N_input ??
             # tf.print((S_1W).shape) #[None, 120]
-            S_2Z = tf.einsum('a,lj->alj', ds, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
+            S_2Z = tf.einsum('al,lj->alj', dsU, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
             # tf.print((S_2Z).shape)
             diff_tens = tf.einsum('akl,alj->akj', S_2Z,
                                   S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
             diff_tens = tf.einsum('akl,alj->akj', diff_tens, S_0W)
-            return tf.transpose(1 / normSigma * SigmaTsq * lam) * K.sum(K.sqrt(K.abs(diff_tens)), axis=[1, 2])
-            #return tf.transpose(1 / normSigma * SigmaTsq * lam) * K.sum(K.abs(diff_tens), axis=[1, 2])
+            #f = tf.where(K.abs(diff_tens) > 0, K.abs(diff_tens), 0.0)# to prevent nans in loss
+            #return tf.transpose(1 / normSigma * SigmaTsq * lam) * K.sum(K.sqrt(K.abs(diff_tens)), axis=[1, 2])
+            #return  (1 / normSigma * SigmaTsq * lam)[0,:] * K.sum(diff_tens**2, axis=[1, 2])
+            return (1 / normSigma * SigmaTsq * lam)[0,:] * K.sum(tf.pow(diff_tens+0.1, 0.5), axis=[1, 2])
 
 
         # 1000.0*  np.less(r, alp).astype(int)  + \
@@ -302,6 +307,7 @@ for epochs in epochs_list:
         def ae_loss(weight, MMD_weight_lst):
             def loss(x, x_decoded_mean):
                 msew = mean_square_error_NN(x, x_decoded_mean)
+                #return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean)
                 return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 #return coeffMSE * msew + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 #return  (1 - MMD_weight+0.1) * (loss_mmd(x, x_decoded_mean)+msew) + 1 * (MMD_weight + coeffCAE) * DCAE_loss(
