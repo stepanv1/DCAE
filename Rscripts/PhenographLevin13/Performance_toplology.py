@@ -8,6 +8,17 @@ import os
 import random
 from scipy.spatial import distance
 
+
+def generate_true_toplogy(z, lbls):
+    """ Gets a touple defining branches and creates a list of nearest neighbour clusters
+    based on coordinates of central clusters with noise excluded
+    """
+    #TODO: rewrite other functions here to use true_topology_list as input, this function should replace
+    # get_topology_list
+    true_topology_list = []
+    return true_topology_list
+
+
 from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
     plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
     get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d, plot3D_performance_colors, plot2D_performance_colors
@@ -15,7 +26,7 @@ def get_topology_list(bl):
     """ Gets a touple defining branches and creates a list of nearest neighbour clusters"""
     # basic topology shared by 5 clusters in pentagon, nearest neighbours in pentagon and its branches for clusters 0 to 6
     # for branches, 5 and 6 closest neighbour should bethe  clustr in pentagon to they are attached to
-    topolist = [[1,4], [0,2], [1,3], [2,4], [0,3], bl[0], bl[1]]
+    topolist = [[1,4], [0,2, -7], [1,3,-7], [2,4], [0,3], bl[0], bl[1]]
     #correct by adding the negbour from bl touple
     topolist[bl[0]].append(5)
     topolist[bl[1]].append(6)
@@ -60,8 +71,8 @@ os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'Elu_const_mse'
-epochs = 200
+ID = 'ELU'
+epochs = 500
 # Compute performance for DCAE
 z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"

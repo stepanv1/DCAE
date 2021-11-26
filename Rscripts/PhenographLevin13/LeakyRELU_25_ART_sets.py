@@ -178,15 +178,15 @@ for epochs in epochs_list:
 
         SigmaTsq = Input(shape=(1,))
         x = Input(shape=(original_dim,))
-        h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(x)
-        h1 = Dense(intermediate_dim2, activation='relu', name='intermediate2', kernel_initializer=initializer)(h)
+        h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(x)
+        h1 = Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
         z_mean = Dense(latent_dim, activation=None, name='z_mean', kernel_initializer=initializer)(h1)
 
         encoder = Model([x, SigmaTsq], z_mean, name='encoder')
 
-        decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer=initializer)
-        decoder_h1 = Dense(intermediate_dim, activation='relu', name='intermediate4', kernel_initializer=initializer)
-        decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)
+        decoder_h = Dense(intermediate_dim2, activation='elu', name='intermediate3', kernel_initializer=initializer)
+        decoder_h1 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)
+        decoder_mean = Dense(original_dim, activation='elu', name='output', kernel_initializer=initializer)
         h_decoded = decoder_h(z_mean)
         h_decoded2 = decoder_h1(h_decoded)
         x_decoded_mean = decoder_mean(h_decoded2)
@@ -250,7 +250,7 @@ for epochs in epochs_list:
             #f = tf.where(K.abs(diff_tens) > 0, K.abs(diff_tens), 0.0)# to prevent nans in loss
             #return tf.transpose(1 / normSigma * SigmaTsq * lam) * K.sum(K.sqrt(K.abs(diff_tens)), axis=[1, 2])
             #return  (1 / normSigma * SigmaTsq * lam)[0,:] * K.sum(diff_tens**2, axis=[1, 2])
-            return (1 / normSigma * SigmaTsq * lam)[0,:] * K.sum(tf.pow(diff_tens+0.1, 0.5), axis=[1, 2])
+            return (1 / normSigma * SigmaTsq * lam)[0,:] * K.sum(K.sqrt(K.abs(diff_tens)+1e-9), axis=[1, 2])
 
 
         # 1000.0*  np.less(r, alp).astype(int)  + \
