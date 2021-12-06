@@ -73,22 +73,23 @@ k3 = k * 3
 coeffCAE = 1
 coeffMSE = 1
 epochs_list = [500]
-batch_size =1024
+batch_size = 128
+lam = 0.1
 alp = 0.2
-patience = 50
-min_delta = 1e-5
+patience = 25
+min_delta = 1e-4
 #epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'ELU'
+ID = 'ELU_two_layers_2_sqrt_dcae2_penalty_square_batch128_2_MMD_annealing'
 #load earlier generated data
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.compat.v1.disable_eager_execution()
-bl = list_of_branches[1]
+bl = list_of_branches[0]
 epochs=500
 for epochs in epochs_list:
     for bl in list_of_branches:
@@ -198,16 +199,13 @@ for epochs in epochs_list:
 
 
         normSigma = 1
-        lam = 0.1
         def DCAE_loss(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
-            U = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
-            W = K.variable(value=encoder.get_layer('intermediate2').get_weights()[0])  # N x N_hidden
+            U = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])
+            W = K.variable(value=encoder.get_layer('intermediate2').get_weights()[0])
             Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
             U = K.transpose(U);
             W = K.transpose(W);
             Z = K.transpose(Z);  # N_hidden x N
-            #derivative of leaky relu
-
             #relu
             def relu_derivative(a):
                 cond = tf.math.greater_equal(a, tf.constant(0.0))
@@ -216,46 +214,69 @@ for epochs in epochs_list:
             def elu_derivative(a):
                 cond = tf.math.greater_equal(a, tf.constant(0.0))
                 return tf.where(cond,  tf.constant(1.0), tf.math.exp(a))
+            #leaky relu
+            def leaky_relu_derivative(a):
+                cond = tf.math.greater_equal(a, tf.constant(0.0))
+                return tf.where(cond, tf.constant(1.0), tf.constant(0.3))
 
-            #def leaky relu
+            u = encoder.get_layer('intermediate').output.op.inputs[0]
+            du = elu_derivative(u)
+            m = encoder.get_layer('intermediate2').output.op.inputs[0]
+            dm = elu_derivative(m)  # N_batch x N_hidden
+            s = encoder.get_layer('z_mean').output.op.inputs[0]
+            ds = elu_derivative(s)  # N_batch x N_hidden
+
+            r = tf.linalg.einsum('aj->a', s ** 2)# R^2 in reality. to think this trough
+
+            pot = 500 * tf.math.square(alp - r) * tf.dtypes.cast(tf.less(r, alp), tf.float32) + \
+                  50 * (r**2 - 1) * tf.dtypes.cast(tf.greater_equal(r, 1), tf.float32) + 1
+            dsU = tf.einsum('ak,a->ak', ds, pot)
+            # 0 * tf.dtypes.cast(tf.math.logical_and(tf.greater_equal(r, alp), tf.less(r, 1)), tf.float32) + \
+            # ds = pot(0.1, r)
+            S_U = tf.einsum('al,lj->alj', du, U)
+            S_W = tf.einsum('al,lj->alj', dm, W)  # N_batch x N_input ??
+            # tf.print((S_1W).shape) #[None, 120]
+            S_2Z = tf.einsum('al,lj->alj', dsU, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
+            # tf.print((S_2Z).shape)
+            diff_tens = tf.einsum('akl,alj->akj', S_2Z,
+                                  S_W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
+            diff_tens = tf.einsum('akl,alj->akj', diff_tens, S_U)
+            #f = tf.where(K.abs(diff_tens) > 0, K.abs(diff_tens), 0.0)# to prevent nans in loss
+            #return tf.transpose(1 / normSigma * SigmaTsq * lam) * K.sum(K.sqrt(K.abs(diff_tens)), axis=[1, 2])
+            #return  (1 / normSigma * SigmaTsq * lam)[0,:] * K.sum(diff_tens**2, axis=[1, 2])
+            return (1 / normSigma * SigmaTsq * lam)[0,:] * \
+                   (K.sum(K.sqrt(K.abs(diff_tens)+1e-9), axis=[1, 2])) #+
+                    #K.sum(K.sqrt(K.abs(S_W)+1e-9), axis=[1, 2])/intermediate_dim2/intermediate_dim +
+                    #K.sum(K.sqrt(K.abs(S_U)+1e-9), axis=[1, 2])/intermediate_dim/original_dim)
+
+        def DCAE2_loss(x, x_decoded_mean):
+            U = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])
+            U = K.transpose(U);
+            #relu
+            def relu_derivative(a):
+                cond = tf.math.greater_equal(a, tf.constant(0.0))
+                return tf.where(cond, tf.constant(1.0), tf.constant(0.0))
+            #elu
+            def elu_derivative(a):
+                cond = tf.math.greater_equal(a, tf.constant(0.0))
+                return tf.where(cond,  tf.constant(1.0), tf.math.exp(a))
+            #leaky relu
             def leaky_relu_derivative(a):
                 cond = tf.math.greater_equal(a, tf.constant(0.0))
                 return tf.where(cond, tf.constant(1.0), tf.constant(0.3))
 
 
-            u = encoder.get_layer('intermediate').output
+            u = encoder.get_layer('intermediate').output.op.inputs[0]
             du = elu_derivative(u)
-            m = encoder.get_layer('intermediate2').output
-            dm = elu_derivative(m)  # N_batch x N_hidden
-            s = encoder.get_layer('z_mean').output
-            ds = elu_derivative(s)  # N_batch x N_hidden
-
-            r = tf.linalg.einsum('aj->a', s ** 2)# R^2 in reality. to think this trough
-
-            pot = 50 * tf.math.square(alp - r) * tf.dtypes.cast(tf.less(r, alp), tf.float32) + \
-                  5 * (r**2 - 1) * tf.dtypes.cast(tf.greater_equal(r, 1), tf.float32) + 0.1
-            dsU = tf.einsum('ak,a->ak', ds, pot)
 
 
-            # 0 * tf.dtypes.cast(tf.math.logical_and(tf.greater_equal(r, alp), tf.less(r, 1)), tf.float32) + \
-            # ds = pot(0.1, r)
-            S_0W = tf.einsum('al,lj->alj', du, U)
-            S_1W = tf.einsum('al,lj->alj', dm, W)  # N_batch x N_input ??
-            # tf.print((S_1W).shape) #[None, 120]
-            S_2Z = tf.einsum('al,lj->alj', dsU, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
-            # tf.print((S_2Z).shape)
-            diff_tens = tf.einsum('akl,alj->akj', S_2Z,
-                                  S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
-            diff_tens = tf.einsum('akl,alj->akj', diff_tens, S_0W)
+            S_U = tf.einsum('al,lj->alj', du, U)
             #f = tf.where(K.abs(diff_tens) > 0, K.abs(diff_tens), 0.0)# to prevent nans in loss
             #return tf.transpose(1 / normSigma * SigmaTsq * lam) * K.sum(K.sqrt(K.abs(diff_tens)), axis=[1, 2])
             #return  (1 / normSigma * SigmaTsq * lam)[0,:] * K.sum(diff_tens**2, axis=[1, 2])
-            return (1 / normSigma * SigmaTsq * lam)[0,:] * K.sum(K.sqrt(K.abs(diff_tens)+1e-9), axis=[1, 2])
+            return (1 / normSigma * SigmaTsq * lam)[0,:] * (K.sum(K.abs(S_U), axis=[1, 2])/intermediate_dim/original_dim)
 
 
-        # 1000.0*  np.less(r, alp).astype(int)  + \
-        #        0* (np.logical_and(np.greater_equal(r, alp), np.less(r, 1))).astype(int) + \
-        #        1000.0* np.greater_equal(r, 1).astype(int)
 
         # mmd staff TODO: try approximation for this
         def compute_kernel(x, y):
@@ -273,16 +294,6 @@ for epochs in epochs_list:
             xy_kernel = compute_kernel(x, y)
             return tf.reduce_mean(x_kernel) + tf.reduce_mean(y_kernel) - 2 * tf.reduce_mean(xy_kernel)
 
-        # experimensting with matching distributions in high and different dimensions
-        # def compute_mmd_HDLD(x, y):  # [batch_size, z_dim] [batch_size, z_dim]
-        #     x_kernel = compute_kernel(x, x)
-        #     y_kernel = compute_kernel_Y(y, y)
-        #     xy_kernel = compute_kernel_XY(x, y)
-        #     return tf.reduce_mean(x_kernel) + tf.reduce_mean(y_kernel) - 2 * tf.reduce_mean(xy_kernel)
-
-
-
-
 
 
         def loss_mmd(x, x_decoded_mean):
@@ -291,7 +302,7 @@ for epochs in epochs_list:
             # true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0.0, stddev=1.)
             true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=-1.5, maxval=1.5)
             # true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=0.0, maxval=1.0)
-            return compute_mmd(true_samples, z_mean)
+            return 10 * compute_mmd(true_samples, z_mean)
 
         #
         # y_true = np.random.normal(loc=0, scale=0, size=(250, 30))
@@ -308,11 +319,9 @@ for epochs in epochs_list:
             def loss(x, x_decoded_mean):
                 msew = mean_square_error_NN(x, x_decoded_mean)
                 #return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean)
-                return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
-                #return coeffMSE * msew + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
-                #return  (1 - MMD_weight+0.1) * (loss_mmd(x, x_decoded_mean)+msew) + 1 * (MMD_weight + coeffCAE) * DCAE_loss(
-                    #x, x_decoded_mean)
-
+                #return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
+                return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (
+                            MMD_weight + coeffCAE) * (DCAE_loss(x, x_decoded_mean) + DCAE2_loss(x, x_decoded_mean))
             return loss
             # return K.switch(tf.equal(Epoch_count, 10),  loss1(x, x_decoded_mean), loss1(x, x_decoded_mean))
 
@@ -322,7 +331,7 @@ for epochs in epochs_list:
         )
 
         autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst),
-                            metrics=[DCAE_loss, loss_mmd, mean_square_error_NN])
+                            metrics=[DCAE_loss, DCAE2_loss, loss_mmd, mean_square_error_NN])
 
         autoencoder.summary()
         # opt = tfa.optimizers.RectifiedAdam(lr=1e-3)
@@ -358,22 +367,20 @@ for epochs in epochs_list:
         callPlot = plotCallback()
         callSave = saveEncoder()
 
-        from sklearn.model_selection import train_test_split
 
-        X_train, X_val, Sigma_train, Sigma_val = train_test_split(
-            aFrame, Sigma, test_size=0.25, random_state=0,  shuffle= True)
+        #X_train, X_val, Sigma_train, Sigma_val = train_test_split(
+        #    aFrame, Sigma, test_size=0.25, random_state=0,  shuffle= True)
 
 
 
         start = timeit.default_timer()
-        history_multiple = autoencoder.fit([X_train, Sigma_train], X_train,
+        history_multiple = autoencoder.fit([aFrame, Sigma], aFrame,
                                            batch_size=batch_size,
                                            epochs=epochs,
                                            shuffle=True,
                                            callbacks=[AnnealingCallback(MMD_weight, MMD_weight_lst),
                                                       callSave, callPlot, DCAEStop],
-                                           validation_data =  ([ X_val, Sigma_val], X_val),
-                                            verbose=2)
+                                           verbose=2)
         stop = timeit.default_timer()
         z = encoder.predict([aFrame, Sigma])
         print(stop - start)
@@ -404,7 +411,7 @@ for epochs in epochs_list:
         history = pickle.load(open(output_dir + '/'  + ID +  str(bl) + 'epochs'+str(epochs)+ '_history',  "rb"))
 
 
-        st = 4;
+        st = 5;
         stp = len(history['loss'])
         fig01 = plt.figure();
         plt.plot(history['loss'][st:stp]);
@@ -412,6 +419,9 @@ for epochs in epochs_list:
         fig02 = plt.figure();
         plt.plot(history['DCAE_loss'][st:stp]);
         plt.title('DCAE_loss')
+        fig025 = plt.figure();
+        plt.plot(history['DCAE2_loss'][st:stp]);
+        plt.title('DCAE2_loss')
         fig03 = plt.figure();
         plt.plot(history['loss_mmd'][st:stp]);
         plt.title('loss_mmd')

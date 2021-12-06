@@ -9,16 +9,6 @@ import random
 from scipy.spatial import distance
 
 
-def generate_true_toplogy(z, lbls):
-    """ Gets a touple defining branches and creates a list of nearest neighbour clusters
-    based on coordinates of central clusters with noise excluded
-    """
-    #TODO: rewrite other functions here to use true_topology_list as input, this function should replace
-    # get_topology_list
-    true_topology_list = []
-    return true_topology_list
-
-
 from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
     plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
     get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d, plot3D_performance_colors, plot2D_performance_colors
@@ -26,11 +16,56 @@ def get_topology_list(bl):
     """ Gets a touple defining branches and creates a list of nearest neighbour clusters"""
     # basic topology shared by 5 clusters in pentagon, nearest neighbours in pentagon and its branches for clusters 0 to 6
     # for branches, 5 and 6 closest neighbour should bethe  clustr in pentagon to they are attached to
-    topolist = [[1,4], [0,2, -7], [1,3,-7], [2,4], [0,3], bl[0], bl[1]]
+    topolist = [[1,4], [0,2], [1,3], [2,4], [0,3], bl[0], bl[1]]
     #correct by adding the negbour from bl touple
     topolist[bl[0]].append(5)
     topolist[bl[1]].append(6)
     return topolist
+
+def generate_true_toplogy(aFrame, lbls):
+    """ Gets a touple defining branches and creates a list of nearest neighbour clusters
+    based on coordinates of central clusters with noise excluded
+    """
+    #TODO: rewrite other functions here to use true_topology_list as input, this function should replace
+    # get_topology_list
+    # nullify noisy dimensions
+    clus = aFrame
+    original_dim = aFrame.shape[1]
+    d = 5; k=2
+    num_noisy = original_dim - d
+    ncl0 = ncl1 = ncl2 = ncl3 = ncl4 = ncl5 = ncl6 = int(k * 6000)
+    ncl7 = int(k * 20000)
+
+
+    clus[lbls==0, d:] =  np.zeros((ncl0, original_dim - d))
+    clus[lbls == 1, d:] = np.zeros((ncl1, original_dim - d))
+    clus[lbls == 2, d:] = np.zeros((ncl2, original_dim - d))
+    clus[lbls == 3, d:] = np.zeros((ncl3, original_dim - d))
+    clus[lbls == 4, d:] = np.zeros((ncl4, original_dim - d))
+    clus[lbls == 5, d:] = np.zeros((ncl5, original_dim - d))
+    clus[lbls == 6, d:] = np.zeros((ncl6, original_dim - d))
+    clus[np.ix_(lbls == -7,  np.logical_not(np.concatenate((np.zeros(4), np.ones(1), np.zeros(num_noisy - 4), np.ones(4))).astype('bool')))] = 0
+
+    l_list = [-7., 0., 1., 2., 3., 4., 5., 6.]
+    # indx = random.sample(range(len(lbls)), 12000)
+    lbls_s = lbls  # [indx]
+    z_s = clus  # [indx,:]
+    true_topology_list = [[], [], [], [], [], [], []]
+    for i in range(7):
+        dist = [np.mean(distance.cdist(z_s[lbls_s == i, :], z_s[lbls_s == label, :])) for label in l_list]
+        # dist = [np.sqrt(np.sum((z_s[lbls_s == i, :].mean(0) - z_s[lbls_s == label, :].mean(0))**2)) for label in l_list]
+        # get indexes of  closest clusters, and exclude itself, exclude i th cluster
+        seq = sorted(dist)
+        rank = [seq.index(v) for v in dist]
+        # get top 4
+        rank2 = np.array(rank)[np.array(l_list) != np.array(i)]
+        l_list2 = np.array(l_list)[np.array(l_list) != np.array(i)]
+        nn_list = l_list2[rank2.argsort()][:7]
+        true_topology_list[i] = nn_list
+
+    return true_topology_list
+
+
 
 def get_representation_topology(z, lbls):
     """compute actual, returning 3 nearest neighbours per each cluster in pentagon"""
