@@ -69,11 +69,10 @@ class EpochCounterCallback(Callback):
 
 
 k = 30
-k3 = k * 3
 coeffCAE = 1
 coeffMSE = 1
 epochs_list = [500]
-batch_size = 128
+batch_size = 32
 lam = 0.1
 alp = 0.2
 patience = 25
@@ -83,7 +82,7 @@ DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'ELU_two_layers_2_sqrt_dcae2_penalty_square_batch128_2_MMD_annealing'
+ID = 'ELU_two_layers_2_sqrt_dcae2_penalty_square_batch128_2_MMD_shortwave'
 #load earlier generated data
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
@@ -131,7 +130,6 @@ for epochs in epochs_list:
         ######################################################
         # targetTr = np.repeat(aFrame, r, axis=0)
         k = 30
-        k3 = k * 3
         nrow= np.shape(aFrame)[0]
         # TODO try downweight mmd to the end of computation
         #DCAE_weight = K.variable(value=0)
@@ -300,7 +298,7 @@ for epochs in epochs_list:
             batch_size = K.shape(z_mean)[0]
             latent_dim = K.int_shape(z_mean)[1]
             # true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0.0, stddev=1.)
-            true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=-1.5, maxval=1.5)
+            true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=-1, maxval=1)
             # true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=0.0, maxval=1.0)
             return 10 * compute_mmd(true_samples, z_mean)
 
@@ -379,7 +377,8 @@ for epochs in epochs_list:
                                            epochs=epochs,
                                            shuffle=True,
                                            callbacks=[AnnealingCallback(MMD_weight, MMD_weight_lst),
-                                                      callSave, callPlot, DCAEStop],
+                                                      #callSave, callPlot, DCAEStop],
+                                                      callSave, callPlot],
                                            verbose=2)
         stop = timeit.default_timer()
         z = encoder.predict([aFrame, Sigma])
