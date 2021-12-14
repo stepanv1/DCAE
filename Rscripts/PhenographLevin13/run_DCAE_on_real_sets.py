@@ -5,6 +5,7 @@ mappings fro Leine32, same netweork as fro art sets
 
 import timeit
 import numpy as np
+import pandas as pd
 import plotly.io as pio
 import tensorflow as tf
 from plotly.io import to_html
@@ -15,7 +16,7 @@ from tensorflow.keras.callbacks import Callback, EarlyStopping
 import pickle
 pio.renderers.default = "browser"
 
-from utils_evaluation import plot3D_cluster_colors
+from utils_evaluation import plot3D_cluster_colors, plot3D_marker_colors
 
 from pathos import multiprocessing
 num_cores = multiprocessing.cpu_count()
@@ -65,6 +66,26 @@ class EpochCounterCallback(Callback):
         K.set_value(self.count, new_count)
         #print("  Current AP is " + str(K.get_value(self.count)))
 
+# relu
+def relu_derivative(a):
+    cond = tf.math.greater_equal(a, tf.constant(0.0))
+    return tf.where(cond, tf.constant(1.0), tf.constant(0.0))
+
+# elu
+def elu_derivative(a):
+    cond = tf.math.greater_equal(a, tf.constant(0.0))
+    return tf.where(cond, tf.constant(1.0), tf.math.exp(a))
+
+# leaky relu
+def leaky_relu_derivative(a):
+    cond = tf.math.greater_equal(a, tf.constant(0.0))
+    return tf.where(cond, tf.constant(1.0), tf.constant(0.3))
+
+    # linear
+def linear_derivative(a):
+    return tf.ones(tf.shape(a), dtype=tf.float32)
+
+
 import ctypes
 from numpy.ctypeslib import ndpointer
 lib = ctypes.cdll.LoadLibrary("/home/grinek/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
@@ -82,33 +103,34 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
 #list_of_inputs = 'Shenkareuclid_not_scaled.npz'
 
 k = 30
-k3 = k * 3
 coeffCAE = 1
-coeffMSE = 1 # normally 1, 5 for  Shekhar
-epochs_list = [200, 500]
+coeffMSE = 1
+epochs_list = [250, 500, 1000]
+batch_size = 128
+lam = 0.01
 alp = 0.2
-alp = 0.2
-patience = 50
-min_delta = 1e-5
+m = 10
+patienceD = {'Levine32euclid_scaled_no_negative_removed.npz':25,
+'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz':50,  'Shenkareuclid_shifted.npz':100}
+min_delta = 1e-4
+#epochs=100
+
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
 output_dir  = DATA_ROOT + 'Real_sets/DCAE_output/'
 list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
 'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
-ID = 'ELU_sqrtD'
-
-#load earlier preprocessed data
+ID = 'ELU_' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.compat.v1.disable_eager_execution()
-#bl = list_of_inputs[0]
+#bl = list_of_inputs[2]
 #epochs=500
 for epochs in epochs_list:
     for bl in list_of_inputs:
         infile = source_dir + bl
-
-        # markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
+        #markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
         # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
         npzfile = np.load(infile, allow_pickle=True)
         weight_distALL = npzfile['Dist'];
@@ -119,50 +141,20 @@ for epochs in epochs_list:
         # cut_neibF = npzfile['cut_neibF'];
         # cut_neibF = cut_neibF[IDX,:]
         neibALL = npzfile['neibALL']
-        # neibALL  = neibALL [IDX,:]
-        # np.sum(cut_neibF != 0)
-        # plt.hist(cut_neibF[cut_neibF!=0],50)
         Sigma = npzfile['Sigma']
         lbls = npzfile['lbls'];
-        # neib_weight = npzfile['neib_weight']
-        # [aFrame, neibF, cut_neibF, weight_neibF]
-        # training set
-        # targetTr = np.repeat(aFrame, r, axis=0)
-        targetTr = aFrame
-        neibF_Tr = neibALL
-        weight_neibF_Tr = weight_distALL
-        sourceTr = aFrame
 
-        # Model-------------------------------------------------------------------------
-        ######################################################
-        # targetTr = np.repeat(aFrame, r, axis=0)
-
-        # Model-------------------------------------------------------------------------
-        ######################################################
-        # targetTr = np.repeat(aFrame, r, axis=0)
-        k = 30
-        k3 = k * 3
         nrow = np.shape(aFrame)[0]
-        # TODO try downweight mmd to the end of computation
-        # DCAE_weight = K.variable(value=0)
-        # DCAE_weight_lst = K.variable(np.array(frange_anneal(epochs, ratio=0)))
-        # TODO: Possible bug in here ast ther end of training after the switch
-        # check for possible discontinuities/singularities o last epochs, is shape of potenatial  to narroe at the end?
 
         MMD_weight = K.variable(value=0)
 
         MMD_weight_lst = K.variable(np.array(frange_anneal(int(epochs), ratio=1)))
 
-        batch_size = 256
         latent_dim = 3
         original_dim = aFrame.shape[1]
         intermediate_dim = original_dim * 3
         intermediate_dim2 = original_dim * 2
-        # intermediate_dim = original_dim
-        # intermediate_dim2 = original_dim
 
-        # var_dims = Input(shape = (original_dim,))
-        #
         initializer = tf.keras.initializers.he_normal(12345)
         # initializer = None
         '''
@@ -190,15 +182,15 @@ for epochs in epochs_list:
 
         SigmaTsq = Input(shape=(1,))
         x = Input(shape=(original_dim,))
-        h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(x)
-        h1 = Dense(intermediate_dim2, activation='relu', name='intermediate2', kernel_initializer=initializer)(h)
+        h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(x)
+        h1 = Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
         z_mean = Dense(latent_dim, activation=None, name='z_mean', kernel_initializer=initializer)(h1)
 
         encoder = Model([x, SigmaTsq], z_mean, name='encoder')
 
-        decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer=initializer)
-        decoder_h1 = Dense(intermediate_dim, activation='relu', name='intermediate4', kernel_initializer=initializer)
-        decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)
+        decoder_h = Dense(intermediate_dim2, activation='elu', name='intermediate3', kernel_initializer=initializer)
+        decoder_h1 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)
+        decoder_mean = Dense(original_dim, activation='elu', name='output', kernel_initializer=initializer)
         h_decoded = decoder_h(z_mean)
         h_decoded2 = decoder_h1(h_decoded)
         x_decoded_mean = decoder_mean(h_decoded2)
@@ -208,68 +200,67 @@ for epochs in epochs_list:
         # rewrite this based on recommendations here
         # https://www.tensorflow.org/guide/keras/train_and_evaluate
 
-        # normSigma = nrow / sum(1 / Sigma)
         normSigma = 1
-        lam = 10
 
-        def DCAE_loss(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
-            U = K.variable(value=encoder.get_layer('intermediate').get_weights()[0])  # N x N_hidden
-            W = K.variable(value=encoder.get_layer('intermediate2').get_weights()[0])  # N x N_hidden
-            Z = K.variable(value=encoder.get_layer('z_mean').get_weights()[0])  # N x N_hidden
+
+        def DCAE_loss(y_true, y_pred):  # (x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
+            U = encoder.get_layer('intermediate').trainable_weights[0]
+            W = encoder.get_layer('intermediate2').trainable_weights[0]
+            Z = encoder.get_layer('z_mean').trainable_weights[0]  # N x N_hidden
             U = K.transpose(U);
             W = K.transpose(W);
             Z = K.transpose(Z);  # N_hidden x N
-
-            # derivative of leaky relu
-
-            # relu
-            def relu_derivative(a):
-                cond = tf.math.greater_equal(a, tf.constant(0.0))
-                return tf.where(cond, tf.constant(1.0), tf.constant(0.0))
-
-            # elu
-            def elu_derivative(a):
-                cond = tf.math.greater_equal(a, tf.constant(0.0))
-                return tf.where(cond, tf.constant(1.0), tf.math.exp(a))
-
-            # def leaky relu
-            def leaky_relu_derivative(a):
-                cond = tf.math.greater_equal(a, tf.constant(0.0))
-                return tf.where(cond, tf.constant(1.0), tf.constant(0.3))
 
             u = encoder.get_layer('intermediate').output
             du = elu_derivative(u)
             m = encoder.get_layer('intermediate2').output
             dm = elu_derivative(m)  # N_batch x N_hidden
             s = encoder.get_layer('z_mean').output
-            ds = elu_derivative(s)  # N_batch x N_hidden
+            ds = linear_derivative(s)  # N_batch x N_hidden
 
-            r = tf.linalg.einsum('aj->a', s ** 2)  # R^2 in reality. to think this trough
+            r = tf.linalg.einsum('aj->a', s ** 2)
+            # pot = 500 * tf.math.square(alp - r) * tf.dtypes.cast(tf.less(r, alp), tf.float32) + \
+            #      500 * (r - 1) * tf.dtypes.cast(tf.greater_equal(r, 1), tf.float32) + 1
+            # pot=1
+            pot = tf.math.square(r - 1) + 1
 
-            pot = 50 * tf.math.square(alp - r) * tf.dtypes.cast(tf.less(r, alp), tf.float32) + \
-                  5 * (r ** 2 - 1) * tf.dtypes.cast(tf.greater_equal(r, 1), tf.float32) + 0.1
-            dsU = tf.einsum('ak,a->ak', ds, pot)
+            u_U = tf.einsum('al,lj->alj', du, U)
+            diff_tens = tf.einsum('kl,alj->akj', W, u_U)
+            diff_tens = tf.einsum('al,alj->alj', dm, diff_tens)
+            diff_tens = tf.einsum('kl,alj->akj', Z, diff_tens)
+            # multiply by configning potential
+            ds = tf.einsum('ak,a->ak', ds, pot)
+            diff_tens = tf.einsum('al,alj->alj', ds, diff_tens)
+            # return lam * K.sum(K.sqrt(K.abs(diff_tens) + 1e-9), axis=[1, 2])
+            # return (lam * (normSigma * SigmaTsq)[:, 0]) * K.sum(K.sqrt(K.abs(diff_tens) + 1e-9), axis=[1, 2])
+            return lam * K.sum(diff_tens ** 2, axis=[1, 2])
 
-            # 0 * tf.dtypes.cast(tf.math.logical_and(tf.greater_equal(r, alp), tf.less(r, 1)), tf.float32) + \
-            # ds = pot(0.1, r)
-            S_0W = tf.einsum('al,lj->alj', du, U)
-            S_1W = tf.einsum('al,lj->alj', dm, W)  # N_batch x N_input ??
-            # tf.print((S_1W).shape) #[None, 120]
-            S_2Z = tf.einsum('al,lj->alj', dsU, Z)  # N_batch ?? TODO: use tf. and einsum and/or tile
-            # tf.print((S_2Z).shape)
-            diff_tens = tf.einsum('akl,alj->akj', S_2Z,
-                                  S_1W)  # Batch matrix multiplication: out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
-            diff_tens = tf.einsum('akl,alj->akj', diff_tens, S_0W)
+
+        '''
+        def DCAE_loss(y_pred, y_true):
+            W = encoder.get_layer('z_mean').trainable_weights[0]  # N x N_hidden
+            W = K.transpose(W)  # N_hidden x N
+            h = encoder.get_layer('z_mean').output
+            cond = tf.math.greater_equal(h, tf.constant(0.0))
+            dh = tf.where(cond, tf.constant(1.0), h+1)
+            return lam * K.sum(dh ** 2 * K.sum(W ** 2, axis=1), axis=1)
+            #return tf.reduce_mean(lam * K.sum(W ** 2, axis=[0, 1]))
+        '''
+
+
+        def DCAE2_loss(y_true, y_pred):
+            U = encoder.get_layer('intermediate').trainable_weights[0]
+            U = K.transpose(U);
+            u = encoder.get_layer('intermediate').output
+            du = elu_derivative(u)
+
+            S_U = tf.einsum('al,lj->alj', du, U)
             # f = tf.where(K.abs(diff_tens) > 0, K.abs(diff_tens), 0.0)# to prevent nans in loss
             # return tf.transpose(1 / normSigma * SigmaTsq * lam) * K.sum(K.sqrt(K.abs(diff_tens)), axis=[1, 2])
             # return  (1 / normSigma * SigmaTsq * lam)[0,:] * K.sum(diff_tens**2, axis=[1, 2])
-            return (1 / normSigma * SigmaTsq * lam)[0, :] * K.sum(K.sqrt(K.abs(diff_tens) + 1e-9), axis=[1, 2])
-            # return tf.transpose(1 / normSigma * SigmaTsq * lam) * K.sum(K.abs(diff_tens), axis=[1, 2])
+            return (normSigma * SigmaTsq * lam)[0, :] * (
+                        K.sum(K.abs(S_U), axis=[1, 2]) / intermediate_dim / original_dim)
 
-
-        # 1000.0*  np.less(r, alp).astype(int)  + \
-        #        0* (np.logical_and(np.greater_equal(r, alp), np.less(r, 1))).astype(int) + \
-        #        1000.0* np.greater_equal(r, 1).astype(int)
 
         # mmd staff TODO: try approximation for this
         def compute_kernel(x, y):
@@ -287,44 +278,54 @@ for epochs in epochs_list:
             xy_kernel = compute_kernel(x, y)
             return tf.reduce_mean(x_kernel) + tf.reduce_mean(y_kernel) - 2 * tf.reduce_mean(xy_kernel)
 
-        # experimensting with matching distributions in high and different dimensions
-        # def compute_mmd_HDLD(x, y):  # [batch_size, z_dim] [batch_size, z_dim]
-        #     x_kernel = compute_kernel(x, x)
-        #     y_kernel = compute_kernel_Y(y, y)
-        #     xy_kernel = compute_kernel_XY(x, y)
-        #     return tf.reduce_mean(x_kernel) + tf.reduce_mean(y_kernel) - 2 * tf.reduce_mean(xy_kernel)
+
+        # a = 0.8; b = 1.1; ndim = 3; npoints = 100
+        def sample_shell(npoints, a, b, ndim=3):
+            """
+            samples points uniformly in a spherical shell between radii a and b
+            """
+            # first sample spherical
+            vec = K.random_normal(shape=(npoints, ndim))
+            # K.get_value(vec)
+            vec = tf.linalg.normalize(vec, axis=1)[0]
+
+            R = tf.pow(K.random_uniform(shape=[npoints], minval=a ** 3, maxval=b ** 3), 1 / 3)
+            return tf.einsum('a,aj->aj', R, vec)
 
 
-
-
-
-
-        def loss_mmd(x, x_decoded_mean):
-            batch_size = K.shape(z_mean)[0]
-            latent_dim = K.int_shape(z_mean)[1]
+        # a=0.8; b=1.1; ndim=3; npoints=100
+        def loss_mmd(y_true, y_pred):
+            batch_sz = K.shape(z_mean)[0]
+            # latent_dim = K.int_shape(z_mean)[1]
             # true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0.0, stddev=1.)
-            true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=-1.5, maxval=1.5)
+            true_samples = sample_shell(batch_sz, 0.8, 1.2)
+            # true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=-1, maxval=1)
             # true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=0.0, maxval=1.0)
-            return compute_mmd(true_samples, z_mean)
+            return m * compute_mmd(true_samples, z_mean)
+
 
         #
         # y_true = np.random.normal(loc=0, scale=0, size=(250, 30))
         # y_pred = np.random.normal(loc=0, scale=0, size=(250, 30))
         def mean_square_error_NN(y_true, y_pred):
             # dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1)) / (tf.expand_dims(cut_neib,1) + 1)), axis=-1)
-            msew = tf.keras.losses.mean_squared_error(y_true, y_pred)
+            msew_nw = tf.keras.losses.mean_squared_error(y_true, y_pred)
             # return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
-            return tf.multiply(tf.transpose(normSigma * 1 / SigmaTsq),
-                               msew)  # TODO Sigma -denomiator or nominator? try reverse, schek hpw sigma computed in UMAP
+            return normSigma / SigmaTsq[:,
+                               0] * msew_nw  # TODO Sigma -denomiator or nominator? try reverse, schek hpw sigma computed in UMAP
+            # return msew_nw
 
 
         def ae_loss(weight, MMD_weight_lst):
-            def loss(x, x_decoded_mean):
-                msew = mean_square_error_NN(x, x_decoded_mean)
-                #return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean)
-                #return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
-                return coeffMSE * msew + loss_mmd(x, x_decoded_mean) + (
-                            MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
+            def loss(y_true, y_pred):
+                msew = mean_square_error_NN(y_true, y_pred)
+                # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean)
+                # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
+                # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
+                return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(y_true, y_pred) + (
+                        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred))
+                # return  loss_mmd(x, x_decoded_mean)
+
             return loss
             # return K.switch(tf.equal(Epoch_count, 10),  loss1(x, x_decoded_mean), loss1(x, x_decoded_mean))
 
@@ -334,7 +335,7 @@ for epochs in epochs_list:
         )
 
         autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst),
-                            metrics=[DCAE_loss, loss_mmd, mean_square_error_NN])
+                            metrics=[DCAE_loss, DCAE2_loss, loss_mmd, mean_square_error_NN])
 
         autoencoder.summary()
         # opt = tfa.optimizers.RectifiedAdam(lr=1e-3)
@@ -344,38 +345,47 @@ for epochs in epochs_list:
         # autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst), metrics=[DCAE_loss, loss_mmd,  mean_square_error_NN])
 
         save_period = 10
+        patience = patienceD[bl]
+        DCAEStop = EarlyStopping(monitor='DCAE_loss', min_delta=min_delta, patience=patience, mode='min',
+                                 restore_best_weights=False)
 
-        DCAEStop = EarlyStopping(monitor='DCAE_loss', min_delta=min_delta, patience=patience, mode = 'min',
-                                 restore_best_weights =False)
 
         class plotCallback(Callback):
             def on_epoch_end(self, epoch, logs=None):
-                if epoch % save_period == 0 or epoch in range(0,20):
+                if epoch % save_period == 0 or epoch in range(0, 20):
                     z = encoder.predict([aFrame, Sigma])
                     fig = plot3D_cluster_colors(z, lbls=lbls)
                     html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                                        include_mathjax=False, post_script=None, full_html=True,
                                        animation_opts=None, default_width='100%', default_height='100%', validate=True)
                     html_dir = output_dir
-                    Html_file = open(html_dir + "/" + ID + "_" + str(bl) + 'epochs'+str(epochs)+ '_epoch=' + str(epoch) + '_' + "_Buttons.html", "w")
+                    Html_file = open(html_dir + "/" + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_epoch=' + str(
+                        epoch) + '_' + "_Buttons.html", "w")
                     Html_file.write(html_str)
                     Html_file.close()
+
 
         class saveEncoder(Callback):
             def on_epoch_end(self, epoch, logs=None):
                 if epoch % save_period == 0 and epoch != 0:
-                    encoder.save_weights(output_dir + '/' + ID + "_encoder_" + str(bl) + 'epochs' + str(epochs) + '_epoch=' + str(epoch) + '_3D.h5')
+                    encoder.save_weights(
+                        output_dir + '/' + ID + "_encoder_" + str(bl) + 'epochs' + str(epochs) + '_epoch=' + str(
+                            epoch) + '_3D.h5')
+
+
+        class relative_stop_callback(tf.keras.callbacks.Callback):
+            def on_epoch_end(self, epoch, logs={}):
+                if (logs.get('DCAE_loss') < logs.get('mean_square_error_NN') / 10 and logs.get(
+                        'DCAE_loss') < 0.01):  # select the accuracy
+                    print("\n !!! early stopping !!!")
+                    self.model.stop_training = True
 
 
         callPlot = plotCallback()
         callSave = saveEncoder()
 
-        from sklearn.model_selection import train_test_split
-
-        #X_train, X_val, Sigma_train, Sigma_val = train_test_split(
+        # X_train, X_val, Sigma_train, Sigma_val = train_test_split(
         #    aFrame, Sigma, test_size=0.25, random_state=0,  shuffle= True)
-
-
 
         start = timeit.default_timer()
         history_multiple = autoencoder.fit([aFrame, Sigma], aFrame,
@@ -383,27 +393,58 @@ for epochs in epochs_list:
                                            epochs=epochs,
                                            shuffle=True,
                                            callbacks=[AnnealingCallback(MMD_weight, MMD_weight_lst),
-                                                      callSave, callPlot, DCAEStop],
+                                                      # callSave, callPlot, DCAEStop],
+                                                      callSave, callPlot],
                                            verbose=2)
         stop = timeit.default_timer()
         z = encoder.predict([aFrame, Sigma])
         print(stop - start)
 
-        encoder.save_weights(output_dir + '/' + ID + "_" + str(bl)+ 'epochs'+str(epochs) + '_3D.h5')
-        autoencoder.save_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs'+str(epochs)+ '_3D.h5')
-        np.savez(output_dir + '/' + ID + "_" + str(bl) + 'epochs'+str(epochs)+ '_latent_rep_3D.npz', z=z)
-        #np.savez(output_dir + '/' + str(bl) + 'epochs'+str(epochs)+ '_history.npz', history_multiple)
-        with open(output_dir + '/' + ID + str(bl) + 'epochs'+str(epochs)+ '_history', 'wb') as file_pi:
-            pickle.dump(history_multiple.history , file_pi)
+        encoder.save_weights(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
+        autoencoder.save_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
+        np.savez(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
+        # np.savez(output_dir + '/' + str(bl) + 'epochs'+str(epochs)+ '_history.npz', history_multiple)
+        with open(output_dir + '/' + ID + str(bl) + 'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+            pickle.dump(history_multiple.history, file_pi)
 
         fig = plot3D_cluster_colors(z, lbls=lbls)
         html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                            include_mathjax=False, post_script=None, full_html=True,
                            animation_opts=None, default_width='100%', default_height='100%', validate=True)
         html_dir = output_dir
-        Html_file = open(html_dir + "/" + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_epoch=' + 'Final' + '_' + "_Buttons.html", "w")
+        Html_file = open(
+            html_dir + "/" + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_epoch=' + 'Final' + '_' + "_Buttons.html",
+            "w")
         Html_file.write(html_str)
         Html_file.close()
+
+history=history_multiple.history
+st = 5;
+stp = len(history['loss'])
+fig01 = plt.figure();
+plt.plot(history['loss'][st:stp]);
+plt.title('loss')
+fig02 = plt.figure();
+plt.plot(history['DCAE_loss'][st:stp]);
+plt.title('DCAE_loss')
+fig025 = plt.figure();
+plt.plot(history['DCAE2_loss'][st:stp]);
+plt.title('DCAE2_loss')
+fig03 = plt.figure();
+plt.plot(history['loss_mmd'][st:stp]);
+plt.title('loss_mmd')
+fig04 = plt.figure();
+plt.plot(history['mean_square_error_NN'][st:stp]);
+plt.title('mean_square_error')
+
+fig = plot3D_cluster_colors(z, lbls=lbls, msize=2)
+fig.show()
+
+r = np.sqrt(np.sum(z**2, axis = 1))
+plt.hist(r,200)
+
+fig =plot3D_marker_colors(z, data=aFrame, markers=list(np.arange(0,100).astype(str)), sub_s = 20000, lbls=lbls)
+fig.show()
 
     # import umap
     # # experiment with umap. Neede if some post-[rpcessing the output gives better plot
