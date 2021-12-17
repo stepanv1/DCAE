@@ -227,7 +227,7 @@ for epochs in epochs_list:
 
 
         normSigma = 1
-        def DCAE_loss(y_true, y_pred): #(x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
+        def DCAE_loss(y_true, y_pred):  # (x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
             U = encoder.get_layer('intermediate').trainable_weights[0]
             W = encoder.get_layer('intermediate2').trainable_weights[0]
             Z = encoder.get_layer('z_mean').trainable_weights[0]  # N x N_hidden
@@ -238,27 +238,25 @@ for epochs in epochs_list:
             u = encoder.get_layer('intermediate').output
             du = elu_derivative(u)
             m = encoder.get_layer('intermediate2').output
-            dm = elu_derivative(m)  # N_batch x N_hidden
+            dm = elu_derivative(m)
             s = encoder.get_layer('z_mean').output
-            ds = linear_derivative(s)  # N_batch x N_hidden
+            ds = linear_derivative(s)
 
             r = tf.linalg.einsum('aj->a', s ** 2)  # R^2 in reality. to think this trough
-
             # pot = 500 * tf.math.square(alp - r) * tf.dtypes.cast(tf.less(r, alp), tf.float32) + \
             #      500 * (r - 1) * tf.dtypes.cast(tf.greater_equal(r, 1), tf.float32) + 1
-            #pot=1
+            # pot=1
             pot = tf.math.square(r - 1) + 1
 
-            u_U = tf.einsum('al,lj->alj', du, U)
-            diff_tens = tf.einsum('kl,alj->akj', W, u_U)
-            diff_tens = tf.einsum('al,alj->alj', dm, diff_tens)
-            diff_tens = tf.einsum('kl,alj->akj', Z, diff_tens)
-            # multiply by configning potential
             ds = tf.einsum('ak,a->ak', ds, pot)
-            diff_tens = tf.einsum('al,alj->alj', ds, diff_tens)
-            #return lam * K.sum(K.sqrt(K.abs(diff_tens) + 1e-9), axis=[1, 2])
-            #return (lam * (normSigma * SigmaTsq)[:, 0]) * K.sum(K.sqrt(K.abs(diff_tens) + 1e-9), axis=[1, 2])
-            return lam * K.sum(diff_tens**2, axis=[1, 2])
+            diff_tens = tf.einsum('al,lj->alj', ds, Z)
+            diff_tens = tf.einsum('al,ajl->ajl', dm, diff_tens)
+            diff_tens = tf.einsum('ajl,lk->ajk',  diff_tens, W)
+            u_U = tf.einsum('al,lj->alj', du, U)
+            diff_tens = tf.einsum('ajl,alk->ajk', diff_tens, u_U)
+                        # return lam * K.sum(K.sqrt(K.abs(diff_tens) + 1e-9), axis=[1, 2])
+            # return (lam * (normSigma * SigmaTsq)[:, 0]) * K.sum(K.sqrt(K.abs(diff_tens) + 1e-9), axis=[1, 2])
+            return lam * K.sum(diff_tens ** 2, axis=[1, 2])
 
         '''
         def DCAE_loss(y_pred, y_true):
