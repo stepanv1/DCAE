@@ -172,7 +172,7 @@ DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/temp'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'ELU_' + 'L2,1metric' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
+ID = 'ELU_' + '_MMD_short_wave_' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
 #load earlier generated data
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
@@ -181,7 +181,7 @@ tf.compat.v1.disable_eager_execution()
 bl = list_of_branches[0]
 epochs=500
 for epochs in epochs_list:
-    for bl in list_of_branches:
+    for bl in list_of_branches[0:4]:
         infile = source_dir + 'set_' + str(bl) + '.npz'
         # markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
         # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
@@ -270,7 +270,7 @@ for epochs in epochs_list:
             s = encoder.get_layer('z_mean').output
             ds = linear_derivative(s)
 
-            r = tf.linalg.einsum('aj->a', s ** 2)  # R^2 in reality. to think this trough
+            r = tf.linalg.einsum('aj->a', s ** 2)
 
             # pot = 500 * tf.math.square(alp - r) * tf.dtypes.cast(tf.less(r, alp), tf.float32) + \
             #      500 * (r - 1) * tf.dtypes.cast(tf.greater_equal(r, 1), tf.float32) + 1
@@ -320,12 +320,13 @@ for epochs in epochs_list:
             # multiply by configning potential
             # Try L2,1 metric
             # first, take square
-            diff_tens = diff_tens**2
-            # second, sum over latent indices
-            diff_tens = tf.einsum('ajl->al', diff_tens)
-            return lam * SigmaTsq[:, 0] * K.sum(K.sqrt(diff_tens), axis=[1])
+            #diff_tens = diff_tens**2
+            #   second, sum over latent indices
+            #   diff_tens = tf.einsum('ajl->al', diff_tens)
+            #   return lam * SigmaTsq[:, 0] * K.sum(K.sqrt(diff_tens), axis=[1])
             # return lam * K.sum(K.sqrt(K.abs(diff_tens) + 1e-9), axis=[1, 2])
-            # the best so far return lam * SigmaTsq[:, 0] * K.sqrt(K.sum(diff_tens ** 2, axis=[1, 2]))
+            #return lam * SigmaTsq[:, 0] * K.pow(K.sum(diff_tens ** 2, axis=[1, 2]), 0.25)
+            return lam * SigmaTsq[:, 0] * K.sqrt(K.sum(diff_tens ** 2, axis=[1, 2]))
             #return lam * K.sum(diff_tens ** 2, axis=[1, 2])
 
         '''
@@ -360,7 +361,8 @@ for epochs in epochs_list:
             dim = tf.shape(x)[1]
             tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, y_size, 1]))
             tiled_y = tf.tile(tf.reshape(y, tf.stack([1, y_size, dim])), tf.stack([x_size, 1, 1]))
-            return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
+            #return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
+            return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(0.01, tf.float32))
 
 
         def compute_mmd(x, y):  # [batch_size, z_dim] [batch_size, z_dim]
@@ -483,8 +485,8 @@ for epochs in epochs_list:
                                            epochs=epochs,
                                            shuffle=True,
                                            callbacks=[AnnealingCallback(MMD_weight, MMD_weight_lst),
-                                                      # callSave, callPlot, DCAEStop],
-                                                      callSave, callPlot],
+                                                      callSave, callPlot, DCAEStop],
+                                                      #callSave, callPlot],
                                            verbose=2)
         stop = timeit.default_timer()
         z = encoder.predict([aFrame, Sigma])
