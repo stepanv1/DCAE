@@ -135,6 +135,40 @@ class EpochCounterCallback(Callback):
                     print("\n !!! early stopping !!!")
                     self.model.stop_training = True
 
+
+# new callbacks
+class plotCallback(Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        if epoch % save_period == 0 or epoch in range(0, 20):
+            z = encoder.predict([aFrame, Sigma])
+            fig = plot3D_cluster_colors(z, lbls=lbls)
+            html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
+                               include_mathjax=False, post_script=None, full_html=True,
+                               animation_opts=None, default_width='100%', default_height='100%', validate=True)
+            html_dir = output_dir
+            Html_file = open(html_dir + "/" + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_epoch=' + str(
+                epoch) + '_' + "_Buttons.html", "w")
+            Html_file.write(html_str)
+            Html_file.close()
+
+
+class saveEncoder(Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        if epoch % save_period == 0 and epoch != 0:
+            encoder.save_weights(
+                output_dir + '/' + ID + "_encoder_" + str(bl) + 'epochs' + str(epochs) + '_epoch=' + str(
+                    epoch) + '_3D.h5')
+
+
+class relative_stop_callback(tf.keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs={}):
+        if (logs.get('DCAE_loss') < logs.get('mean_square_error_NN') / 10 and logs.get(
+                'DCAE_loss') < 0.01):  # select the accuracy
+            print("\n !!! early stopping !!!")
+            self.model.stop_training = True
+
+
+
 # relu
 def relu_derivative(a):
     cond = tf.math.greater_equal(a, tf.constant(0.0))
@@ -161,7 +195,7 @@ k = 30
 coeffCAE = 1
 coeffMSE = 1
 epochs_list = [500]
-batch_size = 128
+batch_size = 32
 lam = 0.1
 alp = 0.2
 m = 10
@@ -172,7 +206,7 @@ DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/temp'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'ELU_' + '_MMD_short_wave_' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
+ID = '_________ELU_' + '_DCAE_norm_0.5' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
 #load earlier generated data
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
@@ -361,8 +395,8 @@ for epochs in epochs_list:
             dim = tf.shape(x)[1]
             tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, y_size, 1]))
             tiled_y = tf.tile(tf.reshape(y, tf.stack([1, y_size, dim])), tf.stack([x_size, 1, 1]))
-            #return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
-            return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(0.01, tf.float32))
+            return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
+            #return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(0.01, tf.float32))
 
 
         def compute_mmd(x, y):  # [batch_size, z_dim] [batch_size, z_dim]
@@ -442,35 +476,6 @@ for epochs in epochs_list:
                                  restore_best_weights=False)
 
 
-        class plotCallback(Callback):
-            def on_epoch_end(self, epoch, logs=None):
-                if epoch % save_period == 0 or epoch in range(0, 20):
-                    z = encoder.predict([aFrame, Sigma])
-                    fig = plot3D_cluster_colors(z, lbls=lbls)
-                    html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
-                                       include_mathjax=False, post_script=None, full_html=True,
-                                       animation_opts=None, default_width='100%', default_height='100%', validate=True)
-                    html_dir = output_dir
-                    Html_file = open(html_dir + "/" + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_epoch=' + str(
-                        epoch) + '_' + "_Buttons.html", "w")
-                    Html_file.write(html_str)
-                    Html_file.close()
-
-
-        class saveEncoder(Callback):
-            def on_epoch_end(self, epoch, logs=None):
-                if epoch % save_period == 0 and epoch != 0:
-                    encoder.save_weights(
-                        output_dir + '/' + ID + "_encoder_" + str(bl) + 'epochs' + str(epochs) + '_epoch=' + str(
-                            epoch) + '_3D.h5')
-
-
-        class relative_stop_callback(tf.keras.callbacks.Callback):
-            def on_epoch_end(self, epoch, logs={}):
-                if (logs.get('DCAE_loss') < logs.get('mean_square_error_NN') / 10 and logs.get(
-                        'DCAE_loss') < 0.01):  # select the accuracy
-                    print("\n !!! early stopping !!!")
-                    self.model.stop_training = True
 
 
         callPlot = plotCallback()

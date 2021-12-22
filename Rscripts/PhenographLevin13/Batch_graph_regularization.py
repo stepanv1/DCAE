@@ -204,9 +204,9 @@ min_delta = 1e-4
 #epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
-output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output'
+output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/temp'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'ELU_' + '_DCAE_norm_0.5' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
+ID = 'ELU_graph_reg' + '_DCAE_norm_0.5' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
 #load earlier generated data
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
@@ -271,12 +271,12 @@ for epochs in epochs_list:
         '''
 
         SigmaTsq = Input(shape=(1,))
-        x = Input(shape=(original_dim,))
-        h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(x)
+        X = Input(shape=(original_dim,))
+        h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(X)
         h1 = Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
         z_mean = Dense(latent_dim, activation=None, name='z_mean', kernel_initializer=initializer)(h1)
 
-        encoder = Model([x, SigmaTsq], z_mean, name='encoder')
+        encoder = Model([X, SigmaTsq], z_mean, name='encoder')
 
         decoder_h = Dense(intermediate_dim2, activation='elu', name='intermediate3', kernel_initializer=initializer)
         decoder_h1 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)
@@ -284,7 +284,7 @@ for epochs in epochs_list:
         h_decoded = decoder_h(z_mean)
         h_decoded2 = decoder_h1(h_decoded)
         x_decoded_mean = decoder_mean(h_decoded2)
-        autoencoder = Model(inputs=[x, SigmaTsq], outputs=x_decoded_mean)
+        autoencoder = Model(inputs=[X, SigmaTsq], outputs=x_decoded_mean)
 
         normSigma = 1
 
@@ -398,6 +398,25 @@ for epochs in epochs_list:
             return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
             #return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(0.01, tf.float32))
 
+        def compute_graph_weights_Inp(x):
+            x_size = tf.shape(x)[0]
+            dim = tf.shape(x)[1]
+            x = x/K.sqrt(SigmaTsq)
+            tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
+            tiled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
+            return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2))
+            #return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
+
+        def compute_graph_weights_enc(x):
+            x_size = tf.shape(x)[0]
+            dim = tf.shape(x)[1]
+            #x = x / .1
+            tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
+            tiled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
+            return 0.01*tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
+
+        def compute_graph_diff(x,y):
+            return 100* tf.reduce_mean((compute_graph_weights_Inp(X) - compute_graph_weights_enc(z_mean))**2)
 
         def compute_mmd(x, y):  # [batch_size, z_dim] [batch_size, z_dim]
             x_kernel = compute_kernel(x, x)
@@ -449,7 +468,7 @@ for epochs in epochs_list:
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
                 return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(y_true, y_pred) + (
-                        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred))
+                        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) + compute_graph_diff(y_true, y_pred)
                 # return  loss_mmd(x, x_decoded_mean)
 
             return loss
@@ -461,7 +480,7 @@ for epochs in epochs_list:
         )
 
         autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst),
-                            metrics=[DCAE_loss,  loss_mmd, mean_square_error_NN])
+                            metrics=[DCAE_loss, compute_graph_diff, loss_mmd, mean_square_error_NN])
 
         autoencoder.summary()
         # opt = tfa.optimizers.RectifiedAdam(lr=1e-3)
