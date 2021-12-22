@@ -17,19 +17,13 @@ from tensorflow.keras.callbacks import Callback, EarlyStopping
 import pickle
 pio.renderers.default = "browser"
 
-from utils_evaluation import plot3D_cluster_colors
+from utils_evaluation import plot3D_cluster_colors, table
 
 from pathos import multiprocessing
 num_cores = multiprocessing.cpu_count()
 pool = multiprocessing.Pool(num_cores)
 
 from tensorflow.keras.callbacks import Callback
-
-
-def table(labels):
-    unique, counts = np.unique(labels, return_counts=True)
-    print('%d %d', np.asarray((unique, counts)).T)
-    return {'unique': unique, 'counts': counts}
 
 
 # #uniform sample on a spherical shell

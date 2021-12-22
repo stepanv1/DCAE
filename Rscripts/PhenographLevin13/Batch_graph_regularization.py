@@ -2,9 +2,7 @@
 Runs DCAE
 mappings for artificial clusters
 '''
-
 import timeit
-
 import matplotlib.pyplot as plt
 import numpy as np
 import plotly.io as pio
@@ -17,179 +15,13 @@ from tensorflow.keras.callbacks import Callback, EarlyStopping
 import pickle
 pio.renderers.default = "browser"
 
-from utils_evaluation import plot3D_cluster_colors
+from utils_evaluation import plot3D_cluster_colors, table
+from utils_model import plotCallback, AnnealingCallback, saveEncoder
+from utils_model import frange_anneal, relu_derivative, elu_derivative, leaky_relu_derivative, linear_derivative
 
 from pathos import multiprocessing
 num_cores = multiprocessing.cpu_count()
 pool = multiprocessing.Pool(num_cores)
-
-from tensorflow.keras.callbacks import Callback
-
-
-def table(labels):
-    unique, counts = np.unique(labels, return_counts=True)
-    print('%d %d', np.asarray((unique, counts)).T)
-    return {'unique': unique, 'counts': counts}
-
-
-# #uniform sample on a spherical shell
-# def sample_spherical(npoints, ndim=3):
-#     vec = np.random.randn(ndim, npoints)
-#     vec = np.linalg.norm(vec, axis=0)
-#     return vec
-#
-# def sample_shell(npoints, a, b):
-#     """
-#     samples points uniformli in a spherical shell between radii a and b
-#     """
-#     #first sample spherical
-#     xi, yi, zi = sample_spherical(npoints)
-#     #generate density proportional r**2
-#     R = np.power(np.random.uniform(low=a**3, high=b**3, size=npoints), 1/3)
-#     #plt.hist(R,250)
-#     #K.random_uniform(shape=(batch_size, latent_dim), minval=-1, maxval=1)
-#     xi, yi, zi  = R*xi, R*yi, R*zi
-#
-#     return np.column_stack((xi, yi, zi))
-#
-# from matplotlib import pyplot as plt
-# from mpl_toolkits.mplot3d import axes3d
-#
-# phi = np.linspace(0, np.pi, 20)
-# theta = np.linspace(0, 2 * np.pi, 40)
-# x = np.outer(np.sin(theta), np.cos(phi))
-# y = np.outer(np.sin(theta), np.sin(phi))
-# z = np.outer(np.cos(theta), np.ones_like(phi))
-#
-# #xi, yi, zi = sample_spherical(10000)
-# X = sample_shell(npoints, a, b)
-#
-# fig, ax = plt.subplots(1, 1, subplot_kw={'projection':'3d', 'aspect':'auto'})
-# ax.plot_wireframe(x, y, z, color='k', rstride=1, cstride=1)
-# ax.scatter(X[:,0], X[:,1], X[:,2], s=1, c='r', zorder=10)
-
-
-def frange_anneal(n_epoch, ratio=0.25, shape='sin'):
-    L = np.ones(n_epoch)
-    if ratio ==0:
-        return L
-    for c in range(n_epoch):
-        if c <= np.floor(n_epoch*ratio):
-            if shape=='sqrt':
-                norm = np.sqrt(np.floor(n_epoch*ratio))
-                L[c] = np.sqrt(c)/norm
-            if shape=='sin':
-                Om = (np.pi/2/(n_epoch*ratio))
-                L[c] =  np.sin(Om*c)**4
-        else:
-            L[c]=1
-    return L
-
-class AnnealingCallback(Callback):
-    def __init__(self, weight, kl_weight_lst):
-        self.weight = weight
-        self.kl_weight_lst = kl_weight_lst
-
-    def on_epoch_end(self, epoch, logs={}):
-        new_weight = K.eval(self.kl_weight_lst[epoch])
-        K.set_value(self.weight, new_weight)
-        print("  Current AP is " + str(K.get_value(self.weight)))
-
-class EpochCounterCallback(Callback):
-    def __init__(self, count, count_lst):
-        self.count = count
-        self.count_lst = count_lst
-
-    def on_epoch_end(self, epoch, logs={}):
-        new_count = K.eval(self.count_lst[epoch])
-        K.set_value(self.count, new_count)
-        #print("  Current AP is " + str(K.get_value(self.count)))
-
-        class plotCallback(Callback):
-            def on_epoch_end(self, epoch, logs=None):
-                if epoch % save_period == 0 or epoch in range(0, 20):
-                    z = encoder.predict([aFrame, Sigma])
-                    fig = plot3D_cluster_colors(z, lbls=lbls)
-                    html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
-                                       include_mathjax=False, post_script=None, full_html=True,
-                                       animation_opts=None, default_width='100%', default_height='100%', validate=True)
-                    html_dir = output_dir
-                    Html_file = open(html_dir + "/" + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_epoch=' + str(
-                        epoch) + '_' + "_Buttons.html", "w")
-                    Html_file.write(html_str)
-                    Html_file.close()
-
-
-        class saveEncoder(Callback):
-            def on_epoch_end(self, epoch, logs=None):
-                if epoch % save_period == 0 and epoch != 0:
-                    encoder.save_weights(
-                        output_dir + '/' + ID + "_encoder_" + str(bl) + 'epochs' + str(epochs) + '_epoch=' + str(
-                            epoch) + '_3D.h5')
-
-
-        class relative_stop_callback(tf.keras.callbacks.Callback):
-            def on_epoch_end(self, epoch, logs={}):
-                if (logs.get('DCAE_loss') < logs.get('mean_square_error_NN') / 10 and logs.get(
-                        'DCAE_loss') < 0.01):  # select the accuracy
-                    print("\n !!! early stopping !!!")
-                    self.model.stop_training = True
-
-
-# new callbacks
-class plotCallback(Callback):
-    def on_epoch_end(self, epoch, logs=None):
-        if epoch % save_period == 0 or epoch in range(0, 20):
-            z = encoder.predict([aFrame, Sigma])
-            fig = plot3D_cluster_colors(z, lbls=lbls)
-            html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
-                               include_mathjax=False, post_script=None, full_html=True,
-                               animation_opts=None, default_width='100%', default_height='100%', validate=True)
-            html_dir = output_dir
-            Html_file = open(html_dir + "/" + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_epoch=' + str(
-                epoch) + '_' + "_Buttons.html", "w")
-            Html_file.write(html_str)
-            Html_file.close()
-
-
-class saveEncoder(Callback):
-    def on_epoch_end(self, epoch, logs=None):
-        if epoch % save_period == 0 and epoch != 0:
-            encoder.save_weights(
-                output_dir + '/' + ID + "_encoder_" + str(bl) + 'epochs' + str(epochs) + '_epoch=' + str(
-                    epoch) + '_3D.h5')
-
-
-class relative_stop_callback(tf.keras.callbacks.Callback):
-    def on_epoch_end(self, epoch, logs={}):
-        if (logs.get('DCAE_loss') < logs.get('mean_square_error_NN') / 10 and logs.get(
-                'DCAE_loss') < 0.01):  # select the accuracy
-            print("\n !!! early stopping !!!")
-            self.model.stop_training = True
-
-
-
-# relu
-def relu_derivative(a):
-    cond = tf.math.greater_equal(a, tf.constant(0.0))
-    return tf.where(cond, tf.constant(1.0), tf.constant(0.0))
-
-# elu
-def elu_derivative(a):
-    cond = tf.math.greater_equal(a, tf.constant(0.0))
-    return tf.where(cond, tf.constant(1.0), a + 1)
-
-# leaky relu
-def leaky_relu_derivative(a):
-    cond = tf.math.greater_equal(a, tf.constant(0.0))
-    return tf.where(cond, tf.constant(1.0), tf.constant(0.3))
-
-    # linear
-def linear_derivative(a):
-    return tf.ones(tf.shape(a), dtype=tf.float32)
-
-
-
 
 k = 30
 coeffCAE = 1
@@ -201,12 +33,13 @@ alp = 0.2
 m = 10
 patience = 50
 min_delta = 1e-4
+g=10
 #epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/temp'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'ELU_graph_reg' + '_DCAE_norm_0.5' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
+ID = 'ELU_graph_reg_meanSigma_' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 #load earlier generated data
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
@@ -215,7 +48,7 @@ tf.compat.v1.disable_eager_execution()
 bl = list_of_branches[0]
 epochs=500
 for epochs in epochs_list:
-    for bl in list_of_branches:
+    for bl in list_of_branches[0:7]:
         infile = source_dir + 'set_' + str(bl) + '.npz'
         # markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
         # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
@@ -289,39 +122,6 @@ for epochs in epochs_list:
         normSigma = 1
 
 
-        def DCAE_loss_old(y_true, y_pred):  # (x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
-            U = encoder.get_layer('intermediate').trainable_weights[0]
-            W = encoder.get_layer('intermediate2').trainable_weights[0]
-            Z = encoder.get_layer('z_mean').trainable_weights[0]  # N x N_hidden
-            U = K.transpose(U);
-            W = K.transpose(W);
-            Z = K.transpose(Z);  # N_hidden x N
-
-            u = encoder.get_layer('intermediate').output
-            du = elu_derivative(u)
-            m = encoder.get_layer('intermediate2').output
-            dm = elu_derivative(m)
-            s = encoder.get_layer('z_mean').output
-            ds = linear_derivative(s)
-
-            r = tf.linalg.einsum('aj->a', s ** 2)
-
-            # pot = 500 * tf.math.square(alp - r) * tf.dtypes.cast(tf.less(r, alp), tf.float32) + \
-            #      500 * (r - 1) * tf.dtypes.cast(tf.greater_equal(r, 1), tf.float32) + 1
-            # pot=1
-            pot = tf.math.square(r - 1) + 1
-
-            ds = tf.einsum('ak,a->ak', ds, pot)
-            diff_tens = tf.einsum('al,lj->alj', ds, Z)
-            diff_tens = tf.einsum('al,ajl->ajl', dm, diff_tens)
-            diff_tens = tf.einsum('ajl,lk->ajk',  diff_tens, W)
-            u_U = tf.einsum('al,lj->alj', du, U)
-            diff_tens = tf.einsum('ajl,alk->ajk', diff_tens, u_U)
-            # multiply by configning potential
-
-            # return lam * K.sum(K.sqrt(K.abs(diff_tens) + 1e-9), axis=[1, 2])
-            return lam * SigmaTsq[:, 0] * K.sqrt(K.sum(diff_tens ** 2, axis=[1, 2]))
-
         #optimize matrix multiplication
         def DCAE_loss(y_true, y_pred):  # (x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
             U = encoder.get_layer('intermediate').trainable_weights[0]
@@ -363,17 +163,6 @@ for epochs in epochs_list:
             return lam * SigmaTsq[:, 0] * K.sqrt(K.sum(diff_tens ** 2, axis=[1, 2]))
             #return lam * K.sum(diff_tens ** 2, axis=[1, 2])
 
-        '''
-        def DCAE_loss(y_pred, y_true):
-            W = encoder.get_layer('z_mean').trainable_weights[0]  # N x N_hidden
-            W = K.transpose(W)  # N_hidden x N
-            h = encoder.get_layer('z_mean').output
-            cond = tf.math.greater_equal(h, tf.constant(0.0))
-            dh = tf.where(cond, tf.constant(1.0), h+1)
-            return lam * K.sum(dh ** 2 * K.sum(W ** 2, axis=1), axis=1)
-            #return tf.reduce_mean(lam * K.sum(W ** 2, axis=[0, 1]))
-        '''
-
 
         def DCAE2_loss(y_true, y_pred):
             U = encoder.get_layer('intermediate').trainable_weights[0]
@@ -398,25 +187,28 @@ for epochs in epochs_list:
             return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
             #return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(0.01, tf.float32))
 
+
+        meanS = np.mean(Sigma)
         def compute_graph_weights_Inp(x):
             x_size = tf.shape(x)[0]
             dim = tf.shape(x)[1]
-            x = x/K.sqrt(SigmaTsq)
+            #TODO: x = x/meanS we nead update this function in the fashion that weights are computed
+            # from w_ij = kernel((x_i-x_j)/sigma_i) and then symmetrized
             tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
             tiled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
-            return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2))
+            return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2)/meanS)
             #return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
 
         def compute_graph_weights_enc(x):
             x_size = tf.shape(x)[0]
             dim = tf.shape(x)[1]
-            #x = x / .1
+            x = x / .1
             tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
             tiled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
-            return 0.01*tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
+            return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(1, tf.float32))
 
-        def compute_graph_diff(x,y):
-            return 100* tf.reduce_mean((compute_graph_weights_Inp(X) - compute_graph_weights_enc(z_mean))**2)
+        def graph_diff(x,y):
+            return g * tf.reduce_mean((compute_graph_weights_Inp(X) - compute_graph_weights_enc(z_mean))**2)
 
         def compute_mmd(x, y):  # [batch_size, z_dim] [batch_size, z_dim]
             x_kernel = compute_kernel(x, x)
@@ -468,7 +260,7 @@ for epochs in epochs_list:
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
                 return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(y_true, y_pred) + (
-                        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) + compute_graph_diff(y_true, y_pred)
+                        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) + graph_diff(y_true, y_pred)
                 # return  loss_mmd(x, x_decoded_mean)
 
             return loss
@@ -480,37 +272,28 @@ for epochs in epochs_list:
         )
 
         autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst),
-                            metrics=[DCAE_loss, compute_graph_diff, loss_mmd, mean_square_error_NN])
+                            metrics=[DCAE_loss, graph_diff, loss_mmd, mean_square_error_NN])
 
         autoencoder.summary()
-        # opt = tfa.optimizers.RectifiedAdam(lr=1e-3)
-        # opt=tf.keras.optimizers.Adam(
-        #    learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False
-        # )
-        # autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst), metrics=[DCAE_loss, loss_mmd,  mean_square_error_NN])
 
         save_period = 10
-
         DCAEStop = EarlyStopping(monitor='DCAE_loss', min_delta=min_delta, patience=patience, mode='min',
                                  restore_best_weights=False)
-
-
-
-
-        callPlot = plotCallback()
-        callSave = saveEncoder()
-
-        # X_train, X_val, Sigma_train, Sigma_val = train_test_split(
-        #    aFrame, Sigma, test_size=0.25, random_state=0,  shuffle= True)
-
         start = timeit.default_timer()
         history_multiple = autoencoder.fit([aFrame, Sigma], aFrame,
                                            batch_size=batch_size,
                                            epochs=epochs,
                                            shuffle=True,
                                            callbacks=[AnnealingCallback(MMD_weight, MMD_weight_lst),
-                                                      callSave, callPlot, DCAEStop],
-                                                      #callSave, callPlot],
+                                                      plotCallback(aFrame=aFrame, Sigma=Sigma, lbls=lbls, encoder=encoder,
+                                                                  ID=ID, bl=bl, epochs=epochs, output_dir=output_dir,
+                                                        save_period=save_period,),
+                                                      saveEncoder(encoder=encoder, ID=ID, bl=bl, epochs=epochs,
+                                                                  output_dir=output_dir, save_period=save_period),
+                                                       DCAEStop],
+                                           #callbacks=[AnnealingCallback(MMD_weight, MMD_weight_lst),
+                                           #           callSave, callPlot, DCAEStop],
+                                           #           #callSave, callPlot],
                                            verbose=2)
         stop = timeit.default_timer()
         z = encoder.predict([aFrame, Sigma])
