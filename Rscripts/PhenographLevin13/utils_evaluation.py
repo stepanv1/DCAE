@@ -403,7 +403,6 @@ def generate_clusters_pentagon(num_noisy = 5, branches_loc = [3,4], sep=3, pent_
 
     #attaching branches to there positions in linear squence
     import copy
-
     center_list = copy.deepcopy(center_list0)
 
     center_list[5,:] = center_list0[branches_loc[0],:]
@@ -420,7 +419,6 @@ def generate_clusters_pentagon(num_noisy = 5, branches_loc = [3,4], sep=3, pent_
     #introduce correlation
 
 
-    r = datasets.make_spd_matrix(d,  random_state=12346)
     r7 = datasets.make_spd_matrix(d,  random_state=12347)
     r5 = datasets.make_spd_matrix(d,  random_state=12348)
     r6 = datasets.make_spd_matrix(d, random_state=12349)
@@ -1022,10 +1020,6 @@ def get_wsd_scores_normalized(x, y, k, num_meandist=None, compute_knn_x=False, x
 
 
 
-
-
-
-
 # get
 #neib_data = find_neighbors(data, 30, metric='euclidean')
 #x=data
@@ -1080,7 +1074,6 @@ def delta_wsd_scores(x, y, idx,  kmax=30, num_cores=12):
     d_dis = d_dis_score(y=y, idx=idx, kmax=kmax, num_cores=num_cores)
     d_ms = d_ms_score(y=y, x=x, kmax=kmax, num_cores=num_cores)
     return d_dis, d_ms
-
 
 
 

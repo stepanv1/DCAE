@@ -31,15 +31,16 @@ batch_size = 128
 lam = 0.1
 alp = 0.2
 m = 10
-patience = 50
+patience = 500
 min_delta = 1e-4
-g=10
+g=1000
 #epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/temp'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'ELU_graph_reg_meanSigma_' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'ELU_graph_KL_DCAE_0_' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+#ID = 'ELU_' + '_DCAE_norm_0.5' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
 #load earlier generated data
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
@@ -191,25 +192,139 @@ for epochs in epochs_list:
         meanS = np.mean(Sigma)
         def compute_graph_weights_Inp(x):
             x_size = tf.shape(x)[0]
-            dim = tf.shape(x)[1]
+            #dim = tf.shape(x)[1]
             #TODO: x = x/meanS we nead update this function in the fashion that weights are computed
             # from w_ij = kernel((x_i-x_j)/sigma_i) and then symmetrized
-            tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
-            tiled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
-            return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2)/meanS)
-            #return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
+            #tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
+            #tiled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
+            #return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2)/meanS)
+            r = tf.reduce_sum(x * x, 1)
+            # turn r into column vector
+            r = tf.reshape(r, [-1, 1])
+            D = r - 2 * tf.matmul(x, tf.transpose(x)) + tf.transpose(r)
+            #multiply each row over tsk
+            #D = tf.einsum('ik,i ->ik', D, 1/ SigmaTsq[:,0])
+            #D = tf.einsum('ik,i ->ik', D, 1 / Sigma[idx])
+            D = D/98
+            D = tf.exp(-D)
+            D = tf.linalg.set_diag(D, tf.zeros(x_size), name=None)
+            #D = K.sqrt(D)
+            D= tf.linalg.normalize(D, ord=1, axis=1)[0]
+            D= (D + tf.transpose(D))/2
+            return D
+
 
         def compute_graph_weights_enc(x):
             x_size = tf.shape(x)[0]
-            dim = tf.shape(x)[1]
-            x = x / .1
-            tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
-            tiled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
-            return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(1, tf.float32))
+            #dim = tf.shape(x)[1]
+            #x = x / .1
+            #tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
+            #iled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
+            #return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(1, tf.float32))
+            x = x / 2
+            r = tf.reduce_sum(x*x, 1)
+            # turn r into column vector
+            r = tf.reshape(r, [-1, 1])
+            D = r - 2 * tf.matmul(x, tf.transpose(x)) + tf.transpose(r)
+            D = 1/(1+D)
+            D = tf.linalg.set_diag(D, tf.zeros(x_size), name=None)
+            #D = K.sqrt(D)
+            D= tf.linalg.normalize(D, ord=1, axis=1)[0]
+            D = tf.linalg.set_diag(D, tf.ones(x_size), name=None) # to prent nans because of log(0)
+            return D
 
-        def graph_diff(x,y):
-            return g * tf.reduce_mean((compute_graph_weights_Inp(X) - compute_graph_weights_enc(z_mean))**2)
+        def graph_diff(x, y):
+            #return g * K.sqrt(
+            #tf.reduce_mean((compute_graph_weights_Inp(X) - compute_graph_weights_enc(z_mean)) ** 2))
+            return -g * tf.reduce_mean(compute_graph_weights_Inp(X) * K.log(compute_graph_weights_enc(z_mean)))
 
+
+        #idx = np.random.randint(0, high=nrow, size=20)
+        #m_diff = K.eval(-g  *  (compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) * K.log(compute_graph_weights_enc(z[idx,:]))))
+        #g_enc =  K.eval(compute_graph_weights_enc(z[idx,:]))
+        #g_inp =  K.eval(compute_graph_weights_Inp(aFrame[idx,:].astype('float32')))
+
+
+        # from sklearn.preprocessing import normalize
+        # def np_compute_graph_weights_Inp(x):
+        #     #x_size = np.shape(x)[0]
+        #     dim = np.shape(x)[1]
+        #     #TODO: x = x/meanS we nead update this function in the fashion that weights are computed
+        #     # from w_ij = kernel((x_i-x_j)/sigma_i) and then symmetrized
+        #     #tiled_x = np.tile(np.reshape(x, np.stack([x_size, 1, dim])), np.stack([1, x_size, 1]))
+        #     #tiled_y = np.tile(np.reshape(x, np.stack([1, x_size, dim])), np.stack([x_size, 1, 1]))
+        #     #return np.exp(-np.mean(np.square(tiled_x - tiled_y), axis=2)/meanS)
+        #     s = Sigma[idx]
+        #     r = np.sum(x * x, 1)
+        #     # turn r into column vector
+        #     r = np.reshape(r, [-1, 1])
+        #     D = r - 2 * np.matmul(x, np.transpose(x)) + np.transpose(r)
+        #     #D = np.einsum('ik,i ->ik', D, 1 / (dim * s))
+        #     D = D/98
+        #     D = np.exp(-D)
+        #     D = normalize(D, norm='l1', axis=1)
+        #     return(D)
+        #
+        # def np_compute_graph_weights_enc(x):
+        #     #x_size = np.shape(x)[0]
+        #     #dim = np.shape(x)[1]
+        #     #x = x / .1
+        #     #tiled_x = np.tile(np.reshape(x, np.stack([x_size, 1, dim])), np.stack([1, x_size, 1]))
+        #     #tiled_y = np.tile(np.reshape(x, np.stack([1, x_size, dim])), np.stack([x_size, 1, 1]))
+        #     #return np.exp(-np.mean(np.square(tiled_x - tiled_y), axis=2) /1)
+        #     x=z[idx,:]
+        #     #s=Sigma[idx]
+        #     x = x / 2
+        #     r = np.sum(x * x, 1)
+        #     # turn r into column vector
+        #     r = np.reshape(r, [-1, 1])
+        #     D = r - 2 * np.matmul(x, np.transpose(x)) + np.transpose(r)
+        #     D = 1/(1+D)
+        #     D = normalize(D, norm='l1', axis=1)
+        #     return D
+        #
+        # def np_graph_diff(x,y):
+        #     return ((np_compute_graph_weights_Inp(x) - np_compute_graph_weights_enc(y))**2)
+        #
+        #
+        # idx = np.random.randint(0, high=nrow, size=2000)
+        # idx =  np.where(lbls== 0)[0][0:2000]
+        # X_inp = aFrame[idx,:].astype('float32')
+        # z_enc = z[idx,:]
+        # m_diff=np_graph_diff(X_inp, z_enc)
+        # g_enc =  np_compute_graph_weights_enc(z_enc)
+        # g_inp =  np_compute_graph_weights_Inp(X_inp)
+        # sns.distplot(g_enc  - g_inp)
+        # tt=g_enc - g_inp
+        # # check matrix distances
+        # import seaborn as sns
+        # from sklearn.metrics.pairwise import euclidean_distances
+        # D_X_inp = euclidean_distances(X_inp, X_inp)**2
+        # D_X_inp.max()
+        # mask = np.ones(D_X_inp.shape, dtype=bool)
+        # np.fill_diagonal(mask, 0)
+        # D_X_inp[mask].min()
+        # D_z_enc = euclidean_distances(z_enc, z_enc)**2
+        # D_z_enc.max()
+        # mask = np.ones(D_z_enc.shape, dtype=bool)
+        # np.fill_diagonal(mask, 0)
+        # D_z_enc[mask].min()
+        #
+        #
+        # sns.distplot(D_X_inp[mask])
+        # sns.distplot(D_z_enc[mask])
+        #
+        # fig = plot3D_cluster_colors(z_enc, lbls=lbls[idx], msize=5)
+        # fig.show()
+        # fig = plot3D_cluster_colors(z, lbls=lbls, msize=1)
+        # fig.show()
+        # fig = plot3D_cluster_colors(aFrame[:,0:3], lbls=lbls, msize=1)
+        # fig.show()
+
+
+
+
+# '''
         def compute_mmd(x, y):  # [batch_size, z_dim] [batch_size, z_dim]
             x_kernel = compute_kernel(x, x)
             y_kernel = compute_kernel(y, y)
@@ -259,8 +374,9 @@ for epochs in epochs_list:
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean)
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
-                return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(y_true, y_pred) + (
-                        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) + graph_diff(y_true, y_pred)
+                return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(y_true, y_pred) + 0*(
+                        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) + (
+                        10 * MMD_weight + 1) * graph_diff(y_true, y_pred)
                 # return  loss_mmd(x, x_decoded_mean)
 
             return loss
@@ -317,112 +433,114 @@ for epochs in epochs_list:
         Html_file.write(html_str)
         Html_file.close()
 
-zzz= encoder.get_weights()
 
-    for bl in list_of_branches[0:2]:
         #bl = list_of_branches[20]
 
-        npzfile = np.load(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz')
-        z = npzfile['z']
-
-        history = pickle.load(open(output_dir + '/'  + ID +  str(bl) + 'epochs'+str(epochs)+ '_history',  "rb"))
-
-
-        st = 5;
-        stp = 500 #len(history['loss'])
-        fig01 = plt.figure();
-        plt.plot(history['loss'][st:stp]);
-        plt.title('loss')
-        fig015 = plt.figure();
-        plt.plot(history['graph_diff'][st:stp]);
-        plt.title('graph_diff')
-        fig02 = plt.figure();
-        plt.plot(history['DCAE_loss'][st:stp]);
-        plt.title('DCAE_loss')
-        fig03 = plt.figure();
-        plt.plot(history['loss_mmd'][st:stp]);
-        plt.title('loss_mmd')
-        fig04 = plt.figure();
-        plt.plot(history['mean_square_error_NN'][st:stp]);
-        plt.title('mean_square_error')
-
-
-        fig = plot3D_cluster_colors(z, lbls=lbls)
-        fig.show()
-
-        fig1 = plt.figure();
-        plt.plot(history['val_loss'][st:stp]);
-        plt.title('val_loss')
-        fig2 = plt.figure();
-        plt.plot(history['val_DCAE_loss'][st:stp]);
-        plt.title('val_DCAE_loss')
-        fig3 = plt.figure();
-        plt.plot(history['val_loss_mmd'][st:stp]);
-        plt.title('val_loss_mmd')
-        fig4 = plt.figure();
-        plt.plot(history['val_mean_square_error_NN'][st:stp]);
-        plt.title('val_mean_square_error')
-
-        import umap
-        # experiment with umap. Neede if some post-[rpcessing the output gives better plot
-        # Initial idea run umap on z few epochs to see if splitting is cured
-        from scipy.optimize import curve_fit
-        def find_ab_params(spread, min_dist):
-            """Fit a, b params for the differentiable curve used in lower
-            dimensional fuzzy simplicial complex construction. We want the
-            smooth curve (from a pre-defined family with simple gradient) that
-            best matches an offset exponential decay.
-            """
-
-            def curve(x, a, b):
-                return 1.0 / (1.0 + a * x ** (2 * b))
-
-            xv = np.linspace(0, spread * 3, 300)
-            yv = np.zeros(xv.shape)
-            yv[xv < min_dist] = 1.0
-            yv[xv >= min_dist] = np.exp(-(xv[xv >= min_dist] - min_dist) / spread)
-            params, covar = curve_fit(curve, xv, yv)
-            return params[0], params[1]
-
-
-
-        fss, _, _ = umap.umap_.fuzzy_simplicial_set(aFrame, n_neighbors=15, random_state=1,
-                                                    metric='euclidean', metric_kwds={},
-                                                    knn_indices=Idx[:, 0:90], knn_dists=Dist[:, 0:90],
-                                                    angular=False, set_op_mix_ratio=1.0, local_connectivity=1.0,
-                                                    apply_set_operations=True, verbose=True)
-
-        spread, min_dist = 1, 0.001
-        a, b = find_ab_params(spread, min_dist)
-        zzz = umap.umap_.simplicial_set_embedding(aFrame, fss,  n_components =3, n_epochs = 15, init = z,  random_state=np.random.RandomState(1),
-                                                  initial_alpha=1, gamma= 0.1, negative_sample_rate=150, a=a, b=b,densmap=False,
-                                                  densmap_kwds = {'lambda':2.0, 'frac':0.3, 'var_shift':0.1, 'n_neighbors':15, "graph_dists":Dist},output_dens= False,
-                                                        metric='euclidean', metric_kwds={} )
-
-        fig = plot3D_cluster_colors(zzz[0], lbls=lbls)
-        fig.show()
-
-        fig0 = plot3D_cluster_colors(z, lbls=lbls)
-        fig0.show()
+npzfile = np.load(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz')
+z = npzfile['z']
+history = pickle.load(open(output_dir + '/'  + ID +  str(bl) + 'epochs'+str(epochs)+ '_history',  "rb"))
+encoder.load_weights(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
+autoencoder.load_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
+A_rest = autoencoder.predict([aFrame, Sigma])
 
 
 
 
-    autoencoder.load_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
-    A_rest = autoencoder.predict([aFrame, Sigma, ])
-    import seaborn as sns
+st = 5;
+stp = 500 #len(history['loss'])
+fig01 = plt.figure();
+plt.plot(history['loss'][st:stp]);
+plt.title('loss')
+fig015 = plt.figure();
+plt.plot(history['graph_diff'][st:stp]);
+plt.title('graph_diff')
+fig02 = plt.figure();
+plt.plot(history['DCAE_loss'][st:stp]);
+plt.title('DCAE_loss')
+fig03 = plt.figure();
+plt.plot(history['loss_mmd'][st:stp]);
+plt.title('loss_mmd')
+fig04 = plt.figure();
+plt.plot(history['mean_square_error_NN'][st:stp]);
+plt.title('mean_square_error')
 
-    lblsC = [7 if i == -7 else i for i in lbls]
-    l_list = np.unique(lblsC)
-    fig, axs = plt.subplots(nrows=8)
-    yl = aFrame.min()
-    yu = aFrame.max()
-    for i in l_list:
-        sns.violinplot(data=A_rest[lblsC == i, :], ax=axs[int(i)])
-        axs[int(i)].set_ylim(yl, yu)
-        axs[int(i)].set_title(str(int(i)), rotation=-90, x=1.05, y=0.5)
-    fig.savefig(PLOTS + 'Sensitivity/' + str(bl) + "Signal_violinplot" + ".eps", format='eps', dpi=350)
-    plt.close()
 
-    sns.violinplot(data=A_rest)
+fig = plot3D_cluster_colors(z, lbls=lbls)
+fig.show()
+
+fig1 = plt.figure();
+plt.plot(history['val_loss'][st:stp]);
+plt.title('val_loss')
+fig2 = plt.figure();
+plt.plot(history['val_DCAE_loss'][st:stp]);
+plt.title('val_DCAE_loss')
+fig3 = plt.figure();
+plt.plot(history['val_loss_mmd'][st:stp]);
+plt.title('val_loss_mmd')
+fig4 = plt.figure();
+plt.plot(history['val_mean_square_error_NN'][st:stp]);
+plt.title('val_mean_square_error')
+
+import umap
+# experiment with umap. Neede if some post-[rpcessing the output gives better plot
+# Initial idea run umap on z few epochs to see if splitting is cured
+from scipy.optimize import curve_fit
+def find_ab_params(spread, min_dist):
+    """Fit a, b params for the differentiable curve used in lower
+    dimensional fuzzy simplicial complex construction. We want the
+    smooth curve (from a pre-defined family with simple gradient) that
+    best matches an offset exponential decay.
+    """
+
+    def curve(x, a, b):
+        return 1.0 / (1.0 + a * x ** (2 * b))
+
+    xv = np.linspace(0, spread * 3, 300)
+    yv = np.zeros(xv.shape)
+    yv[xv < min_dist] = 1.0
+    yv[xv >= min_dist] = np.exp(-(xv[xv >= min_dist] - min_dist) / spread)
+    params, covar = curve_fit(curve, xv, yv)
+    return params[0], params[1]
+
+
+
+fss, _, _ = umap.umap_.fuzzy_simplicial_set(aFrame, n_neighbors=15, random_state=1,
+                                            metric='euclidean', metric_kwds={},
+                                            knn_indices=Idx[:, 0:90], knn_dists=Dist[:, 0:90],
+                                            angular=False, set_op_mix_ratio=1.0, local_connectivity=1.0,
+                                            apply_set_operations=True, verbose=True)
+
+spread, min_dist = 1, 0.001
+a, b = find_ab_params(spread, min_dist)
+zzz = umap.umap_.simplicial_set_embedding(aFrame, fss,  n_components =3, n_epochs = 15, init = z,  random_state=np.random.RandomState(1),
+                                          initial_alpha=1, gamma= 0.1, negative_sample_rate=150, a=a, b=b,densmap=False,
+                                          densmap_kwds = {'lambda':2.0, 'frac':0.3, 'var_shift':0.1, 'n_neighbors':15, "graph_dists":Dist},output_dens= False,
+                                                metric='euclidean', metric_kwds={} )
+
+fig = plot3D_cluster_colors(zzz[0], lbls=lbls)
+fig.show()
+
+fig0 = plot3D_cluster_colors(z, lbls=lbls)
+fig0.show()
+
+
+
+
+autoencoder.load_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
+A_rest = autoencoder.predict([aFrame, Sigma, ])
+import seaborn as sns
+
+lblsC = [7 if i == -7 else i for i in lbls]
+l_list = np.unique(lblsC)
+fig, axs = plt.subplots(nrows=8)
+yl = aFrame.min()
+yu = aFrame.max()
+for i in l_list:
+    sns.violinplot(data=A_rest[lblsC == i, :], ax=axs[int(i)])
+    axs[int(i)].set_ylim(yl, yu)
+    axs[int(i)].set_title(str(int(i)), rotation=-90, x=1.05, y=0.5)
+fig.savefig(PLOTS + 'Sensitivity/' + str(bl) + "Signal_violinplot" + ".eps", format='eps', dpi=350)
+plt.close()
+
+sns.violinplot(data=A_rest)
     sns.violinplot(data=aFrame)

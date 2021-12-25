@@ -106,13 +106,13 @@ os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'ELU__DCAE_Sqrt_lam_0.1batch_32alp_0.2m_10'
+ID = 'ELU_graph_reg_meanSigma__g_10_lam_0.1_batch_128_alp_0.2_m_10'
 epochs = 500
 # Compute performance for DCAE
 z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/temp"
 output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"
 #bl = list_of_branches[1]
-for bl in list_of_branches[0:4]:
+for bl in list_of_branches[0:7]:
     infile = source_dir + 'set_' + str(bl) + '.npz'
     npzfile = np.load(infile)
     lbls = npzfile['lbls']
@@ -123,7 +123,7 @@ for bl in list_of_branches[0:4]:
     topolist_estimate = get_representation_topology(z, lbls)
     top_score = get_topology_match_score(topolist, topolist_estimate)
     print(top_score)
-    outfile = output_dir + '/' + str(bl) + '_Topological_PerformanceMeasures.npz'
+    outfile = output_dir + '/' + ID +  str(bl) + '_Topological_PerformanceMeasures.npz'
     np.savez(outfile, top_score= top_score)
 '''
 # Compute performance for UMAP
@@ -169,8 +169,8 @@ dir = bor_res_dirs[0]
 bl  = list_of_branches[0]
 df = pd.DataFrame()
 for i in range(3):
-    for bl in list_of_branches:
-        outfile = bor_res_dirs[i] + '/' + str(bl) + '_Topological_PerformanceMeasures.npz'
+    for bl in list_of_branches[0:7]:
+        outfile = bor_res_dirs[i] + '/'  + str(bl) + '_Topological_PerformanceMeasures.npz'
         npz_res =  np.load(outfile)
         score = int(npz_res['top_score'])
 
