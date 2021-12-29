@@ -1,6 +1,6 @@
 '''
 Runs DCAE
-mappings for artificial clusters
+experiment with KL differen
 '''
 import timeit
 import matplotlib.pyplot as plt
@@ -33,21 +33,22 @@ alp = 0.2
 m = 10
 patience = 500
 min_delta = 1e-4
-g=1000
+g=0.1
 #epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/temp'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'ELU_graph_KL_DCAE_0_' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'ELU_Levin_KLnorm_clip_grad' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 #ID = 'ELU_' + '_DCAE_norm_0.5' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
+#output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output'
 #load earlier generated data
-
+epochs=500
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.compat.v1.disable_eager_execution()
 bl = list_of_branches[0]
-epochs=500
+
 for epochs in epochs_list:
     for bl in list_of_branches[0:7]:
         infile = source_dir + 'set_' + str(bl) + '.npz'
@@ -69,6 +70,20 @@ for epochs in epochs_list:
         lbls = npzfile['lbls'];
 
         nrow = np.shape(aFrame)[0]
+
+        from numpy import nanmax, argmax, unravel_index
+        from scipy.spatial.distance import pdist, squareform
+
+        IDX = np.random.randint(0, high=nrow, size=2000)
+        D = pdist(aFrame[IDX, :])
+        D = squareform(D);
+        max_dist, [I_row, I_col] = nanmax(D), unravel_index(argmax(D), D.shape)
+        # max_dist
+        # sns.distplot(D)
+        # convex hull
+        # import numpy as np
+        from scipy.spatial import ConvexHull
+        from scipy.spatial.distance import cdist
 
         MMD_weight = K.variable(value=0)
 
@@ -123,7 +138,7 @@ for epochs in epochs_list:
         normSigma = 1
 
 
-        #optimize matrix multiplication
+        # optimize matrix multiplication
         def DCAE_loss(y_true, y_pred):  # (x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
             U = encoder.get_layer('intermediate').trainable_weights[0]
             W = encoder.get_layer('intermediate2').trainable_weights[0]
@@ -149,20 +164,20 @@ for epochs in epochs_list:
             ds = tf.einsum('ak,a->ak', ds, pot)
             diff_tens = tf.einsum('al,lj->alj', ds, Z)
             diff_tens = tf.einsum('al,ajl->ajl', dm, diff_tens)
-            diff_tens = tf.einsum('ajl,lk->ajk',  diff_tens, W)
+            diff_tens = tf.einsum('ajl,lk->ajk', diff_tens, W)
             u_U = tf.einsum('al,lj->alj', du, U)
             diff_tens = tf.einsum('ajl,alk->ajk', diff_tens, u_U)
             # multiply by configning potential
             # Try L2,1 metric
             # first, take square
-            #diff_tens = diff_tens**2
+            # diff_tens = diff_tens**2
             #   second, sum over latent indices
             #   diff_tens = tf.einsum('ajl->al', diff_tens)
             #   return lam * SigmaTsq[:, 0] * K.sum(K.sqrt(diff_tens), axis=[1])
             # return lam * K.sum(K.sqrt(K.abs(diff_tens) + 1e-9), axis=[1, 2])
-            #return lam * SigmaTsq[:, 0] * K.pow(K.sum(diff_tens ** 2, axis=[1, 2]), 0.25)
+            # return lam * SigmaTsq[:, 0] * K.pow(K.sum(diff_tens ** 2, axis=[1, 2]), 0.25)
             return lam * SigmaTsq[:, 0] * K.sqrt(K.sum(diff_tens ** 2, axis=[1, 2]))
-            #return lam * K.sum(diff_tens ** 2, axis=[1, 2])
+            # return lam * K.sum(diff_tens ** 2, axis=[1, 2])
 
 
         def DCAE2_loss(y_true, y_pred):
@@ -186,63 +201,80 @@ for epochs in epochs_list:
             tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, y_size, 1]))
             tiled_y = tf.tile(tf.reshape(y, tf.stack([1, y_size, dim])), tf.stack([x_size, 1, 1]))
             return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
-            #return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(0.01, tf.float32))
+            # return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(0.01, tf.float32))
 
 
         meanS = np.mean(Sigma)
+
+
         def compute_graph_weights_Inp(x):
             x_size = tf.shape(x)[0]
-            #dim = tf.shape(x)[1]
-            #TODO: x = x/meanS we nead update this function in the fashion that weights are computed
-            # from w_ij = kernel((x_i-x_j)/sigma_i) and then symmetrized
-            #tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
-            #tiled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
-            #return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2)/meanS)
-            r = tf.reduce_sum(x * x, 1)
-            # turn r into column vector
-            r = tf.reshape(r, [-1, 1])
-            D = r - 2 * tf.matmul(x, tf.transpose(x)) + tf.transpose(r)
-            #multiply each row over tsk
-            #D = tf.einsum('ik,i ->ik', D, 1/ SigmaTsq[:,0])
-            #D = tf.einsum('ik,i ->ik', D, 1 / Sigma[idx])
-            D = D/98
-            D = tf.exp(-D)
-            D = tf.linalg.set_diag(D, tf.zeros(x_size), name=None)
-            #D = K.sqrt(D)
-            D= tf.linalg.normalize(D, ord=1, axis=1)[0]
-            D= (D + tf.transpose(D))/2
+            dim = tf.shape(x)[1]
+            # TODO: x = x/meanS we nead update this function in the fashion that weights are computed
+            #from w_ij = kernel((x_i-x_j)/sigma_i) and then symmetrized
+            tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
+            tiled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
+            D = tf.exp(-tf.reduce_sum(tf.square(tiled_x - tiled_y), axis=2) / meanS / tf.cast(dim, tf.float32))
+            D = tf.linalg.normalize(D, ord=1, axis=1)[0]
             return D
+            # x = x / max_dist
+            # r = tf.reduce_sum(x * x, 1)
+            # # turn r into column vector
+            # r = tf.reshape(r, [-1, 1])
+            # D = r - 2 * tf.matmul(x, tf.transpose(x)) + tf.transpose(r)
+            # # multiply each row over tsk
+            # # D = tf.einsum('ik,i ->ik', D, 1/ SigmaTsq[:,0])
+            # # D = tf.einsum('ik,i ->ik', D, 1 / Sigma[idx])
+            # D = tf.exp(-D)
+            # D = tf.linalg.set_diag(D, tf.zeros(x_size), name=None)
+            # # D = K.sqrt(D)
+            # #D = tf.linalg.normalize(D, ord=1, axis=1)[0]
+            # #D = (D + tf.transpose(D)) / 2 / tf.cast(x_size, tf.float32)
+            # return D
 
 
         def compute_graph_weights_enc(x):
             x_size = tf.shape(x)[0]
-            #dim = tf.shape(x)[1]
-            #x = x / .1
-            #tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
-            #iled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
-            #return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(1, tf.float32))
-            x = x / 2
-            r = tf.reduce_sum(x*x, 1)
-            # turn r into column vector
-            r = tf.reshape(r, [-1, 1])
-            D = r - 2 * tf.matmul(x, tf.transpose(x)) + tf.transpose(r)
-            D = 1/(1+D)
-            D = tf.linalg.set_diag(D, tf.zeros(x_size), name=None)
-            #D = K.sqrt(D)
-            D= tf.linalg.normalize(D, ord=1, axis=1)[0]
-            D = tf.linalg.set_diag(D, tf.ones(x_size), name=None) # to prent nans because of log(0)
+            dim = tf.shape(x)[1]
+            #x = tf.linalg.normalize(x, ord=2, axis=1)[0]
+            x = x / .1
+            tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
+            tiled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
+            D =  tf.exp(-tf.reduce_sum(tf.square(tiled_x - tiled_y), axis=2) )
             return D
+            # drop all z's on
+            # x = tf.linalg.normalize(x, ord=2, axis=1)[0]
+            # x = x / 2
+            # r = tf.reduce_sum(x * x, 1)
+            # # turn r into column vector
+            # r = tf.reshape(r, [-1, 1])
+            # D = r - 2 * tf.matmul(x, tf.transpose(x)) + tf.transpose(r)
+            # D = 1/(1+ D)
+            # #D = tf.exp(-D)
+            # D = tf.linalg.set_diag(D, tf.zeros(x_size), name=None)
+            # # D = K.sqrt(D)
+            # #D= tf.linalg.normalize(D, ord=1, axis=1)[0]
+            # #D = tf.linalg.set_diag(D, tf.ones(x_size), name=None)  # to prent nans because of log(0)
+            # return D
+
 
         def graph_diff(x, y):
-            #return g * K.sqrt(
-            #tf.reduce_mean((compute_graph_weights_Inp(X) - compute_graph_weights_enc(z_mean)) ** 2))
-            return -g * tf.reduce_mean(compute_graph_weights_Inp(X) * K.log(compute_graph_weights_enc(z_mean)))
+            # KL loss
+            # return g * ( - K.sum(compute_graph_weights_Inp(X) * K.log(compute_graph_weights_enc(z_mean))) +  K.log(K.sum(compute_graph_weights_enc(z_mean))) )
+            # crossentropy
+            return K.sum(-g * compute_graph_weights_Inp(X) * K.log(compute_graph_weights_enc(z_mean)+K.epsilon()))
+            # simple minus
+            #return  g * K.sqrt(K.sum((compute_graph_weights_Inp(X) - compute_graph_weights_enc(z_mean)) ** 2))
 
 
-        #idx = np.random.randint(0, high=nrow, size=20)
-        #m_diff = K.eval(-g  *  (compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) * K.log(compute_graph_weights_enc(z[idx,:]))))
+        #idx = np.random.randint(0, high=nrow, size=30)
+        # KL = K.eval(- K.sum(compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) * K.log(compute_graph_weights_enc(z[idx,:]))) + K.log(K.sum(compute_graph_weights_enc(z[idx,:]))))
+        # K.eval(- K.sum(compute_graph_weights_Inp(aFrame[idx, :].astype('float32')) * K.log(compute_graph_weights_enc(z[idx, :]))))
+        #g_diff = K.eval(-1 *  (compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) * K.log(compute_graph_weights_enc(z[idx,:])+K.epsilon())))
+        #g_diff = K.eval(g * K.sqrt(((compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) - compute_graph_weights_enc(z[idx,:])) ** 2)))
         #g_enc =  K.eval(compute_graph_weights_enc(z[idx,:]))
         #g_inp =  K.eval(compute_graph_weights_Inp(aFrame[idx,:].astype('float32')))
+
 
 
         # from sklearn.preprocessing import normalize
@@ -351,7 +383,7 @@ for epochs in epochs_list:
             batch_sz = K.shape(z_mean)[0]
             # latent_dim = K.int_shape(z_mean)[1]
             # true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0.0, stddev=1.)
-            true_samples = sample_shell(batch_sz, 0.8, 1.2)
+            true_samples = sample_shell(batch_sz, 0.9, 1.1)
             # true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=-1, maxval=1)
             # true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=0.0, maxval=1.0)
             return m * compute_mmd(true_samples, z_mean)
@@ -374,9 +406,8 @@ for epochs in epochs_list:
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean)
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
-                return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(y_true, y_pred) + 0*(
-                        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) + (
-                        10 * MMD_weight + 1) * graph_diff(y_true, y_pred)
+                return coeffMSE * msew +   0.5 * (2 - MMD_weight) *  loss_mmd(y_true, y_pred) +  (
+                        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) +  MMD_weight * graph_diff(y_true, y_pred)
                 # return  loss_mmd(x, x_decoded_mean)
 
             return loss
@@ -384,7 +415,7 @@ for epochs in epochs_list:
 
 
         opt = tf.keras.optimizers.Adam(
-            learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False
+            learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False, clipvalue=1.0
         )
 
         autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst),
@@ -442,6 +473,61 @@ history = pickle.load(open(output_dir + '/'  + ID +  str(bl) + 'epochs'+str(epoc
 encoder.load_weights(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
 autoencoder.load_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
 A_rest = autoencoder.predict([aFrame, Sigma])
+
+plt.hist(np.sum(z**2, axis=1))
+
+
+from sklearn.preprocessing import normalize
+def sample_sphere3D(npoints, ndim=3):
+    vec = np.random.normal(size=(npoints, ndim))
+    vec = normalize(vec, axis=1, norm='l2')
+    return vec
+sph1 = sample_sphere3D(5000, ndim=3)
+import plotly.graph_objects as go
+fig = plot3D_cluster_colors(z, lbls=lbls, msize=1)
+from plotly.graph_objs import Scatter3d
+fig.add_trace(Scatter3d(x=sph1[:,0], y=sph1[:,1], z=sph1[:,2],
+                                name='sphere',
+                                mode='markers',
+                                marker=dict(
+                                    size=0.5,
+                                    color='black',  # set color to an array/list of desired values
+                                    opacity=0.5,
+                                ),
+                                text=None,
+                                hoverinfo=None))
+fig.show()
+
+
+plt.scatter(z[:, 0], z[:, 1],  0.5)
+r = np.sqrt(np.sum(z**2, axis = 1))
+plt.hist(r,200)
+
+import seaborn as sns
+from sklearn.preprocessing import normalize
+def sample_sphere3D(npoints, ndim=3):
+    vec = np.random.normal(size=(npoints, ndim))
+    vec = normalize(vec, axis=1, norm='l2')
+    return vec
+sph1 = sample_sphere3D(5000, ndim=3)
+import plotly.graph_objects as go
+fig = plot3D_cluster_colors(z, lbls=lbls, msize=1)
+from plotly.graph_objs import Scatter3d
+fig.add_trace(Scatter3d(x=sph1[:,0], y=sph1[:,1], z=sph1[:,2],
+                                name='sphere',
+                                mode='markers',
+                                marker=dict(
+                                    size=0.5,
+                                    color='black',  # set color to an array/list of desired values
+                                    opacity=0.5,
+                                ),
+                                text=None,
+                                hoverinfo=None))
+fig.show()
+
+
+
+
 
 
 

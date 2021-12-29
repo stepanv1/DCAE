@@ -1,115 +1,41 @@
 '''
 Runs DCAE
-mappings fro Leine32, same netweork as fro art sets
+experiment with KL differen
 '''
-
 import timeit
+import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import plotly.io as pio
 import tensorflow as tf
 from plotly.io import to_html
 from tensorflow.keras import backend as K
-from tensorflow.keras.layers import Input, Dense
+from tensorflow.keras.layers import Input, Dense, LeakyReLU
 from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import Callback, EarlyStopping
 import pickle
 pio.renderers.default = "browser"
-
-from utils_evaluation import plot3D_cluster_colors, plot3D_marker_colors
+import seaborn as sns
+from utils_evaluation import plot3D_cluster_colors, table
+from utils_model import plotCallback, AnnealingCallback, saveEncoder
+from utils_model import frange_anneal, relu_derivative, elu_derivative, leaky_relu_derivative, linear_derivative
 
 from pathos import multiprocessing
 num_cores = multiprocessing.cpu_count()
 pool = multiprocessing.Pool(num_cores)
 
-from tensorflow.keras.callbacks import Callback
-import matplotlib.pyplot as plt
-
-def table(labels):
-    unique, counts = np.unique(labels, return_counts=True)
-    print('%d %d', np.asarray((unique, counts)).T)
-    return {'unique': unique, 'counts': counts}
-
-def frange_anneal(n_epoch, ratio=0.25, shape='sin'):
-    L = np.ones(n_epoch)
-    if ratio ==0:
-        return L
-    for c in range(n_epoch):
-        if c <= np.floor(n_epoch*ratio):
-            if shape=='sqrt':
-                norm = np.sqrt(np.floor(n_epoch*ratio))
-                L[c] = np.sqrt(c)/norm
-            if shape=='sin':
-                Om = (np.pi/2/(n_epoch*ratio))
-                L[c] =  np.sin(Om*c)**4
-        else:
-            L[c]=1
-    return L
-
-class AnnealingCallback(Callback):
-    def __init__(self, weight, kl_weight_lst):
-        self.weight = weight
-        self.kl_weight_lst = kl_weight_lst
-
-    def on_epoch_end(self, epoch, logs={}):
-        new_weight = K.eval(self.kl_weight_lst[epoch])
-        K.set_value(self.weight, new_weight)
-        print("  Current AP is " + str(K.get_value(self.weight)))
-
-class EpochCounterCallback(Callback):
-    def __init__(self, count, count_lst):
-        self.count = count
-        self.count_lst = count_lst
-
-    def on_epoch_end(self, epoch, logs={}):
-        new_count = K.eval(self.count_lst[epoch])
-        K.set_value(self.count, new_count)
-        #print("  Current AP is " + str(K.get_value(self.count)))
-
-# relu
-def relu_derivative(a):
-    cond = tf.math.greater_equal(a, tf.constant(0.0))
-    return tf.where(cond, tf.constant(1.0), tf.constant(0.0))
-
-# elu
-def elu_derivative(a):
-    cond = tf.math.greater_equal(a, tf.constant(0.0))
-    return tf.where(cond, tf.constant(1.0), tf.math.exp(a))
-
-# leaky relu
-def leaky_relu_derivative(a):
-    cond = tf.math.greater_equal(a, tf.constant(0.0))
-    return tf.where(cond, tf.constant(1.0), tf.constant(0.3))
-
-    # linear
-def linear_derivative(a):
-    return tf.ones(tf.shape(a), dtype=tf.float32)
-
-
-import ctypes
-from numpy.ctypeslib import ndpointer
-lib = ctypes.cdll.LoadLibrary("/home/grinek/PycharmProjects/BIOIBFO25L/Clibs/perp.so")
-perp = lib.Perplexity
-perp.restype = None
-perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
-                ctypes.c_size_t, ctypes.c_size_t,
-                ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
-                ctypes.c_double,  ctypes.c_size_t,
-                ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), #Sigma
-                ctypes.c_size_t]
-#list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
-#'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
-# TEMP
-#list_of_inputs = 'Shenkareuclid_not_scaled.npz'
-
 k = 30
 coeffCAE = 1
 coeffMSE = 1
-epochs_list = [250, 500, 1000]
+epochs_list = [500]
 batch_size = 128
-lam = 0.01
+lam = 1
 alp = 0.2
 m = 10
+patience = 500
+min_delta = 1e-4
+g=0.01
+
+
 patienceD = {'Levine32euclid_scaled_no_negative_removed.npz':25,
 'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz':50,  'Shenkareuclid_shifted.npz':100}
 min_delta = 1e-4
@@ -125,17 +51,22 @@ ID = 'ELU_' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.compat.v1.disable_eager_execution()
-#bl = list_of_inputs[2]
-#epochs=500
+bl = list_of_inputs[0]
+epochs=500
 for epochs in epochs_list:
     for bl in list_of_inputs:
         infile = source_dir + bl
         #markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
         # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
-        npzfile = np.load(infile, allow_pickle=True)
+        # markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
+        # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
+        npzfile = np.load(infile)
         weight_distALL = npzfile['Dist'];
         # = weight_distALL[IDX,:]
         aFrame = npzfile['aFrame'];
+
+        #aFrame = np.random.uniform(low=-2.0, high=[2.0, 2.0, 2.0, -1.8, -1.8], size=(5000, 5))
+
         Dist = npzfile['Dist']
         Idx = npzfile['Idx']
         # cut_neibF = npzfile['cut_neibF'];
@@ -143,8 +74,22 @@ for epochs in epochs_list:
         neibALL = npzfile['neibALL']
         Sigma = npzfile['Sigma']
         lbls = npzfile['lbls'];
-
         nrow = np.shape(aFrame)[0]
+
+        from numpy import  nanmax, argmax, unravel_index
+        from scipy.spatial.distance import pdist, squareform
+        IDX = np.random.randint(0, high=nrow, size=2000)
+        D = pdist(aFrame[IDX,:])
+        D = squareform(D);
+        max_dist, [I_row, I_col] = nanmax(D), unravel_index(argmax(D), D.shape)
+        #max_dist
+        #sns.distplot(D)
+        # convex hull
+        #import numpy as np
+        from scipy.spatial import ConvexHull
+        from scipy.spatial.distance import cdist
+
+
 
         MMD_weight = K.variable(value=0)
 
@@ -181,12 +126,12 @@ for epochs in epochs_list:
         '''
 
         SigmaTsq = Input(shape=(1,))
-        x = Input(shape=(original_dim,))
-        h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(x)
+        X = Input(shape=(original_dim,))
+        h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(X)
         h1 = Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
         z_mean = Dense(latent_dim, activation=None, name='z_mean', kernel_initializer=initializer)(h1)
 
-        encoder = Model([x, SigmaTsq], z_mean, name='encoder')
+        encoder = Model([X, SigmaTsq], z_mean, name='encoder')
 
         decoder_h = Dense(intermediate_dim2, activation='elu', name='intermediate3', kernel_initializer=initializer)
         decoder_h1 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)
@@ -194,15 +139,12 @@ for epochs in epochs_list:
         h_decoded = decoder_h(z_mean)
         h_decoded2 = decoder_h1(h_decoded)
         x_decoded_mean = decoder_mean(h_decoded2)
-        autoencoder = Model(inputs=[x, SigmaTsq], outputs=x_decoded_mean)
-
-        # Loss and optimizer ------------------------------------------------------
-        # rewrite this based on recommendations here
-        # https://www.tensorflow.org/guide/keras/train_and_evaluate
+        autoencoder = Model(inputs=[X, SigmaTsq], outputs=x_decoded_mean)
 
         normSigma = 1
 
 
+        #optimize matrix multiplication
         def DCAE_loss(y_true, y_pred):  # (x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
             U = encoder.get_layer('intermediate').trainable_weights[0]
             W = encoder.get_layer('intermediate2').trainable_weights[0]
@@ -214,38 +156,34 @@ for epochs in epochs_list:
             u = encoder.get_layer('intermediate').output
             du = elu_derivative(u)
             m = encoder.get_layer('intermediate2').output
-            dm = elu_derivative(m)  # N_batch x N_hidden
+            dm = elu_derivative(m)
             s = encoder.get_layer('z_mean').output
-            ds = linear_derivative(s)  # N_batch x N_hidden
+            ds = linear_derivative(s)
 
-            r = tf.linalg.einsum('aj->a', s ** 2)
+            r = tf.linalg.einsum('aj->a', s ** 2)  # R^2 in reality. to think this trough
+
             # pot = 500 * tf.math.square(alp - r) * tf.dtypes.cast(tf.less(r, alp), tf.float32) + \
             #      500 * (r - 1) * tf.dtypes.cast(tf.greater_equal(r, 1), tf.float32) + 1
             # pot=1
             pot = tf.math.square(r - 1) + 1
 
-            u_U = tf.einsum('al,lj->alj', du, U)
-            diff_tens = tf.einsum('kl,alj->akj', W, u_U)
-            diff_tens = tf.einsum('al,alj->alj', dm, diff_tens)
-            diff_tens = tf.einsum('kl,alj->akj', Z, diff_tens)
-            # multiply by configning potential
             ds = tf.einsum('ak,a->ak', ds, pot)
-            diff_tens = tf.einsum('al,alj->alj', ds, diff_tens)
+            diff_tens = tf.einsum('al,lj->alj', ds, Z)
+            diff_tens = tf.einsum('al,ajl->ajl', dm, diff_tens)
+            diff_tens = tf.einsum('ajl,lk->ajk',  diff_tens, W)
+            u_U = tf.einsum('al,lj->alj', du, U)
+            diff_tens = tf.einsum('ajl,alk->ajk', diff_tens, u_U)
+            # multiply by configning potential
+            # Try L2,1 metric
+            # first, take square
+            #diff_tens = diff_tens**2
+            #   second, sum over latent indices
+            #   diff_tens = tf.einsum('ajl->al', diff_tens)
+            #   return lam * SigmaTsq[:, 0] * K.sum(K.sqrt(diff_tens), axis=[1])
             # return lam * K.sum(K.sqrt(K.abs(diff_tens) + 1e-9), axis=[1, 2])
-            # return (lam * (normSigma * SigmaTsq)[:, 0]) * K.sum(K.sqrt(K.abs(diff_tens) + 1e-9), axis=[1, 2])
-            return lam * K.sum(diff_tens ** 2, axis=[1, 2])
-
-
-        '''
-        def DCAE_loss(y_pred, y_true):
-            W = encoder.get_layer('z_mean').trainable_weights[0]  # N x N_hidden
-            W = K.transpose(W)  # N_hidden x N
-            h = encoder.get_layer('z_mean').output
-            cond = tf.math.greater_equal(h, tf.constant(0.0))
-            dh = tf.where(cond, tf.constant(1.0), h+1)
-            return lam * K.sum(dh ** 2 * K.sum(W ** 2, axis=1), axis=1)
-            #return tf.reduce_mean(lam * K.sum(W ** 2, axis=[0, 1]))
-        '''
+            #return lam * SigmaTsq[:, 0] * K.pow(K.sum(diff_tens ** 2, axis=[1, 2]), 0.25)
+            return lam * SigmaTsq[:, 0] * K.sqrt(K.sum(diff_tens ** 2, axis=[1, 2]))
+            #return lam * K.sum(diff_tens ** 2, axis=[1, 2])
 
 
         def DCAE2_loss(y_true, y_pred):
@@ -258,8 +196,7 @@ for epochs in epochs_list:
             # f = tf.where(K.abs(diff_tens) > 0, K.abs(diff_tens), 0.0)# to prevent nans in loss
             # return tf.transpose(1 / normSigma * SigmaTsq * lam) * K.sum(K.sqrt(K.abs(diff_tens)), axis=[1, 2])
             # return  (1 / normSigma * SigmaTsq * lam)[0,:] * K.sum(diff_tens**2, axis=[1, 2])
-            return (normSigma * SigmaTsq * lam)[0, :] * (
-                        K.sum(K.abs(S_U), axis=[1, 2]) / intermediate_dim / original_dim)
+            return lam * (K.sum(K.abs(S_U), axis=[1, 2]) / intermediate_dim / original_dim)
 
 
         # mmd staff TODO: try approximation for this
@@ -270,6 +207,67 @@ for epochs in epochs_list:
             tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, y_size, 1]))
             tiled_y = tf.tile(tf.reshape(y, tf.stack([1, y_size, dim])), tf.stack([x_size, 1, 1]))
             return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
+            #return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(0.01, tf.float32))
+
+
+        meanS = np.mean(Sigma)
+        def compute_graph_weights_Inp(x):
+            x_size = tf.shape(x)[0]
+            #dim = tf.shape(x)[1]
+            #TODO: x = x/meanS we nead update this function in the fashion that weights are computed
+            # from w_ij = kernel((x_i-x_j)/sigma_i) and then symmetrized
+            #tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
+            #tiled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
+            #return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2)/meanS)
+            x=x/max_dist
+            r = tf.reduce_sum(x * x, 1)
+            # turn r into column vector
+            r = tf.reshape(r, [-1, 1])
+            D = r - 2 * tf.matmul(x, tf.transpose(x)) + tf.transpose(r)
+            #multiply each row over tsk
+            #D = tf.einsum('ik,i ->ik', D, 1/ SigmaTsq[:,0])
+            #D = tf.einsum('ik,i ->ik', D, 1 / Sigma[idx])
+            D = tf.exp(-D)
+            D = tf.linalg.set_diag(D, tf.zeros(x_size), name=None)
+            #D = K.sqrt(D)
+            D= tf.linalg.normalize(D, ord=1, axis=1)[0]
+            D= (D + tf.transpose(D))/2/tf.cast(x_size, tf.float32)
+            return D
+
+
+        def compute_graph_weights_enc(x):
+            x_size = tf.shape(x)[0]
+            #dim = tf.shape(x)[1]
+            #x = x / .1
+            #tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
+            #iled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
+            #return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(1, tf.float32))
+            x = x / 2
+            r = tf.reduce_sum(x*x, 1)
+            # turn r into column vector
+            r = tf.reshape(r, [-1, 1])
+            D = r - 2 * tf.matmul(x, tf.transpose(x)) + tf.transpose(r)
+            D = 1/(1+D)
+            #D = tf.linalg.set_diag(D, tf.zeros(x_size), name=None)
+            #D = K.sqrt(D)
+            #D= tf.linalg.normalize(D, ord=1, axis=1)[0]
+            D = tf.linalg.set_diag(D, tf.ones(x_size), name=None) # to prent nans because of log(0)
+            return D
+
+        def graph_diff(x, y):
+            #KL loss
+            #return g * ( - K.sum(compute_graph_weights_Inp(X) * K.log(compute_graph_weights_enc(z_mean))) +  K.log(K.sum(compute_graph_weights_enc(z_mean))) )
+            # crossentropy
+            return - g *  K.sum(compute_graph_weights_Inp(X) * K.log(compute_graph_weights_enc(z_mean)))
+
+
+
+        #idx = np.random.randint(0, high=nrow, size=20)
+        #KL = K.eval(- K.sum(compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) * K.log(compute_graph_weights_enc(z[idx,:]))) + K.log(K.sum(compute_graph_weights_enc(z[idx,:]))))
+        #K.eval(- K.sum(compute_graph_weights_Inp(aFrame[idx, :].astype('float32')) * K.log(compute_graph_weights_enc(z[idx, :]))))
+        #g_diff = K.eval(-g  *  (compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) * K.log(compute_graph_weights_enc(z[idx,:]))))
+        #g_enc =  K.eval(compute_graph_weights_enc(z[idx,:]))
+        #g_inp =  K.eval(compute_graph_weights_Inp(aFrame[idx,:].astype('float32')))
 
 
         def compute_mmd(x, y):  # [batch_size, z_dim] [batch_size, z_dim]
@@ -298,7 +296,7 @@ for epochs in epochs_list:
             batch_sz = K.shape(z_mean)[0]
             # latent_dim = K.int_shape(z_mean)[1]
             # true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0.0, stddev=1.)
-            true_samples = sample_shell(batch_sz, 0.8, 1.2)
+            true_samples = sample_shell(batch_sz, 0.9, 1.1)
             # true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=-1, maxval=1)
             # true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=0.0, maxval=1.0)
             return m * compute_mmd(true_samples, z_mean)
@@ -311,8 +309,7 @@ for epochs in epochs_list:
             # dst = K.mean(K.square((neib - K.expand_dims(y_pred, 1)) / (tf.expand_dims(cut_neib,1) + 1)), axis=-1)
             msew_nw = tf.keras.losses.mean_squared_error(y_true, y_pred)
             # return 0.5 * (tf.multiply(weightedN, 1/SigmaTsq))
-            return normSigma / SigmaTsq[:,
-                               0] * msew_nw  # TODO Sigma -denomiator or nominator? try reverse, schek hpw sigma computed in UMAP
+            return normSigma / SigmaTsq[:,0] * msew_nw
             # return msew_nw
 
 
@@ -322,8 +319,9 @@ for epochs in epochs_list:
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean)
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
-                return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(y_true, y_pred) + (
-                        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred))
+                return coeffMSE * msew +  0.5 * (2 - MMD_weight) * loss_mmd(y_true, y_pred) +  (
+                        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) + (
+                        10 * MMD_weight + 1) * graph_diff(y_true, y_pred)
                 # return  loss_mmd(x, x_decoded_mean)
 
             return loss
@@ -335,66 +333,28 @@ for epochs in epochs_list:
         )
 
         autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst),
-                            metrics=[DCAE_loss, DCAE2_loss, loss_mmd, mean_square_error_NN])
+                            metrics=[DCAE_loss, graph_diff, loss_mmd, mean_square_error_NN])
 
         autoencoder.summary()
-        # opt = tfa.optimizers.RectifiedAdam(lr=1e-3)
-        # opt=tf.keras.optimizers.Adam(
-        #    learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False
-        # )
-        # autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst), metrics=[DCAE_loss, loss_mmd,  mean_square_error_NN])
 
         save_period = 10
-        patience = patienceD[bl]
         DCAEStop = EarlyStopping(monitor='DCAE_loss', min_delta=min_delta, patience=patience, mode='min',
                                  restore_best_weights=False)
-
-
-        class plotCallback(Callback):
-            def on_epoch_end(self, epoch, logs=None):
-                if epoch % save_period == 0 or epoch in range(0, 20):
-                    z = encoder.predict([aFrame, Sigma])
-                    fig = plot3D_cluster_colors(z, lbls=lbls)
-                    html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
-                                       include_mathjax=False, post_script=None, full_html=True,
-                                       animation_opts=None, default_width='100%', default_height='100%', validate=True)
-                    html_dir = output_dir
-                    Html_file = open(html_dir + "/" + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_epoch=' + str(
-                        epoch) + '_' + "_Buttons.html", "w")
-                    Html_file.write(html_str)
-                    Html_file.close()
-
-
-        class saveEncoder(Callback):
-            def on_epoch_end(self, epoch, logs=None):
-                if epoch % save_period == 0 and epoch != 0:
-                    encoder.save_weights(
-                        output_dir + '/' + ID + "_encoder_" + str(bl) + 'epochs' + str(epochs) + '_epoch=' + str(
-                            epoch) + '_3D.h5')
-
-
-        class relative_stop_callback(tf.keras.callbacks.Callback):
-            def on_epoch_end(self, epoch, logs={}):
-                if (logs.get('DCAE_loss') < logs.get('mean_square_error_NN') / 10 and logs.get(
-                        'DCAE_loss') < 0.01):  # select the accuracy
-                    print("\n !!! early stopping !!!")
-                    self.model.stop_training = True
-
-
-        callPlot = plotCallback()
-        callSave = saveEncoder()
-
-        # X_train, X_val, Sigma_train, Sigma_val = train_test_split(
-        #    aFrame, Sigma, test_size=0.25, random_state=0,  shuffle= True)
-
         start = timeit.default_timer()
         history_multiple = autoencoder.fit([aFrame, Sigma], aFrame,
                                            batch_size=batch_size,
                                            epochs=epochs,
                                            shuffle=True,
                                            callbacks=[AnnealingCallback(MMD_weight, MMD_weight_lst),
-                                                      # callSave, callPlot, DCAEStop],
-                                                      callSave, callPlot],
+                                                      plotCallback(aFrame=aFrame, Sigma=Sigma, lbls=lbls, encoder=encoder,
+                                                                  ID=ID, bl=bl, epochs=epochs, output_dir=output_dir,
+                                                        save_period=save_period,),
+                                                      saveEncoder(encoder=encoder, ID=ID, bl=bl, epochs=epochs,
+                                                                  output_dir=output_dir, save_period=save_period),
+                                                       DCAEStop],
+                                           #callbacks=[AnnealingCallback(MMD_weight, MMD_weight_lst),
+                                           #           callSave, callPlot, DCAEStop],
+                                           #           #callSave, callPlot],
                                            verbose=2)
         stop = timeit.default_timer()
         z = encoder.predict([aFrame, Sigma])
@@ -417,6 +377,14 @@ for epochs in epochs_list:
             "w")
         Html_file.write(html_str)
         Html_file.close()
+
+npzfile = np.load(output_dir + '/'+'ELU_lam_0.01batch_128alp_0.2m_10_Levine32euclid_scaled_no_negative_removed.npzepochs500_latent_rep_3D.npz')
+z = npzfile['z']
+#history = pickle.load(open(output_dir + '/'  + ID +  str(bl) + 'epochs'+str(epochs)+ '_history',  "rb"))
+#encoder.load_weights(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
+#autoencoder.load_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
+#A_rest = autoencoder.predict([aFrame, Sigma])
+
 
 history=history_multiple.history
 st = 5;

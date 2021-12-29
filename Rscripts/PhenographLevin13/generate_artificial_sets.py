@@ -10,9 +10,7 @@ import matplotlib.pyplot as plt
 import os
 
 
-from utils_evaluation import  table, find_neighbors, compare_neighbours, \
-    plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, show3d, \
-    preprocess_artificial_clusters,  generate_clusters_pentagon
+from utils_evaluation import  preprocess_artificial_clusters,  generate_clusters_pentagon
 
 os.chdir('/home/stepan/PycharmProjects/BIOIBFO25L/')
 
