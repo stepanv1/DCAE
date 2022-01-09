@@ -33,7 +33,7 @@ alp = 0.2
 m = 10
 patience = 500
 min_delta = 1e-4
-g=0.1
+g=0.01
 #epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
@@ -237,7 +237,7 @@ for epochs in epochs_list:
             x_size = tf.shape(x)[0]
             dim = tf.shape(x)[1]
             #x = tf.linalg.normalize(x, ord=2, axis=1)[0]
-            x = x / .1
+            x = x / 0.1
             tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
             tiled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
             D =  tf.exp(-tf.reduce_sum(tf.square(tiled_x - tiled_y), axis=2) )
@@ -268,6 +268,7 @@ for epochs in epochs_list:
 
 
         #idx = np.random.randint(0, high=nrow, size=30)
+        #z_s= z[idx,:]
         # KL = K.eval(- K.sum(compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) * K.log(compute_graph_weights_enc(z[idx,:]))) + K.log(K.sum(compute_graph_weights_enc(z[idx,:]))))
         # K.eval(- K.sum(compute_graph_weights_Inp(aFrame[idx, :].astype('float32')) * K.log(compute_graph_weights_enc(z[idx, :]))))
         #g_diff = K.eval(-1 *  (compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) * K.log(compute_graph_weights_enc(z[idx,:])+K.epsilon())))
@@ -407,7 +408,7 @@ for epochs in epochs_list:
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
                 return coeffMSE * msew +   0.5 * (2 - MMD_weight) *  loss_mmd(y_true, y_pred) +  (
-                        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) +  (MMD_weight+ 0.01) * graph_diff(y_true, y_pred)
+                        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) +  (MMD_weight+ 0.0) * graph_diff(y_true, y_pred)
                 # return  loss_mmd(x, x_decoded_mean)
 
             return loss

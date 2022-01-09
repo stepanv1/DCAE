@@ -37,9 +37,9 @@ g=0.1
 #epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
-output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/temp'
+output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'ELU_Levin_KLnorm_clip_grad' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'ELU_Levin_KLnorm_clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 #ID = 'ELU_' + '_DCAE_norm_0.5' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
 #output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output'
 #load earlier generated data
@@ -48,9 +48,10 @@ tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.compat.v1.disable_eager_execution()
 bl = list_of_branches[0]
-
+# possibly final parameters: m=10 ; lam = 0.1; g=0.01
+# worst: lam = 0.01; # g=0.1; lam = 0.01; # g=0.01, seems like lam =0.001 is to small
 for epochs in epochs_list:
-    for bl in list_of_branches[0:7]:
+    for bl in list_of_branches:
         infile = source_dir + 'set_' + str(bl) + '.npz'
         # markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
         # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
@@ -74,10 +75,15 @@ for epochs in epochs_list:
         from numpy import nanmax, argmax, unravel_index
         from scipy.spatial.distance import pdist, squareform
 
-        IDX = np.random.randint(0, high=nrow, size=2000)
+        IDX = np.random.choice(nrow, size=2000,replace=False)
         D = pdist(aFrame[IDX, :])
         D = squareform(D);
         max_dist, [I_row, I_col] = nanmax(D), unravel_index(argmax(D), D.shape)
+        np.fill_diagonal(D, 1000)
+        min_dist = np.min(D)
+        np.fill_diagonal(D, 0)
+        mean_dist = np.mean(D)
+
         # max_dist
         # sns.distplot(D)
         # convex hull
@@ -205,17 +211,24 @@ for epochs in epochs_list:
 
 
         meanS = np.mean(Sigma)
-
+        neib_dist = np.mean(Dist[:,30])
+        #plt.hist(Dist[:,30],50)
 
         def compute_graph_weights_Inp(x):
             x_size = tf.shape(x)[0]
             dim = tf.shape(x)[1]
             # TODO: x = x/meanS we nead update this function in the fashion that weights are computed
             #from w_ij = kernel((x_i-x_j)/sigma_i) and then symmetrized
+            x=x/neib_dist
             tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
             tiled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
-            D = tf.exp(-tf.reduce_sum(tf.square(tiled_x - tiled_y), axis=2) / meanS / tf.cast(dim, tf.float32))
+            D = tf.reduce_sum(tf.square(tiled_x - tiled_y), axis=2)
+            #add sigma
+            #D = tf.einsum('ik,i -> ik', D, 1/SigmaTsq[:,0])
+            D = tf.exp(-D )# / tf.cast(dim, tf.float32))
+            D = tf.linalg.set_diag(D, tf.zeros(x_size), name=None)
             D = tf.linalg.normalize(D, ord=1, axis=1)[0]
+            D = (D + tf.transpose(D)) / 2 / tf.cast(x_size, tf.float32)
             return D
             # x = x / max_dist
             # r = tf.reduce_sum(x * x, 1)
@@ -240,7 +253,8 @@ for epochs in epochs_list:
             x = x / .1
             tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
             tiled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
-            D =  tf.exp(-tf.reduce_sum(tf.square(tiled_x - tiled_y), axis=2) )
+            D =  tf.reduce_sum(tf.square(tiled_x - tiled_y), axis=2)
+            D = 1 / (1 + D)
             return D
             # drop all z's on
             # x = tf.linalg.normalize(x, ord=2, axis=1)[0]
@@ -262,16 +276,53 @@ for epochs in epochs_list:
             # KL loss
             # return g * ( - K.sum(compute_graph_weights_Inp(X) * K.log(compute_graph_weights_enc(z_mean))) +  K.log(K.sum(compute_graph_weights_enc(z_mean))) )
             # crossentropy
-            return K.sum(-g * compute_graph_weights_Inp(X) * K.log(compute_graph_weights_enc(z_mean)+K.epsilon()))
+            return K.sum(-g * compute_graph_weights_Inp(X) * K.log(compute_graph_weights_enc(z_mean)))
+            # simple minus
+            #return  g * K.sqrt(K.sum((compute_graph_weights_Inp(X) - compute_graph_weights_enc(z_mean)) ** 2))
+
+        def compute_graph_weights_Inp(x):
+            x_size = tf.shape(x)[0]
+            dim = tf.shape(x)[1]
+            # TODO: x = x/meanS we nead update this function in the fashion that weights are computed
+            #from w_ij = kernel((x_i-x_j)/sigma_i) and then symmetrized
+            #x=x/max_dist
+            tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
+            tiled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
+            D = tf.reduce_sum(tf.square(tiled_x - tiled_y), axis=2)#/ tf.cast(x_size**2, tf.float32)
+            #apply monotone f to sqeeze  and normalize
+            D = K.sqrt(D)
+            D = 2 * (D - min_dist)/(max_dist)
+            D = tf.linalg.set_diag(D, tf.zeros(x_size), name=None)
+            return D
+            #no log version
+        def compute_graph_weights_enc(x):
+            x_size = tf.shape(x)[0]
+            dim = tf.shape(x)[1]
+            #x = tf.linalg.normalize(x, ord=2, axis=1)[0]
+            tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
+            tiled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
+            D =  tf.reduce_sum(tf.square(tiled_x - tiled_y), axis=2)
+            D = K.sqrt(D)
+            #D = tf.linalg.set_diag(D, tf.zeros(x_size), name=None)# / tf.cast(dim, tf.float32))
+            return D
+        # no log version
+        def graph_diff(x, y):
+
+            #pot = tf.math.square(r - 1)
+            return g * K.sqrt(K.sum(K.square(1 - K.exp ( compute_graph_weights_Inp(X) -  compute_graph_weights_enc(z_mean)))) /tf.cast( batch_size**2, tf.float32))
+            #return K.sum(g * compute_graph_weights_Inp(X) * compute_graph_weights_enc(z_mean)) #+ pot
             # simple minus
             #return  g * K.sqrt(K.sum((compute_graph_weights_Inp(X) - compute_graph_weights_enc(z_mean)) ** 2))
 
 
-        #idx = np.random.randint(0, high=nrow, size=30)
-        # KL = K.eval(- K.sum(compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) * K.log(compute_graph_weights_enc(z[idx,:]))) + K.log(K.sum(compute_graph_weights_enc(z[idx,:]))))
+        #idx =np.random.choice(nrow, size=30,replace=False)
+        #LL = lbls[idx]
+        #KL = K.eval(- K.sum(compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) * K.log(compute_graph_weights_enc(z[idx,:]))) + K.log(K.sum(compute_graph_weights_enc(z[idx,:]))))
+        #SigmaTsq =Sigma[idx]
         # K.eval(- K.sum(compute_graph_weights_Inp(aFrame[idx, :].astype('float32')) * K.log(compute_graph_weights_enc(z[idx, :]))))
-        #g_diff = K.eval(-1 *  (compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) * K.log(compute_graph_weights_enc(z[idx,:])+K.epsilon())))
+        #g_diff = K.eval(-1 *  (compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) * K.log(compute_graph_weights_enc(z[idx,:]))))
         #g_diff = K.eval(g * K.sqrt(((compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) - compute_graph_weights_enc(z[idx,:])) ** 2)))
+        #g_diff = K.eval(K.square(1 - K.exp ( compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) -  compute_graph_weights_enc(z[idx,:]))))
         #g_enc =  K.eval(compute_graph_weights_enc(z[idx,:]))
         #g_inp =  K.eval(compute_graph_weights_Inp(aFrame[idx,:].astype('float32')))
 
@@ -357,6 +408,15 @@ for epochs in epochs_list:
 
 
 # '''
+
+        def compute_kernel(x, y):
+            x_size = tf.shape(x)[0]
+            y_size = tf.shape(y)[0]
+            dim = tf.shape(x)[1]
+            tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, y_size, 1]))
+            tiled_y = tf.tile(tf.reshape(y, tf.stack([1, y_size, dim])), tf.stack([x_size, 1, 1]))
+            return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
+
         def compute_mmd(x, y):  # [batch_size, z_dim] [batch_size, z_dim]
             x_kernel = compute_kernel(x, x)
             y_kernel = compute_kernel(y, y)
@@ -375,6 +435,7 @@ for epochs in epochs_list:
             vec = tf.linalg.normalize(vec, axis=1)[0]
 
             R = tf.pow(K.random_uniform(shape=[npoints], minval=a ** 3, maxval=b ** 3), 1 / 3)
+            #sns.displot( np.power(np.random.uniform(a ** 3, b ** 3, 50000), 1 / 3))
             return tf.einsum('a,aj->aj', R, vec)
 
 
@@ -406,8 +467,8 @@ for epochs in epochs_list:
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean)
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
-                return coeffMSE * msew +   0.5 * (2 - MMD_weight) *  loss_mmd(y_true, y_pred) +  (
-                        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) +  MMD_weight * graph_diff(y_true, y_pred)
+                return coeffMSE * msew +   1 *  loss_mmd(y_true, y_pred) +  (
+                        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) +  (MMD_weight +0.01)* graph_diff(y_true, y_pred)
                 # return  loss_mmd(x, x_decoded_mean)
 
             return loss
@@ -474,7 +535,7 @@ encoder.load_weights(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epoc
 autoencoder.load_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
 A_rest = autoencoder.predict([aFrame, Sigma])
 
-plt.hist(np.sum(z**2, axis=1))
+plt.hist(np.sum(z**2, axis=1),500)
 
 
 from sklearn.preprocessing import normalize
@@ -497,40 +558,6 @@ fig.add_trace(Scatter3d(x=sph1[:,0], y=sph1[:,1], z=sph1[:,2],
                                 text=None,
                                 hoverinfo=None))
 fig.show()
-
-
-plt.scatter(z[:, 0], z[:, 1],  0.5)
-r = np.sqrt(np.sum(z**2, axis = 1))
-plt.hist(r,200)
-
-import seaborn as sns
-from sklearn.preprocessing import normalize
-def sample_sphere3D(npoints, ndim=3):
-    vec = np.random.normal(size=(npoints, ndim))
-    vec = normalize(vec, axis=1, norm='l2')
-    return vec
-sph1 = sample_sphere3D(5000, ndim=3)
-import plotly.graph_objects as go
-fig = plot3D_cluster_colors(z, lbls=lbls, msize=1)
-from plotly.graph_objs import Scatter3d
-fig.add_trace(Scatter3d(x=sph1[:,0], y=sph1[:,1], z=sph1[:,2],
-                                name='sphere',
-                                mode='markers',
-                                marker=dict(
-                                    size=0.5,
-                                    color='black',  # set color to an array/list of desired values
-                                    opacity=0.5,
-                                ),
-                                text=None,
-                                hoverinfo=None))
-fig.show()
-
-
-
-
-
-
-
 
 st = 5;
 stp = 500 #len(history['loss'])
