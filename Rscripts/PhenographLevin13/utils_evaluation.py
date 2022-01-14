@@ -216,15 +216,6 @@ mvtbetapert <- function(n, min, mode, max, sigma = diag(length(mode))){
     np.res
     return np.res
 
-#umpy2ri.deactivate()
-
-#n=5
-#min = np.array([0,0])
-#mode = np.array([0.2,0.2])
-#max = np.array([1,1])
-#sigma = np.array([[0.1,0],[0,10]])
-#compute_MVpert(n, min, mode, max, sigma)
-
 #generate fibbonachi grid for surface area estimate
 # from here: https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere/26127012
 
@@ -531,10 +522,6 @@ def generate_clusters_pentagon(num_noisy = 5, branches_loc = [3,4], sep=3, pent_
                                  cl7_noisy), axis=0)
 
     return noisy_clus, lbls
-
-
-
-
 
 def neighbour_marker_similarity_score_per_cell(z, data, kmax=30, num_cores=12):
     nrow = z.shape[0]
@@ -897,7 +884,6 @@ def projZ(x):
 import matplotlib.pyplot as plt
 from matplotlib.ticker import NullFormatter
 
-
 def tickoff(ax=None):
     if ax is not None:
         ax.xaxis.set_major_formatter(NullFormatter())
@@ -914,7 +900,6 @@ def tickoff(ax=None):
             top='off',          # ticks along the top edge are off
             labelbottom='off')  # labels along the bottom edge are off
 
-
 def show3d(data, t, ax, view_init=None, cmap=plt.cm.Spectral, linewidth=0.,
            markersize=10.):
     x = data[:, 0]
@@ -925,8 +910,6 @@ def show3d(data, t, ax, view_init=None, cmap=plt.cm.Spectral, linewidth=0.,
         ax.view_init(*view_init)
     tickoff(ax)
 # from wsd.py
-
-
 
 def get_self_knn_idx(data, k):
     dim = data.shape[1]
@@ -946,7 +929,6 @@ def get_self_knn_idx(data, k):
 
     return kidx[:, 1:]
 
-
 def get_mean_pdist(x, num=None):
     if num is None:
         num = len(x)
@@ -954,19 +936,16 @@ def get_mean_pdist(x, num=None):
     distmat = squareform(pdist(x[rand_idx]))# creates 1000x1000: TODO change this
     return distmat[np.triu_indices(distmat.shape[0])].mean()
 
-
 def normalize_data_by_mean_pdist(x, num=None):
     if num is None:
         num = len(x)
     return x / get_mean_pdist(x, num)
-
 
 def get_emd2(pts1, pts2):
     distmat = ot.dist(pts1, pts2)
     a = ot.unif(len(pts1))
     b = ot.unif(len(pts2))
     return ot.emd2(a, b, distmat)
-
 
 def get_wsd_scores(x, y, k, num_meandist=None, compute_knn_x=False, x_knn=None):
     if compute_knn_x:
@@ -1017,8 +996,6 @@ def get_wsd_scores_normalized(x, y, k, num_meandist=None, compute_knn_x=False, x
     )
 
     return discontiuity, manytoone
-
-
 
 # get
 #neib_data = find_neighbors(data, 30, metric='euclidean')
@@ -1074,8 +1051,6 @@ def delta_wsd_scores(x, y, idx,  kmax=30, num_cores=12):
     d_dis = d_dis_score(y=y, idx=idx, kmax=kmax, num_cores=num_cores)
     d_ms = d_ms_score(y=y, x=x, kmax=kmax, num_cores=num_cores)
     return d_dis, d_ms
-
-
 
 '''
 import pandas as pd
@@ -1202,7 +1177,6 @@ plt.show()
 
 # function to generate artificial clusters with branches and different
 # number of noisy dimensions
-
 
 def preprocess_artificial_clusters(noisy_clus, lbls, k=30, num_cores=12, outfile='test'):
     """ function to generate
