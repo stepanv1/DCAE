@@ -14,7 +14,20 @@ DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
 
-ID = 'ELU'
+#parameters of run
+k = 30
+epochs_list = [500]
+coeffCAE = 1
+coeffMSE = 1
+batch_size = 128
+lam = 0.1
+alp = 0.2
+m = 10
+patience = 500
+min_delta = 1e-4
+g=0.1
+ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+
 epochs = 500
 # Compute performance for DCAE
 z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
@@ -30,12 +43,12 @@ for bl in list_of_branches:
     lbls = npzfile['lbls']
 
     # read DCAE output
-    npz_res = np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz')
+    npz_res = np.load(z_dir + '/'  + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz')
     z = npz_res['z']
 
     discontinuity, manytoone = get_wsd_scores_normalized(aFrame, z, 30, num_meandist=10000, compute_knn_x=False, x_knn=Idx, nc=16)
 
-    outfile = output_dir + '/' + str(bl) + '_BOREALIS_PerformanceMeasures_normalized.npz'
+    outfile = output_dir + '/'  + ID + "_"  + str(bl) + '_BOREALIS_PerformanceMeasures_normalized.npz'
     np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
 
 '''
@@ -98,7 +111,11 @@ methods = ['DCAE', 'UMAP', 'SAUCIE']
 df = pd.DataFrame()
 for i in range(3):
     for bl in list_of_branches:
-        outfile= bor_res_dirs[i] + '/' +  str(bl) +  '_BOREALIS_PerformanceMeasures_normalized.npz'
+        if bor_res_dirs[i] != bor_res_dirs[0]:
+            outfile = bor_res_dirs[i] + '/' + str(bl) + '_BOREALIS_PerformanceMeasures_normalized.npz'
+        else:
+            outfile = bor_res_dirs[i] + ID + '_' + str(bl) + '_BOREALIS_PerformanceMeasures_normalized.npz'
+
         npz_res =  np.load(outfile)
         discontinuity = npz_res['discontinuity']
         manytoone = npz_res['manytoone']

@@ -24,9 +24,9 @@ num_cores = multiprocessing.cpu_count()
 pool = multiprocessing.Pool(num_cores)
 
 k = 30
+epochs_list = [500]
 coeffCAE = 1
 coeffMSE = 1
-epochs_list = [500]
 batch_size = 128
 lam = 0.1
 alp = 0.2
@@ -39,7 +39,7 @@ DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/temp/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'RELU_clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 #ID = 'ELU_' + '_DCAE_norm_0.5' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
 #output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output'
 #load earlier generated data
@@ -48,7 +48,7 @@ tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.compat.v1.disable_eager_execution()
 #bl = list_of_branches[0]
-# possibly final parameters: m=10 ; lam = 0.1; g=0.01
+# possibly final parameters: m=10 ; lam = 0.1; g=0.1
 # worst: lam = 0.01; # g=0.1; lam = 0.01; # g=0.01, seems like lam =0.001 is to small
 for epochs in epochs_list:
     for bl in list_of_branches[0:2]:
@@ -105,15 +105,15 @@ for epochs in epochs_list:
 
         SigmaTsq = Input(shape=(1,))
         X = Input(shape=(original_dim,))
-        h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(X)
-        h1 = Dense(intermediate_dim2, activation='relu', name='intermediate2', kernel_initializer=initializer)(h)
+        h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(X)
+        h1 = Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
         z_mean = Dense(latent_dim, activation=None, name='z_mean', kernel_initializer=initializer)(h1)
 
         encoder = Model([X, SigmaTsq], z_mean, name='encoder')
 
-        decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer=initializer)
-        decoder_h1 = Dense(intermediate_dim, activation='relu', name='intermediate4', kernel_initializer=initializer)
-        decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)
+        decoder_h = Dense(intermediate_dim2, activation='elu', name='intermediate3', kernel_initializer=initializer)
+        decoder_h1 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)
+        decoder_mean = Dense(original_dim, activation='elu', name='output', kernel_initializer=initializer)
         h_decoded = decoder_h(z_mean)
         h_decoded2 = decoder_h1(h_decoded)
         x_decoded_mean = decoder_mean(h_decoded2)
@@ -132,9 +132,9 @@ for epochs in epochs_list:
             Z = K.transpose(Z);  # N_hidden x N
 
             u = encoder.get_layer('intermediate').output
-            du = relu_derivative(u)
+            du = elu_derivative(u)
             m = encoder.get_layer('intermediate2').output
-            dm = relu_derivative(m)
+            dm = elu_derivative(m)
             s = encoder.get_layer('z_mean').output
             ds = linear_derivative(s)
 

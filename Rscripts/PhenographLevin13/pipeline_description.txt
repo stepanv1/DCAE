@@ -10,6 +10,7 @@ Artificial data, 25 sets
   c. Compute topological performance (Performance_toplology.py)
   d. Illustration for topological measures (Performance_measure_demo_plots_sim_data_normalized.py)
 5. Sensitivity analysis (DCAE_sensitivity.py)
+6. TODO:  Generate graphs for the output of all methods for paper (All_methods_paper.py)
 
 
 Real data, 3 sets
@@ -18,5 +19,5 @@ Real data, 3 sets
 4. Performance evaluation
   a. Compute 'Borealis' performance measures (discontinuity, manytoone) (Performance_Borealis_real_sets.py)
   b. Compute 'MSS' and 'LSSS' performance measures  (Performance_MSS_LSSS_real_sets.py)
-5. Tuning the models (to be added)
+5. TODO: Generate graphs for the output of all methods for paper (All_methods_paper_real_sets.py)
 

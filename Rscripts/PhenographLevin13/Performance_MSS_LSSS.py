@@ -1,12 +1,12 @@
 '''
-Compute MSS and LSS performance measures on DCAE, UMAP and nd SAUCIE
+Compute MSS and LSS performance measures on DCAE, UMAP and SAUCIE
 '''
-import math
+
 import pandas as pd
 import numpy as np
 import os
 from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
-    plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
+    plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score_normalized, \
     get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d, plot3D_performance_colors, plot2D_performance_colors
 
 
@@ -14,11 +14,25 @@ os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
+#parameters of run
+k = 30
+epochs_list = [500]
+coeffCAE = 1
+coeffMSE = 1
+batch_size = 128
+lam = 0.1
+alp = 0.2
+m = 10
+patience = 500
+min_delta = 1e-4
+g=0.1
+ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
+epochs = 500
 # Compute performance for DCAE
 z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"
-#bl = list_of_branches[1]
+#bl = list_of_branches[0]
 for bl in list_of_branches:
     #read data
     infile = source_dir + 'set_' + str(bl) + '.npz'
@@ -28,15 +42,15 @@ for bl in list_of_branches:
     lbls = npzfile['lbls']
 
     # read DCAE output
-    npz_res=np.load(z_dir + '/' + str(bl) + '_latent_rep_3D.npz')
+    npz_res = np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz')
     z= npz_res['z']
 
     MSS = neighbour_marker_similarity_score_per_cell(z, aFrame, kmax=90, num_cores=16)
-    LSSS = neighbour_onetomany_score(z, Idx, kmax=90, num_cores=16)
+    LSSS = neighbour_onetomany_score_normalized(z, Idx, kmax=90, num_cores=16)
 
-    outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
+    outfile = output_dir + '/' + ID + "_" + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
     np.savez(outfile, MSS0=MSS[0], LSSS0= LSSS[0], MSS1=MSS[1], LSSS1= LSSS[1])
-
+'''
 # Compute performance for UMAP
 z_dir  = DATA_ROOT + "Artificial_sets/UMAP_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/UMAP_output/Performance"
@@ -52,14 +66,11 @@ for bl in list_of_branches:
     # read DCAE output
     npz_res = np.load(z_dir + str(bl) + '_UMAP_rep_2D.npz')
     z = npz_res['z']
-    #divide by max_r and multiply by 4 pi to level field with DCAE
-    S_pr= (np.max(z[:,0])-np.min(z[:,0]))*(np.max(z[:,1])-np.min(z[:,1]))
-    z=z / S_pr * 4 * math.pi
 
     MSS = neighbour_marker_similarity_score_per_cell(z, aFrame, kmax=90, num_cores=16)
-    LSSS = neighbour_onetomany_score(z, Idx, kmax=90, num_cores=16)
+    LSSS = neighbour_onetomany_score_normalized(z, Idx, kmax=90, num_cores=16)
 
-    outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
+    outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
     np.savez(outfile, MSS0=MSS[0], LSSS0=LSSS[0], MSS1=MSS[1], LSSS1=LSSS[1])
 
 # Compute performance for SAUCIE
@@ -79,16 +90,13 @@ for bl in list_of_branches:
     # read DCAE output
     npz_res = np.load(z_dir + '/' + str(bl) + '_SAUCIE_rep_2D.npz')
     z = npz_res['z']
-    # divide by max_r and multiply by 4 pi to level field with DCAE
-    S_pr = (np.max(z[:, 0]) - np.min(z[:, 0])) * (np.max(z[:, 1]) - np.min(z[:, 1]))
-    z = z / S_pr * 4 * math.pi
 
     MSS = neighbour_marker_similarity_score_per_cell(z, aFrame, kmax=90, num_cores=16)
-    LSSS = neighbour_onetomany_score(z, Idx, kmax=90, num_cores=16)
+    LSSS = neighbour_onetomany_score_normalized(z, Idx, kmax=90, num_cores=16)
 
-    outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
+    outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
     np.savez(outfile, MSS0=MSS[0], LSSS0=LSSS[0], MSS1=MSS[1], LSSS1=LSSS[1])
-
+'''
 #create MSS_LSSS graphs
 PLOTS = DATA_ROOT + "Artificial_sets/PLOTS/"
 bor_res_dirs = [DATA_ROOT + "Artificial_sets/DCAE_output/Performance/", DATA_ROOT + "Artificial_sets/UMAP_output/Performance/",DATA_ROOT + "Artificial_sets/SAUCIE_output/Performance/"]
@@ -100,7 +108,10 @@ k=30
 df = pd.DataFrame()
 for i in range(3):
     for bl in list_of_branches:
-        outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
+        if bor_res_dirs[i] != bor_res_dirs[0]:
+            outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
+        else:
+            outfile = bor_res_dirs[i] + ID + '_' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
         npz_res =  np.load(outfile)
         #MSS0 = npz_res['MSS0'][k]
         MSS1 = npz_res['MSS1']
@@ -121,24 +132,29 @@ matplotlib.use('PS')
 
 
 sns.set(rc={'figure.figsize':(14, 4)})
-g = sns.barplot(x='branch', y='MSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
+g = sns.barplot(x='branch', y='MSS', hue='method', data=df.reset_index(), estimator=np.mean, ci=95, palette=['tomato','yellow','limegreen'])
 g.set(ylim=(0, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS +'k_'+str(k)+'_'+ "MSS_k_30.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + ID + '_''k_'+str(k)+'_'+ "MSS_normalized.eps", format='eps', dpi = 350)
 plt.close()
 
 
 g = sns.barplot(x='branch', y='LSSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.set(ylim=(0, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS +'k_'+str(k)+'_'+ "LSSS_k_30.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + ID + '_''k_'+str(k)+'_'+ "LSSS_normalized.eps", format='eps', dpi = 350)
 plt.close()
+
+
 
 k=20
 df = pd.DataFrame()
 for i in range(3):
     for bl in list_of_branches:
-        outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
+        if bor_res_dirs[i] != bor_res_dirs[0]:
+            outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
+        else:
+            outfile = bor_res_dirs[i] + ID + '_' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
         npz_res =  np.load(outfile)
         #MSS0 = npz_res['MSS0'][k]
         MSS1 = npz_res['MSS1']
@@ -155,14 +171,14 @@ sns.set(rc={'figure.figsize':(14, 4)})
 g = sns.barplot(x='branch', y='MSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.set(ylim=(0, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS +'k_'+str(k)+'_'+ "MSS_k_20.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + ID +'k_'+str(k)+'_'+ "MSS_k_20_normalized.eps", format='eps', dpi = 350)
 plt.close()
 
 
 g = sns.barplot(x='branch', y='LSSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.set(ylim=(0, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS +'k_'+str(k)+'_'+ "LSSS_k_20.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + ID +'k_'+str(k)+'_'+ "LSSS_k_20_normalized.eps", format='eps', dpi = 350)
 plt.close()
 
 
@@ -170,7 +186,10 @@ k=60
 df = pd.DataFrame()
 for i in range(3):
     for bl in list_of_branches:
-        outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures.npz'
+        if bor_res_dirs[i] != bor_res_dirs[0]:
+            outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
+        else:
+            outfile = bor_res_dirs[i] + ID + '_' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
         npz_res =  np.load(outfile)
         #MSS0 = npz_res['MSS0'][k]
         MSS1 = npz_res['MSS1']
@@ -187,17 +206,12 @@ sns.set(rc={'figure.figsize':(14, 4)})
 g = sns.barplot(x='branch', y='MSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.set(ylim=(0, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS +'k_'+str(k)+'_'+ "MSS_k_60.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + ID +'k_'+str(k)+'_'+ "MSS_k_60_normalized.eps", format='eps', dpi = 350)
 plt.close()
 
 
 g = sns.barplot(x='branch', y='LSSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.set(ylim=(0, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS +'k_'+str(k)+'_'+ "LSSS_k_60.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + ID +'k_'+str(k)+'_'+ "LSSS_k_60_normalized.eps", format='eps', dpi = 350)
 plt.close()
-
-
-
-
-
