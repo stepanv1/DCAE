@@ -21,3 +21,8 @@ Real data, 3 sets
   b. Compute 'MSS' and 'LSSS' performance measures  (Performance_MSS_LSSS_real_sets.py)
 5. TODO: Generate figures for the output of all methods for paper (All_methods_figures_paper_real_sets.py)
 
+Splitting dmonstration
+1. Dimension reduction on samples from continuous distributions leads to splitting
+2. CAE reduces splitting (Splitting_demo.py)
+
+
