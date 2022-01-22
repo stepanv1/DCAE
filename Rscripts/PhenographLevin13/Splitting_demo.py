@@ -1,6 +1,5 @@
 '''
-Runs DCAE
-experiment with KL differen
+Demonstrates splitting effect of DR on uniformly distrubuted data in 10D to 2D
 '''
 import timeit
 import matplotlib.pyplot as plt
@@ -8,47 +7,47 @@ import numpy as np
 import plotly.io as pio
 import tensorflow as tf
 from plotly.io import to_html
-from tensorflow.keras import backend as K
-from tensorflow.keras.layers import Input, Dense, LeakyReLU
+from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.models import Model
-from tensorflow.keras.callbacks import Callback, EarlyStopping
+from tensorflow.keras.callbacks import Callback
 import pickle
 pio.renderers.default = "browser"
 
 from utils_evaluation import plot3D_cluster_colors, table
-from utils_model import plotCallback, AnnealingCallback, saveEncoder
-from utils_model import frange_anneal, relu_derivative, elu_derivative, leaky_relu_derivative, linear_derivative
+
+
+class saveEncoder(Callback):
+    def __init__(self,  encoder, ID, epochs, output_dir, save_period):
+        super(Callback, self).__init__()
+        self.encoder = encoder
+        self.ID = ID
+        self.epochs = epochs
+        self.output_dir = output_dir
+        self.save_period = save_period
+
+    def on_epoch_end(self, epoch, logs=None):
+        if epoch % self.save_period == 0 and epoch != 0:
+            self.encoder.save_weights(
+                self.output_dir + '/' + self.ID + "_encoder_" + 'epochs' + str(self.epochs) + '_epoch=' + str(
+                    epoch) + '_3D.h5')
+
 
 from pathos import multiprocessing
 num_cores = multiprocessing.cpu_count()
 pool = multiprocessing.Pool(num_cores)
 
-k = 30
-epochs_list = [500]
-coeffCAE = 1
-coeffMSE = 1
-batch_size = 128
-lam = 0.1
-alp = 0.2
-m = 10
-patience = 500
-min_delta = 1e-4
-g=0.1
-Dim = 2
-
-#epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Split_demo/'
 output_dir  = DATA_ROOT + 'Artificial_sets/Split_demo/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'Split_demo'
 #ID = 'ELU_' + '_DCAE_norm_0.5' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
 #output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output'
 #load earlier generated data
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
-tf.compat.v1.disable_eager_execution()
+#tf.compat.v1.disable_eager_execution()
 #bl = list_of_branches[0]
 # possibly final parameters: m=10 ; lam = 0.1; g=0.1
 # worst: lam = 0.01; # g=0.1; lam = 0.01; # g=0.01, seems like lam =0.001 is to small
@@ -61,13 +60,13 @@ s=1
 inp_d =10
 aFrame = np.random.uniform(low=np.zeros(inp_d), high=np.ones(inp_d), size=(nrow,inp_d))
 
-fig00 = plt.figure();
-plt.scatter(x=aFrame[:,0], y=aFrame[:,1],c=aFrame[:,0],  cmap='winter', s=s)
-plt.colorbar()
-
-fig000 = plt.figure();
-plt.scatter(x=aFrame[:,0], y=aFrame[:,1],c=aFrame[:,1],  cmap='winter', s=s)
-plt.colorbar()
+# fig00 = plt.figure();
+# plt.scatter(x=aFrame[:,0], y=aFrame[:,1],c=aFrame[:,0],  cmap='winter', s=s)
+# plt.colorbar()
+#
+# fig000 = plt.figure();
+# plt.scatter(x=aFrame[:,0], y=aFrame[:,1],c=aFrame[:,1],  cmap='winter', s=s)
+# plt.colorbar()
 
 latent_dim = 2
 original_dim = aFrame.shape[1]
@@ -92,12 +91,10 @@ autoencoder = Model(inputs=X, outputs=decoder_mean)
 
 def loss(y_true, y_pred):
     msew =  tf.keras.losses.mean_squared_error(y_true, y_pred)
-    return coeffMSE * msew
-
-
+    return msew
 
 opt = tf.keras.optimizers.Adam(
-    learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False, clipvalue=100.0
+    learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False
 )
 
 autoencoder.compile(optimizer=opt, loss=loss,
@@ -105,7 +102,7 @@ autoencoder.compile(optimizer=opt, loss=loss,
 
 autoencoder.summary()
 
-save_period = 10
+save_period = 100
 batch_size = 32
 epochs=30000
 
@@ -114,11 +111,17 @@ history_multiple = autoencoder.fit(aFrame, aFrame,
                                    batch_size=batch_size,
                                    epochs=epochs,
                                    shuffle=True,
-                                   callbacks=[],
+                                   callbacks=[saveEncoder(encoder=encoder, ID=ID, epochs=epochs,
+                                                                  output_dir=output_dir, save_period=save_period)],
                                    verbose=1)
 stop = timeit.default_timer()
 z = encoder.predict([aFrame])
 print(stop - start)
+
+encoder.save_weights(output_dir + '/' + ID + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+autoencoder.save_weights(output_dir + '/autoencoder_' + ID + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+np.savez(output_dir + '/' + ID + "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
+
 
 for i in range(original_dim):
     fig01 = plt.figure();

@@ -16,7 +16,7 @@ import pickle
 pio.renderers.default = "browser"
 
 from utils_evaluation import plot3D_cluster_colors, table
-from utils_model import plotCallback, AnnealingCallback, saveEncoder
+from utils_model import plotCallback, AnnealingCallback, c
 from utils_model import frange_anneal, relu_derivative, elu_derivative, leaky_relu_derivative, linear_derivative
 
 from pathos import multiprocessing
@@ -255,7 +255,7 @@ for epochs in epochs_list:
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
                 return coeffMSE * msew +   1 *  loss_mmd(y_true, y_pred) +  (
-                        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) +  (MMD_weight +0.01)* graph_diff(y_true, y_pred)
+                        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) +  (MMD_weight + 0.01)* graph_diff(y_true, y_pred)
                 # return  loss_mmd(x, x_decoded_mean)
 
             return loss
