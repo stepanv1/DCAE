@@ -12,9 +12,18 @@ Artificial data, 25 sets
 5. Sensitivity analysis (DCAE_sensitivity.py)
 6. TODO:  Generate figures for the output of all methods for paper (All_methods_figures_paper.py)
 
+3D peformance measures for artificial sets
+1. Generate 3D UMAP and SAUCIE for  artificial sets (generate_UMAP_and_SAUCIE_for_ART_sets_3D.py)
+2. Performance evaluation
+  a. TODO: Compute 'Borealis' performance measures (discontinuity, manytoone) (Performance_Borealis_3D.py)
+  b. TODO: Compute 'MSS' and 'LSSS' performance measures  (Performance_MSS_LSSS_3D.py)
+  c. TODO: Compute topological performance (Performance_toplology_3D.py)
+
+
+
 Real data, 3 sets
 1. Run DCAE on real sets set (run_DCAE_on_real_sets.py)
-2. Generate UMAP and SAUCIE for real sets (generate_UMAP_and_SAUCIE_for_REAL_sets.py)
+2. Generate 2D UMAP and SAUCIE for real sets (generate_UMAP_and_SAUCIE_for_REAL_sets.py)
 3. Performance evaluation
   a. Compute 'Borealis' performance measures (discontinuity, manytoone) (Performance_Borealis_real_sets.py)
   b. Compute 'MSS' and 'LSSS' performance measures  (Performance_MSS_LSSS_real_sets.py)
@@ -26,9 +35,9 @@ Real data, 3 sets
   a. Compute 'Borealis' performance measures (discontinuity, manytoone) (Performance_Borealis_real_sets_3D.py)
   b. Compute 'MSS' and 'LSSS' performance measures  (Performance_MSS_LSSS_real_sets_3D.py)
 
-Splitting dmonstration
+Splitting demonstration
 1. Dimension reduction on samples from continuous distributions leads to splitting (Splitting_demo.py)
-2. CAE reduces splitting (Splitting_demo.py)
+2. TODO: CAE reduces splitting (Splitting_demo.py)
 
 Utilities
 1. utils_evaluation.py

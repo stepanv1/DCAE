@@ -578,10 +578,6 @@ def plot3D_cluster_colors(z, lbls, camera=None, legend=True, msize=1):
     x = z[:, 0]
     y = z[:, 1]
     z1 = z[:, 2]
-    #nrow = len(x)
-    # subsIdx=np.random.choice(nrow,  500000)
-
-    # analog of tsne plot fig15 from Nowizka 2015, also see fig21
 
     lbls_list = np.unique(lbls)
     nM = len(np.unique(lbls))
@@ -632,10 +628,6 @@ def plot3D_cluster_colors(z, lbls, camera=None, legend=True, msize=1):
 def plot2D_cluster_colors(z, lbls, legend=True, msize=1):
     x = z[:, 0]
     y = z[:, 1]
-    #nrow = len(x)
-    # subsIdx=np.random.choice(nrow,  500000)
-    num_lbls = (np.unique(lbls, return_inverse=True)[1])
-    # analog of tsne plot fig15 from Nowizka 2015, also see fig21
 
     lbls_list = np.unique(lbls)
     nM = len(np.unique(lbls))

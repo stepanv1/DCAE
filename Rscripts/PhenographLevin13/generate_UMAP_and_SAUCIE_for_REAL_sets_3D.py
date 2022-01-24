@@ -1,7 +1,7 @@
 '''
 Generates UMAP and SAUCIE
 mappings as well as performance metrics
-for real data sets
+for real data sets in 3D
 run with tensorflow v 1.12, python 3.6.0 (to satisfy SAUCIE requirements)
 python -m pip install --upgrade ~/Downloads/tensorflow-1.12.0-cp36-cp36m-linux_x86_64.whl
 '''
@@ -14,25 +14,23 @@ import umap.umap_ as umap
 import pandas as pd
 import timeit
 from plotly.io import to_html
-from plotly.graph_objs import Scatter
+from plotly.graph_objs import Scatter3d
 import plotly.io as pio
 import plotly.graph_objects as go
 pio.renderers.default = "browser"
 import seaborn as sns
 from matplotlib.colors import rgb2hex
-#from  utils_evaluation import plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, show3d
-def plot2D_cluster_colors(z, lbls, legend=True, msize=1):
+#from  utils_evaluation import  plot3D_cluster_colors
+
+def plot3D_cluster_colors(z, lbls, camera=None, legend=True, msize=1):
     x = z[:, 0]
     y = z[:, 1]
-    #nrow = len(x)
-    # subsIdx=np.random.choice(nrow,  500000)
-    num_lbls = (np.unique(lbls, return_inverse=True)[1])
-    # analog of tsne plot fig15 from Nowizka 2015, also see fig21
+    z1 = z[:, 2]
 
     lbls_list = np.unique(lbls)
     nM = len(np.unique(lbls))
 
-    palette = sns.color_palette('husl', nM)
+    palette = sns.color_palette("husl", nM)
     colors = np.array([rgb2hex(palette[i]) for i in range(len(palette))])
 
     fig = go.Figure()
@@ -40,7 +38,8 @@ def plot2D_cluster_colors(z, lbls, legend=True, msize=1):
         IDX = [x == lbls_list[m] for x in lbls]
         xs = x[IDX];
         ys = y[IDX];
-        fig.add_trace(Scatter(x=xs, y=ys,
+        zs = z1[IDX];
+        fig.add_trace(Scatter3d(x=xs, y=ys, z=zs,
                                 name=lbls_list[m],
                                 mode='markers',
                                 marker=dict(
@@ -51,19 +50,30 @@ def plot2D_cluster_colors(z, lbls, legend=True, msize=1):
                                 text=lbls[IDX],
                                 # hoverinfo='text')], filename='tmp.html')
                                 hoverinfo='text'))
-        fig.update_layout(margin=dict(l=0, r=0, b=0, t=10))
-        fig.update_layout(showlegend=legend)
-        fig.update_layout(dict(paper_bgcolor='white', plot_bgcolor='white'),
-                          xaxis=dict(showgrid=True, gridcolor="#eee", gridwidth=1, showline=True, zeroline=True),
-                          yaxis=dict(showgrid=True, gridcolor="#eee", gridwidth=1, showline=True, zeroline=True)
-                          )
-    fig.update_layout(legend=dict(font=dict(family="Courier", size=20, color="black"), itemsizing='constant'),
-                      legend_title=dict(font=dict(family="Courier", size=30, color="blue")))
+        fig.update_layout(yaxis=dict(range=[-3, 3]),
+                          margin=dict(l=0, r=0, b=0, t=10))
+        if camera == None:
+            camera = dict(
+                up=dict(x=0, y=0., z=1),
+                eye=dict(x=1.25, y=1.25, z=1.25)
+            )
+        fig.update_layout(scene_camera=camera, showlegend=legend)
+        # set colour to white
+        fig.update_layout(dict(xaxis=dict( showgrid=True, gridwidth=1, gridcolor="#eee")))
+        fig.update_layout(scene=dict(
+            xaxis=dict(visible=True, backgroundcolor='rgba(0,0,0,0)', showgrid=True, gridcolor="#eee", gridwidth=1,
+                       showline=True, zeroline=True),
+            yaxis=dict(backgroundcolor='rgba(0,0,0,0)', showgrid=True, gridcolor="#eee", gridwidth=1, showline=True,
+                       zeroline=True),
+            zaxis=dict(backgroundcolor='rgba(0,0,0,0)', showgrid=True, gridcolor="#eee", gridwidth=1, showline=True,
+                       zeroline=True)
+        ))
+
+    fig.update_layout(legend=dict(font=dict(family="Courier", size=20, color="black"),itemsizing='constant' ),
+                      legend_title=dict(font=dict(family="Courier", size=30, color="blue" )) )
     return fig
 
 DATA_ROOT = '/media/grinek/Seagate/'
-
-#UMAP
 source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
 output_dir  = DATA_ROOT + 'Real_sets/UMAP_output/'
 
@@ -79,19 +89,19 @@ for bl in list_of_inputs:
     # = weight_distALL[IDX,:]
     aFrame = npzfile['aFrame'];
     lbls= npzfile['lbls']
-    mapper = umap.UMAP(n_neighbors=30, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=True).fit(aFrame)
+    mapper = umap.UMAP(n_neighbors=30, n_components=3, metric='euclidean', random_state=42, min_dist=0, low_memory=True).fit(aFrame)
     yUMAP =  mapper.transform(aFrame)
 
-    fig = plot2D_cluster_colors(yUMAP, lbls=lbls)
+    fig = plot3D_cluster_colors(yUMAP, lbls=lbls)
     html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                        include_mathjax=False, post_script=None, full_html=True,
                        animation_opts=None, default_width='100%', default_height='100%', validate=True)
     html_dir = output_dir
-    Html_file = open(html_dir + "/" + str(bl) + 'UMAP' + '_' + "_Buttons.html", "w")
+    Html_file = open(html_dir + "/" + str(bl) + 'UMAP' + '_' + "_Buttons_3D.html", "w")
     Html_file.write(html_str)
     Html_file.close()
 
-    np.savez(output_dir + '/' + str(bl) + '_UMAP_rep_2D.npz', z=yUMAP)
+    np.savez(output_dir + '/' + str(bl) + '_UMAP_rep_3D.npz', z=yUMAP)
 
 
 #SAUCIE
@@ -106,7 +116,6 @@ import SAUCIE
 #tf.compat.v1.disable_eager_execution()
 import tensorflow as tf
 #from keras import backend.clear_session
-#saucie = SAUCIE.SAUCIE(30)
 for bl in list_of_inputs:
     infile =  source_dir + bl    # markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
     # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
@@ -117,7 +126,7 @@ for bl in list_of_inputs:
 
 
     tf.reset_default_graph()
-    saucie = SAUCIE.SAUCIE(aFrame.shape[1])
+    saucie = SAUCIE.SAUCIE(aFrame.shape[1], layers=[512,256,128,3])
     loadtrain = SAUCIE.Loader(aFrame, shuffle=True)
     saucie.train(loadtrain, steps=10000)
 
@@ -125,13 +134,13 @@ for bl in list_of_inputs:
     ySAUCIE = saucie.get_embedding(loadeval)
     # np.savez('LEVINE32_' + 'embedSAUCIE_100000.npz', embedding=embedding)
 
-    fig = plot2D_cluster_colors(ySAUCIE, lbls=lbls)
+    fig = plot3D_cluster_colors(ySAUCIE, lbls=lbls)
     html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                        include_mathjax=False, post_script=None, full_html=True,
                        animation_opts=None, default_width='100%', default_height='100%', validate=True)
     html_dir = output_dir
-    Html_file = open(html_dir + "/" + str(bl) + '_SAUCIE' + '_' + "_Buttons.html", "w")
+    Html_file = open(html_dir + "/" + str(bl) + '_SAUCIE' + '_' + "_Buttons_3D.html", "w")
     Html_file.write(html_str)
     Html_file.close()
 
-    np.savez(output_dir + '/' + str(bl) + '_SAUCIE_rep_2D.npz', z=ySAUCIE)
+    np.savez(output_dir + '/' + str(bl) + '_SAUCIE_rep_3D.npz', z=ySAUCIE)

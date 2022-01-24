@@ -1,7 +1,8 @@
 '''
 Generates UMAP and SAUCIE
-mappings as well as performance metrics
-for artificial clusters
+mappings for artificial clusters
+run with tensorflow v 1.12, python 3.6.0 (to satisfy SAUCIE requirements)
+python -m pip install --upgrade ~/Downloads/tensorflow-1.12.0-cp36-cp36m-linux_x86_64.whl
 '''
 
 import numpy as np
