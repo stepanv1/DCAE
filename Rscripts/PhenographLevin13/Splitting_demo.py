@@ -10,10 +10,12 @@ from plotly.io import to_html
 from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import Callback
+from tensorflow.keras import backend as K
 import pickle
 pio.renderers.default = "browser"
 
 from utils_evaluation import plot3D_cluster_colors, table
+from utils_model import frange_anneal, relu_derivative, elu_derivative, leaky_relu_derivative, linear_derivative
 
 
 class saveEncoder(Callback):
@@ -41,13 +43,16 @@ source_dir = DATA_ROOT + 'Artificial_sets/Split_demo/'
 output_dir  = DATA_ROOT + 'Artificial_sets/Split_demo/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
 ID = 'Split_demo'
+
+epochs=10000
+
 #ID = 'ELU_' + '_DCAE_norm_0.5' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
 #output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output'
 #load earlier generated data
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
-#tf.compat.v1.disable_eager_execution()
+tf.compat.v1.disable_eager_execution()
 #bl = list_of_branches[0]
 # possibly final parameters: m=10 ; lam = 0.1; g=0.1
 # worst: lam = 0.01; # g=0.1; lam = 0.01; # g=0.01, seems like lam =0.001 is to small
@@ -67,7 +72,7 @@ aFrame = np.random.uniform(low=np.zeros(inp_d), high=np.ones(inp_d), size=(nrow,
 # fig000 = plt.figure();
 # plt.scatter(x=aFrame[:,0], y=aFrame[:,1],c=aFrame[:,1],  cmap='winter', s=s)
 # plt.colorbar()
-
+lam = 0.1
 latent_dim = 2
 original_dim = aFrame.shape[1]
 intermediate_dim = original_dim*2
@@ -89,22 +94,52 @@ decoder_h2 = Dense(intermediate_dim, activation='elu', name='intermediate4', ker
 decoder_mean = Dense(original_dim, activation='elu', name='output', kernel_initializer=initializer)(decoder_h2)
 autoencoder = Model(inputs=X, outputs=decoder_mean)
 
+def DCAE_loss(y_true, y_pred):  # (x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
+    U = encoder.get_layer('intermediate').trainable_weights[0]
+    W = encoder.get_layer('intermediate2').trainable_weights[0]
+    Z = encoder.get_layer('z_mean').trainable_weights[0]  # N x N_hidden
+    U = K.transpose(U);
+    W = K.transpose(W);
+    Z = K.transpose(Z);  # N_hidden x N
+
+    u = encoder.get_layer('intermediate').output
+    du = elu_derivative(u)
+    m = encoder.get_layer('intermediate2').output
+    dm = elu_derivative(m)
+    s = encoder.get_layer('z_mean').output
+    ds = linear_derivative(s)
+
+    r = tf.linalg.einsum('aj->a', s ** 2)  # R^2 in reality. to think this trough
+
+    # pot = 500 * tf.math.square(alp - r) * tf.dtypes.cast(tf.less(r, alp), tf.float32) + \
+    #      500 * (r - 1) * tf.dtypes.cast(tf.greater_equal(r, 1), tf.float32) + 1
+    # pot=1
+    pot = tf.math.square(r - 1) + 1
+
+    ds = tf.einsum('ak,a->ak', ds, pot)
+    diff_tens = tf.einsum('al,lj->alj', ds, Z)
+    diff_tens = tf.einsum('al,ajl->ajl', dm, diff_tens)
+    diff_tens = tf.einsum('ajl,lk->ajk', diff_tens, W)
+    u_U = tf.einsum('al,lj->alj', du, U)
+    diff_tens = tf.einsum('ajl,alk->ajk', diff_tens, u_U)
+    return lam * K.sqrt(K.sum(diff_tens ** 2, axis=[1, 2]))
+
+
+
 def loss(y_true, y_pred):
-    msew =  tf.keras.losses.mean_squared_error(y_true, y_pred)
-    return msew
+    return tf.keras.losses.mean_squared_error(y_true, y_pred)
 
 opt = tf.keras.optimizers.Adam(
     learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False
 )
 
 autoencoder.compile(optimizer=opt, loss=loss,
-                    metrics=[loss])
+                    metrics=[loss, DCAE_loss])
 
 autoencoder.summary()
 
 save_period = 100
 batch_size = 32
-epochs=30000
 
 start = timeit.default_timer()
 history_multiple = autoencoder.fit(aFrame, aFrame,
@@ -130,6 +165,9 @@ for i in range(original_dim):
     plt.title('color ' + str(col))
     plt.colorbar()
 
+with open(output_dir + '/' + ID + 'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+    pickle.dump(history_multiple.history, file_pi)
+'''
 plt.hist(z[:,0],50)
 
 
@@ -165,9 +203,102 @@ fig05 = plt.figure();
 plt.scatter(Apred[:,0], y=Apred[:,1], c=aFrame[:,1],  cmap='winter', s=0.1)
 plt.title('color 1')
 plt.colorbar()
+'''
+
+epochs=10000
+lam=0.01
+ID = 'Split_demo_with_DCAE_lam_' + str(lam)
+def DCAE_loss(y_true, y_pred):  # (x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
+    U = encoder.get_layer('intermediate').trainable_weights[0]
+    W = encoder.get_layer('intermediate2').trainable_weights[0]
+    Z = encoder.get_layer('z_mean').trainable_weights[0]  # N x N_hidden
+    U = K.transpose(U);
+    W = K.transpose(W);
+    Z = K.transpose(Z);  # N_hidden x N
+
+    u = encoder.get_layer('intermediate').output
+    du = elu_derivative(u)
+    m = encoder.get_layer('intermediate2').output
+    dm = elu_derivative(m)
+    s = encoder.get_layer('z_mean').output
+    ds = linear_derivative(s)
+
+    r = tf.linalg.einsum('aj->a', s ** 2)  # R^2 in reality. to think this trough
+
+    # pot = 500 * tf.math.square(alp - r) * tf.dtypes.cast(tf.less(r, alp), tf.float32) + \
+    #      500 * (r - 1) * tf.dtypes.cast(tf.greater_equal(r, 1), tf.float32) + 1
+    # pot=1
+    pot = tf.math.square(r - 1) + 1
+
+    ds = tf.einsum('ak,a->ak', ds, pot)
+    diff_tens = tf.einsum('al,lj->alj', ds, Z)
+    diff_tens = tf.einsum('al,ajl->ajl', dm, diff_tens)
+    diff_tens = tf.einsum('ajl,lk->ajk', diff_tens, W)
+    u_U = tf.einsum('al,lj->alj', du, U)
+    diff_tens = tf.einsum('ajl,alk->ajk', diff_tens, u_U)
+    return lam * K.sqrt(K.sum(diff_tens ** 2, axis=[1, 2]))
 
 
+X = Input(shape=(original_dim,))
+h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(X)
+h2= Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
+z_mean = Dense(latent_dim, activation='sigmoid', name='z_mean', kernel_initializer=initializer)(h2)
 
+encoder = Model(X, z_mean, name='encoder')
+
+decoder_h = Dense(intermediate_dim2, activation='elu', name='intermediate3', kernel_initializer=initializer)(z_mean)
+decoder_h2 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)(decoder_h)
+decoder_mean = Dense(original_dim, activation='elu', name='output', kernel_initializer=initializer)(decoder_h2)
+autoencoder = Model(inputs=X, outputs=decoder_mean)
+
+# optimize matrix multiplication
+
+
+def MSE(y_true, y_pred):
+    return tf.keras.losses.mean_squared_error(y_true, y_pred)
+
+def loss(y_true, y_pred):
+    return  MSE(y_true, y_pred) + DCAE_loss(y_true, y_pred)
+
+opt = tf.keras.optimizers.Adam(
+    learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False
+)
+
+autoencoder.compile(optimizer=opt, loss=loss,
+                    metrics=[loss, DCAE_loss, MSE])
+
+autoencoder.summary()
+
+save_period = 100
+batch_size = 32
+
+start = timeit.default_timer()
+history_multiple = autoencoder.fit(aFrame, aFrame,
+                                   batch_size=batch_size,
+                                   epochs=epochs,
+                                   shuffle=True,
+                                   callbacks=[saveEncoder(encoder=encoder, ID=ID, epochs=epochs,
+                                                                  output_dir=output_dir, save_period=save_period)],
+                                   verbose=1)
+stop = timeit.default_timer()
+z = encoder.predict([aFrame])
+print(stop - start)
+
+encoder.save_weights(output_dir + '/' + ID + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+autoencoder.save_weights(output_dir + '/autoencoder_' + ID + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+np.savez(output_dir + '/' + ID + "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
+with open(output_dir + '/' + ID + 'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+    pickle.dump(history_multiple.history, file_pi)
+
+
+for i in range(original_dim):
+    fig01 = plt.figure();
+    col=i
+    plt.scatter(z[:,0], z[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
+    plt.title('color ' + str(col))
+    plt.colorbar()
+
+'''
 encoder.save_weights(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
 autoencoder.save_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
 np.savez(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
@@ -318,3 +449,4 @@ plt.close()
 
 sns.violinplot(data=A_rest)
     sns.violinplot(data=aFrame)
+'''

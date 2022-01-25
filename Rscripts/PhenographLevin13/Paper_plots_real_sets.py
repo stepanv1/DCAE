@@ -2,11 +2,11 @@
 create 2D projections of DCAE, UMAP and SAUCIE outputs for the manuscript
 '''
 import matplotlib.pyplot as plt
-from matplotlib import cm
+import matplotlib.ticker as plticker
 import pandas as pd
 import numpy as np
 import os
-from utils_evaluation import get_wsd_scores_normalized
+import seaborn as sns
 
 k = 30
 epoch_list = [250, 500, 1000]
@@ -30,14 +30,16 @@ DATA_DIR = DATA_ROOT + 'CyTOFdataPreprocess/'
 source_dir = DATA_ROOT + 'Real_sets/'
 list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
                   'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz', 'Shenkareuclid_shifted.npz']
-z_dir = DATA_ROOT + "Real_sets/DCAE_output/"
+PLOTS = DATA_ROOT + "Real_sets/PLOTS/"
+z_dir = DATA_ROOT + 'Real_sets/DCAE_output/'
 output_dir = DATA_ROOT + "Real_sets/DCAE_output/Performance/"
 
 bl_index  = [0,1,2]
-camera_positions = [[0,0,0], [0,0,0], [0,0,0]]
+#azymuth, elevaation , position
+camera_positions = [[[65,1,0], [174,79,0], [-122,9,0]], [[101,-42,0], [3,-7,0], [-51,30,0]], [[-145,-57,0], [-160,15,0], [7,5,0]]]
 epochs = 1000
 
-idx = bl_index[0]
+idx = bl_index[2]
 unassigned_lbls = ['"unassigned"', '"Unassgined"', '-1']
 for idx in bl_index:
     print(output_dir)
@@ -53,34 +55,81 @@ for idx in bl_index:
     # read DCAE output
     npz_res = np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz', allow_pickle=True)
     z = npz_res['z']
-    lb = lbls[lbls!=unassigned_lbls[0]]
-    z = z[lbls!=unassigned_lbls[0],:]
+    lb = lbls[lbls!=unassigned_lbls[idx]]
+    z = z[lbls!=unassigned_lbls[idx],:]
+    cl = np.unique(lb)
 
-    from mpl_toolkits.mplot3d import Axes3D
-    import seaborn as sns
-
-    fig = plt.figure()
-    ax = Axes3D(fig)
-    cl=np.unique(lb)
+    #z = z[:10000,:]
+    #lb= lb[:10000]
+    sz=0.01
+    fig = plt.figure(figsize=plt.figaspect(0.3))
+    # First subplot
+    ax = fig.add_subplot(1, 3, 1, projection='3d')
+    loc = plticker.MultipleLocator(base=0.5)  # this locator puts ticks at regular intervals
+    ax.xaxis.set_major_locator(loc)
+    ax.yaxis.set_major_locator(loc)
+    ax.zaxis.set_major_locator(loc)
+    # make the panes transparent
+    ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+    ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+    ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
     sns.reset_orig()
     colors = sns.color_palette("husl", n_colors=len(cl))
     groups = []
     for i in range(len(cl)):
-        groups.append(ax.scatter(xs=z[:,0][lb==cl[i]], ys=z[:,1][lb==cl[i]], zs=z[:,2][lb==cl[i]], c = colors[i],  s=0.1))
+        groups.append(ax.scatter(xs=z[:,0][lb==cl[i]], ys=z[:,1][lb==cl[i]], zs=z[:,2][lb==cl[i]], c = colors[i],  s=sz))
         #ax.legend()
-    ax.view_init(elev=100., azim=5)
-    #ax.legend(groups, cl, loc=4)
+    ax.view_init(azim=camera_positions[idx][0][0],  elev=camera_positions[idx][0][1])
+    # Second subplot
+    ax = fig.add_subplot(1, 3, 2, projection='3d')
+    ax.xaxis.set_major_locator(loc)
+    ax.yaxis.set_major_locator(loc)
+    ax.zaxis.set_major_locator(loc)
+    # make the panes transparent
+    ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+    ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+    ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+
+    sns.reset_orig()
+    colors = sns.color_palette("husl", n_colors=len(cl))
+    groups = []
+    for i in range(len(cl)):
+        groups.append(
+            ax.scatter(xs=z[:, 0][lb == cl[i]], ys=z[:, 1][lb == cl[i]], zs=z[:, 2][lb == cl[i]], c=colors[i], s=sz))
+        # ax.legend()
+    ax.view_init(azim=camera_positions[idx][1][0],  elev=camera_positions[idx][1][1])
+    # Third subplot
+    ax = fig.add_subplot(1, 3, 3, projection='3d')
+    ax.xaxis.set_major_locator(loc)
+    ax.yaxis.set_major_locator(loc)
+    ax.zaxis.set_major_locator(loc)
+    # make the panes transparent
+    ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+    ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+    ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+
+    sns.reset_orig()
+    colors = sns.color_palette("husl", n_colors=len(cl))
+    groups = []
+    for i in range(len(cl)):
+        groups.append(
+            ax.scatter(xs=z[:, 0][lb == cl[i]], ys=z[:, 1][lb == cl[i]], zs=z[:, 2][lb == cl[i]], c=colors[i], s=sz))
+        # ax.legend()
+    ax.view_init(azim=camera_positions[idx][2][0],  elev=camera_positions[idx][2][1])
+    # ax.legend(groups, cl, loc=4)
     fig.subplots_adjust(right=0.8)
-    ax.legend(groups, cl,loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=14,  markerscale=14)
-    fig.show()
+    if idx==2:
+       ax.legend(groups, cl, loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=14, markerscale=18, ncol=2)
+    else:
+        ax.legend(groups, cl, loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=14, markerscale=18)
+    fig.tight_layout()
+    plt.savefig( PLOTS + list_of_inputs[idx] +  '_paper_DCAE.eps', format='eps')
+    plt.show()
 
-    print('ax.azim {}'.format(ax.azim))
     print('ax.elev {}'.format(ax.elev))
+    print('ax.azim {}'.format(ax.azim))
 
 
-    outfile = output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(
-        epochs) + '_BOREALIS_PerformanceMeasures_wider.npz'
-    np.savez(outfile, manytoone=manytoone, discontinuity=discontinuity)
 '''
 # Compute performance for UMAP
 z_dir  = DATA_ROOT + "Real_sets/UMAP_output/"
