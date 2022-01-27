@@ -39,7 +39,7 @@ bl_index  = [0,1,2]
 camera_positions = [[[65,1,0], [174,79,0], [-122,9,0]], [[101,-42,0], [3,-7,0], [-51,30,0]], [[-145,-57,0], [-160,15,0], [7,5,0]]]
 epochs = 1000
 
-idx = bl_index[2]
+idx = bl_index[1]
 unassigned_lbls = ['"unassigned"', '"Unassgined"', '-1']
 for idx in bl_index:
     print(output_dir)
@@ -59,10 +59,21 @@ for idx in bl_index:
     z = z[lbls!=unassigned_lbls[idx],:]
     cl = np.unique(lb)
 
+    if idx==1:
+        smpl = np.random.choice(range(z.shape[0]), size=100000, replace=False)
+        lb = lb[smpl]
+        z = z[smpl,:]
+
+    #from utils_evaluation import plot3D_cluster_colors
+    #plot3D_cluster_colors(z, lb, camera=None, legend=True, msize=1).show()
+
     #z = z[:10000,:]
     #lb= lb[:10000]
+    from matplotlib import rcParams
+    dpi = 350
+    rcParams['savefig.dpi'] = dpi
     sz=0.01
-    fig = plt.figure(figsize=plt.figaspect(0.3))
+    fig = plt.figure(dpi = dpi, figsize=(18,5))
     # First subplot
     ax = fig.add_subplot(1, 3, 1, projection='3d')
     loc = plticker.MultipleLocator(base=0.5)  # this locator puts ticks at regular intervals
@@ -119,11 +130,12 @@ for idx in bl_index:
     # ax.legend(groups, cl, loc=4)
     fig.subplots_adjust(right=0.8)
     if idx==2:
-       ax.legend(groups, cl, loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=14, markerscale=18, ncol=2)
+       ax.legend(groups, cl, loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=18, markerscale=22, ncol=2)
     else:
-        ax.legend(groups, cl, loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=14, markerscale=18)
+        ax.legend(groups, cl, loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=14, markerscale=22)
     fig.tight_layout()
-    plt.savefig( PLOTS + list_of_inputs[idx] +  '_paper_DCAE.eps', format='eps')
+    #fig.set_rasterized(True)
+    plt.savefig( PLOTS + list_of_inputs[idx] +  '_paper_DCAE.eps', dpi= dpi, format='eps')
     plt.show()
 
     print('ax.elev {}'.format(ax.elev))

@@ -41,8 +41,9 @@ pool = multiprocessing.Pool(num_cores)
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Split_demo/'
 output_dir  = DATA_ROOT + 'Artificial_sets/Split_demo/'
+PLOTS = DATA_ROOT + 'Artificial_sets/Split_demo/PLOTS/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'Split_demo'
+ID1 = 'Split_demo'
 
 epochs=10000
 
@@ -53,25 +54,19 @@ epochs=10000
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.compat.v1.disable_eager_execution()
-#bl = list_of_branches[0]
-# possibly final parameters: m=10 ; lam = 0.1; g=0.1
-# worst: lam = 0.01; # g=0.1; lam = 0.01; # g=0.01, seems like lam =0.001 is to small
+
 
 # generate data
 nrow = 30000
 s=1
-#aFrame = np.random.uniform(low=0.0, high=1, size=nrow)
-#aFrame  = np.c_[np.sort(np.random.uniform(low=0.0, high=1, size=nrow)), aFrame]
-inp_d =10
-aFrame = np.random.uniform(low=np.zeros(inp_d), high=np.ones(inp_d), size=(nrow,inp_d))
 
-# fig00 = plt.figure();
-# plt.scatter(x=aFrame[:,0], y=aFrame[:,1],c=aFrame[:,0],  cmap='winter', s=s)
-# plt.colorbar()
-#
-# fig000 = plt.figure();
-# plt.scatter(x=aFrame[:,0], y=aFrame[:,1],c=aFrame[:,1],  cmap='winter', s=s)
-# plt.colorbar()
+inp_d =10
+#TODO: uncomment later
+#aFrame = np.random.uniform(low=np.zeros(inp_d), high=np.ones(inp_d), size=(nrow,inp_d))
+#np.savez(output_dir + '/' + ID1 + "_" +  'epochs' + str(epochs) + '_aFrame.npz', aFrame=aFrame)
+npzfile = np.load(output_dir + '/' + ID1 + "_" +  'epochs' + str(epochs) + '_aFrame.npz')
+aFrame = npzfile['aFrame']
+
 lam = 0.1
 latent_dim = 2
 original_dim = aFrame.shape[1]
@@ -79,8 +74,6 @@ intermediate_dim = original_dim*2
 intermediate_dim2 = original_dim * 1
 
 initializer = tf.keras.initializers.he_normal(12345)
-
-
 
 X = Input(shape=(original_dim,))
 h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(X)
@@ -124,8 +117,6 @@ def DCAE_loss(y_true, y_pred):  # (x, x_decoded_mean):  # attempt to avoid vanis
     diff_tens = tf.einsum('ajl,alk->ajk', diff_tens, u_U)
     return lam * K.sqrt(K.sum(diff_tens ** 2, axis=[1, 2]))
 
-
-
 def loss(y_true, y_pred):
     return tf.keras.losses.mean_squared_error(y_true, y_pred)
 
@@ -146,16 +137,16 @@ history_multiple = autoencoder.fit(aFrame, aFrame,
                                    batch_size=batch_size,
                                    epochs=epochs,
                                    shuffle=True,
-                                   callbacks=[saveEncoder(encoder=encoder, ID=ID, epochs=epochs,
+                                   callbacks=[saveEncoder(encoder=encoder, ID=ID1, epochs=epochs,
                                                                   output_dir=output_dir, save_period=save_period)],
                                    verbose=1)
 stop = timeit.default_timer()
 z = encoder.predict([aFrame])
 print(stop - start)
 
-encoder.save_weights(output_dir + '/' + ID + "_"  + 'epochs' + str(epochs) + '_3D.h5')
-autoencoder.save_weights(output_dir + '/autoencoder_' + ID + "_"  + 'epochs' + str(epochs) + '_3D.h5')
-np.savez(output_dir + '/' + ID + "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
+encoder.save_weights(output_dir + '/' + ID1 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+autoencoder.save_weights(output_dir + '/autoencoder_' + ID1 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+np.savez(output_dir + '/' + ID1 + "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
 
 
 for i in range(original_dim):
@@ -165,7 +156,7 @@ for i in range(original_dim):
     plt.title('color ' + str(col))
     plt.colorbar()
 
-with open(output_dir + '/' + ID + 'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+with open(output_dir + '/' + ID1 + 'epochs' + str(epochs) + '_history', 'wb') as file_pi:
     pickle.dump(history_multiple.history, file_pi)
 '''
 plt.hist(z[:,0],50)
@@ -207,7 +198,7 @@ plt.colorbar()
 
 epochs=10000
 lam=0.01
-ID = 'Split_demo_with_DCAE_lam_' + str(lam)
+ID2 = 'Split_demo_with_DCAE_lam_' + str(lam)
 def DCAE_loss(y_true, y_pred):  # (x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
     U = encoder.get_layer('intermediate').trainable_weights[0]
     W = encoder.get_layer('intermediate2').trainable_weights[0]
@@ -277,17 +268,17 @@ history_multiple = autoencoder.fit(aFrame, aFrame,
                                    batch_size=batch_size,
                                    epochs=epochs,
                                    shuffle=True,
-                                   callbacks=[saveEncoder(encoder=encoder, ID=ID, epochs=epochs,
+                                   callbacks=[saveEncoder(encoder=encoder, ID=ID2, epochs=epochs,
                                                                   output_dir=output_dir, save_period=save_period)],
                                    verbose=1)
 stop = timeit.default_timer()
 z = encoder.predict([aFrame])
 print(stop - start)
 
-encoder.save_weights(output_dir + '/' + ID + "_"  + 'epochs' + str(epochs) + '_3D.h5')
-autoencoder.save_weights(output_dir + '/autoencoder_' + ID + "_"  + 'epochs' + str(epochs) + '_3D.h5')
-np.savez(output_dir + '/' + ID + "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
-with open(output_dir + '/' + ID + 'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+encoder.save_weights(output_dir + '/' + ID2 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+autoencoder.save_weights(output_dir + '/autoencoder_' + ID2 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+np.savez(output_dir + '/' + ID2 + "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
+with open(output_dir + '/' + ID2 + 'epochs' + str(epochs) + '_history', 'wb') as file_pi:
     pickle.dump(history_multiple.history, file_pi)
 
 
@@ -450,3 +441,60 @@ plt.close()
 sns.violinplot(data=A_rest)
     sns.violinplot(data=aFrame)
 '''
+npzfile = np.load(output_dir + '/' + ID1 + "_" +  'epochs' + str(epochs) + '_aFrame.npz')
+aFrame = npzfile['aFrame']
+
+npzfile1 = np.load(output_dir + '/' + ID1 + "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz')
+z1 = npzfile1['z']
+history1 = pickle.load(open(output_dir + '/'  + ID1 +  'epochs'+ str(epochs)+ '_history',  "rb"))
+
+npzfile2 = np.load(output_dir + '/' + ID2 + "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz')
+z2 = npzfile2['z']
+history2 = pickle.load(open(output_dir + '/'  + ID2 +  'epochs'+ str(epochs)+ '_history',  "rb"))
+
+from matplotlib import rcParams
+import matplotlib.gridspec as gridspec
+
+gs = gridspec.GridSpec(1,3,width_ratios=[6,6,0.5])
+dpi= 350
+rcParams['savefig.dpi'] = dpi
+fig = plt.figure(dpi = dpi, figsize=(12,5))
+#plt.xticks(fontsize=14)
+# First subplot
+ax1 = fig.add_subplot(gs[0])
+ax1.grid(False)
+ax1.set_title('MSE',fontsize=30)
+col=3
+
+ax2 = fig.add_subplot(gs[1])
+ax2.set_title('MSE + DCAE', fontsize=30,ha='center')
+ax2.scatter(z2[:,0], z2[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
+ax2.grid(False)
+
+amap = ax1.scatter(z1[:,0], z1[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
+fig.colorbar(amap, cax=fig.add_subplot(gs[2]))
+#ax1.axis('off')
+#ax2.axis('off')
+fig.tight_layout(pad = 1.0)
+plt.savefig(PLOTS + 'splitting_demo.eps', dpi=dpi, format='eps')
+plt.show()
+
+
+#plt.plot(np.array(history2['MSE'][1000:2000]))
+#plt.plot(history2['DCAE_loss'][1000:2000])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
