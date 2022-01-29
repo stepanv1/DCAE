@@ -37,9 +37,10 @@ output_dir =  DATA_ROOT + "Real_sets/DCAE_output/Performance/"
 
 for epochs in epoch_list:
     #bl = list_of_inputs[0]
+    '''
     for bl in list_of_inputs:
         #read data
-        '''
+        
         infile = DATA_DIR  + bl
         npzfile = np.load(infile,  allow_pickle=True)
         aFrame = npzfile['aFrame'];
@@ -56,7 +57,7 @@ for epochs in epoch_list:
 
         outfile = output_dir + '/'  + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
         np.savez(outfile, MSS0=MSS[0], LSSS0= LSSS[0], MSS1=MSS[1], LSSS1= LSSS[1])
-    '''
+    
     # Compute performance for UMAP
     z_dir  = DATA_ROOT + "Real_sets/UMAP_output/"
     output_dir =  DATA_ROOT + "Real_sets/UMAP_output/Performance"
@@ -102,8 +103,8 @@ for epochs in epoch_list:
 
         outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized_3D.npz'
         np.savez(outfile, MSS0=MSS[0], LSSS0=LSSS[0], MSS1=MSS[1], LSSS1=LSSS[1])
-
-    #create MSS_LSSS graphs######STPPED HERE
+    '''
+    #created MSS_LSSS graphs######
     PLOTS = DATA_ROOT + "Real_sets/PLOTS/"
     bor_res_dirs = [DATA_ROOT + "Real_sets/DCAE_output/Performance/", DATA_ROOT + "Real_sets/UMAP_output/Performance/",DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"]
     methods = ['DCAE', 'UMAP', 'SAUCIE']
@@ -146,14 +147,16 @@ for epochs in epoch_list:
     g = sns.barplot(x='Set', y='MSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
     g.set(ylim=(0.25, None))
     g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-    g.figure.savefig(PLOTS + ID + "_" + 'k_'+str(k)+ '_epochs' +str(epochs) +'_'+ "MSS_normalized_3D.eps", format='eps', dpi = 350)
+    g.figure.savefig(PLOTS + ID + "_" + 'k_'+str(k)+ '_epochs' +str(epochs) +'_'+ "MSS_normalized_3D.eps", format='eps', dpi = 350,
+                      bbox_inches="tight")
     plt.close()
     # the bug is herew
 
     g2 = sns.barplot(x='Set', y='LSSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
     g2.set(ylim=(0, None))
     g2.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-    g2.figure.savefig(PLOTS + ID + "_" + 'k_'+str(k)+'_epochs' +str(epochs)+'_'+ "LSSS_normalized_3D.eps", format='eps', dpi = 350)
+    g2.figure.savefig(PLOTS + ID + "_" + 'k_'+str(k)+'_epochs' +str(epochs)+'_'+ "LSSS_normalized_3D.eps", format='eps', dpi = 350,
+                      bbox_inches="tight")
     plt.close()
 
     # plots at each k
@@ -165,7 +168,7 @@ for epochs in epoch_list:
     df = pd.DataFrame()
     bl = list_of_inputs[0]
 
-    plt.rcParams["figure.figsize"] = (3,1)
+    plt.rcParams["figure.figsize"] = (10,3)
 
     k_start = 9
     for n_set in range(3):

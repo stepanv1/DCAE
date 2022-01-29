@@ -37,6 +37,7 @@ output_dir =  DATA_ROOT + "Real_sets/DCAE_output/Performance/"
 
 for epochs in epoch_list:
     #bl = list_of_inputs[0]
+    '''
     for bl in list_of_inputs:
         #read data
         infile = DATA_DIR  + bl
@@ -55,7 +56,7 @@ for epochs in epoch_list:
 
         outfile = output_dir + '/'  + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
         np.savez(outfile, MSS0=MSS[0], LSSS0= LSSS[0], MSS1=MSS[1], LSSS1= LSSS[1])
-    '''
+    
     # Compute performance for UMAP
     z_dir  = DATA_ROOT + "Real_sets/UMAP_output/"
     output_dir =  DATA_ROOT + "Real_sets/UMAP_output/Performance"
@@ -106,8 +107,8 @@ for epochs in epoch_list:
     PLOTS = DATA_ROOT + "Real_sets/PLOTS/"
     bor_res_dirs = [DATA_ROOT + "Real_sets/DCAE_output/Performance/", DATA_ROOT + "Real_sets/UMAP_output/Performance/",DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"]
     methods = ['DCAE', 'UMAP', 'SAUCIE']
-#    i= 0
-#    bl  =list_of_inputs[0]
+    #    i= 0
+    #    bl  =list_of_inputs[0]
     k=30
     df = pd.DataFrame()
     for i in range(3):
@@ -132,9 +133,7 @@ for epochs in epoch_list:
 
     import seaborn as sns
     import matplotlib.pyplot as plt
-
     #rename sets for plot
-
     di = {'Levine32euclid_scaled_no_negative_removed.npz':'Levine32',
     'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz':'Pregnancy',  'Shenkareuclid_shifted.npz':'Shenkar'}
     df =  df.replace({"Set": di})
@@ -145,26 +144,27 @@ for epochs in epoch_list:
     g = sns.barplot(x='Set', y='MSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
     g.set(ylim=(0.25, None))
     g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-    g.figure.savefig(PLOTS + ID + "_" + 'k_'+str(k)+ '_epochs' +str(epochs) +'_'+ "MSS_normalized.eps", format='eps', dpi = 350)
+    g.figure.savefig(PLOTS + ID + "_" + 'k_'+str(k)+ '_epochs' +str(epochs) +'_'+ "MSS_normalized.eps", format='eps', dpi = 350,
+                      bbox_inches="tight")
     plt.close()
     # the bug is herew
-
+    sns.set(rc={'figure.figsize': (14, 4)})
     g2 = sns.barplot(x='Set', y='LSSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
     g2.set(ylim=(0, None))
     g2.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-    g2.figure.savefig(PLOTS + ID + "_" + 'k_'+str(k)+'_epochs' +str(epochs)+'_'+ "LSSS_normalized.eps", format='eps', dpi = 350)
+    g2.figure.savefig(PLOTS + ID + "_" + 'k_'+str(k)+'_epochs' +str(epochs)+'_'+ "LSSS_normalized.eps", format='eps', dpi = 350,
+                      bbox_inches="tight")
     plt.close()
 
     # plots at each k
-    PAPERPLOTS  = './PAPERPLOTS/'
     bor_res_dirs = [DATA_ROOT + "Real_sets/DCAE_output/Performance/", DATA_ROOT + "Real_sets/UMAP_output/Performance/",DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"]
     list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
     'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
     names = ['Levine32','Pregnancy', 'Shekhar']
-    df = pd.DataFrame()
-    bl = list_of_inputs[0]
+    #df = pd.DataFrame()
+    #bl = list_of_inputs[0]
 
-    plt.rcParams["figure.figsize"] = (3,1)
+    plt.rcParams["figure.figsize"] = (10,3)
 
     k_start = 9
     for n_set in range(3):

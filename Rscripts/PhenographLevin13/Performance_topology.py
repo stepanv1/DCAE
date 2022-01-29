@@ -65,8 +65,6 @@ def generate_true_toplogy(aFrame, lbls):
 
     return true_topology_list
 
-
-
 def get_representation_topology(z, lbls):
     """compute actual, returning 3 nearest neighbours per each cluster in pentagon"""
     #sample each cluster
@@ -109,7 +107,7 @@ epochs = 500
 # Compute performance for DCAE
 z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"
-#bl = list_of_branches[1]
+#bl = list_of_branches[0]
 for bl in list_of_branches:
     infile = source_dir + 'set_' + str(bl) + '.npz'
     npzfile = np.load(infile)
