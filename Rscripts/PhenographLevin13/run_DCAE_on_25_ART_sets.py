@@ -24,7 +24,7 @@ num_cores = multiprocessing.cpu_count()
 pool = multiprocessing.Pool(num_cores)
 
 k = 30
-epochs_list = [250, 500, 1000]
+epochs_list = [250]
 coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
@@ -33,17 +33,17 @@ alp = 0.2
 m = 10
 patience = 500
 min_delta = 1e-4
-g=0.1
+g=0#0.1
 #epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'zero_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 #ID = 'ELU_' + '_DCAE_norm_0.5' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
 #output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output'
 #load earlier generated data
-epochs=500
+#epochs=500
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.compat.v1.disable_eager_execution()
@@ -51,7 +51,7 @@ tf.compat.v1.disable_eager_execution()
 # possibly final parameters: m=10 ; lam = 0.1; g=0.1
 # worst: lam = 0.01; # g=0.1; lam = 0.01; # g=0.01, seems like lam =0.001 is to small
 for epochs in epochs_list:
-    for bl in list_of_branches:
+    for bl in list_of_branches[15:]:
         infile = source_dir + 'set_' + str(bl) + '.npz'
         # markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
         # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)

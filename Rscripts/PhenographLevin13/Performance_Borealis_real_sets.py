@@ -145,17 +145,83 @@ for epochs in epoch_list:
     plt.savefig(PLOTS + "Manytoone" + ID + '_epochs' +str(epochs)+ "_wider.eps", format='eps', dpi = 350)
     plt.close()
 
+
+epochs = 1000
+
+coeffCAE = 1
+coeffMSE = 1
+batch_size = 128
+lam = 1
+alp = 0.2
+m = 10
+patience = 1000
+min_delta = 1e-4
+g=0.1
+
+ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+
+PLOTS = DATA_ROOT + "Real_sets/PLOTS/"
+bor_res_dirs = [DATA_ROOT + "Real_sets/DCAE_output/Performance/", DATA_ROOT + "Real_sets/UMAP_output/Performance/",
+                DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"]
+methods = ['DCAE', 'UMAP', 'SAUCIE']
+# dir = bor_res_dirs[0]
+# bl  = list_of_inputs[0]
+df = pd.DataFrame()
+for i in range(3):
+    for bl in list_of_inputs:
+        if i == 0:
+            outfile = output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(
+                epochs) + '_BOREALIS_PerformanceMeasures_wider.npz'
+        else:
+            outfile = bor_res_dirs[i] + '/' + str(bl) + '_BOREALIS_PerformanceMeasures.npz'
+        npz_res = np.load(outfile, allow_pickle=True)
+        discontinuity = npz_res['discontinuity']
+        manytoone = npz_res['manytoone']
+        discontinuity = np.median(discontinuity)
+        manytoone = np.median(manytoone)
+        line = pd.DataFrame([[methods[i], str(bl), discontinuity, manytoone]],
+                            columns=['method', 'Set', 'discontinuity', 'manytoone'])
+        df = df.append(line)
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+#correct error with data set name
+
+df = df.replace('Shenkar', 'Shekhar')
+# rename sets for plot
+
+di = {'Levine32euclid_scaled_no_negative_removed.npz': 'Levine32',
+      'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz': 'Pregnancy', 'Shenkareuclid_shifted.npz': 'Shenkar'}
+df = df.replace({"Set": di})
+import matplotlib
+
+matplotlib.use('PS')
+
+sns.set(rc={'figure.figsize': (14, 4)})
+g = sns.barplot(x='Set', y='discontinuity', hue='method', data=df.reset_index(),
+                palette=['tomato', 'yellow', 'limegreen'])
+g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
+plt.savefig(PLOTS + "Discontinuity" + ID + '_epochs' + str(epochs) + "_wider.eps", format='eps', dpi=350)
+plt.close()
+
+g2 = sns.barplot(x='Set', y='manytoone', hue='method', data=df.reset_index(), palette=['tomato', 'yellow', 'limegreen'])
+g2.set(ylim=(0.05, None))
+g2.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
+plt.savefig(PLOTS + "Manytoone" + ID + '_epochs' + str(epochs) + "_wider.eps", format='eps', dpi=350)
+plt.close()
+
 # as tables
 
 # tables move to Borealis measures file
-# df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.118989,  0.158191, 0.132919], 'discontinuity': [2.288722, 5.971887, 5.429483]})
-# df_BORAI.to_csv(PLOTS  + 'Levine32_'  +ID + '_' + 'Borealis_measures_wider.csv', index=False)
+df_BORAI  =df[df['Set']=='Levine32'][['method','manytoone','discontinuity']]
+df_BORAI.round(3).to_csv(PLOTS  + 'Levine32_'  +ID + '_' + 'Borealis_measures_wider.csv', index=False)
 #
-# df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.184362, 0.209887, 0.201161], 'discontinuity': [12.233907, 16.489910, 17.582431 ]})
-# df_BORAI.to_csv(PLOTS + 'Pregnancy_' +ID + '_' + 'Borealis_measures_wider.csv', index=False)
+df_BORAI  =df[df['Set']=='Pregnancy'][['method','manytoone','discontinuity']]
+df_BORAI.round(3).to_csv(PLOTS + 'Pregnancy_' +ID + '_' + 'Borealis_measures_wider.csv', index=False)
 #
-# df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.338864, 0.348597, 0.337997], 'discontinuity': [3.267888, 3.548169, 5.955621]})
-# df_BORAI.to_csv(PLOTS  + 'Shenkar_' +ID + '_' + 'Borealis_measures_wider.csv', index=False)
+df_BORAI  =df[df['Set']=='Shekhar'][['method','manytoone','discontinuity']]
+df_BORAI.round(3).to_csv(PLOTS + 'Shekhar_' +ID + '_' + 'Borealis_measures_wider.csv', index=False)
 
 
 

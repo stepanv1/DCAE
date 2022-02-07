@@ -47,13 +47,13 @@ min_delta = 1e-4
 g=0.1
 ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
-epochs = 500
+epochs = 250
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 
 #tf.compat.v1.disable_eager_execution() # commented out  to use to_numpy function of tf
-#bl = list_of_branches[1]
+#bl = list_of_branches[24]
 for bl in list_of_branches:
     print(bl)
     infile = source_dir + 'set_'+ str(bl)+'.npz'
@@ -287,12 +287,12 @@ for bl in list_of_branches:
 
 
     encoder.load_weights(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
-    autoencoder.load_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
+    #utoencoder.load_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
     encoder.summary()
     z = encoder.predict([aFrame, Sigma ])
     lbls = [i if i != -7 else 7 for i in lbls]
 
-    out = autoencoder.predict([aFrame, Sigma, ])
+    #out = autoencoder.predict([aFrame, Sigma, ])
 
     # to remove Sigma layer will need re-create encoder
     encoder2 = Model([X], z_mean, name='encoder2')
@@ -332,7 +332,7 @@ for bl in list_of_branches:
     SC_mean_norm =SC_mean
     plt.figure(figsize=(14, 10))
     g =  sns.heatmap(SC_mean_norm, center=0.1, linewidths=.2, cmap="GnBu",  annot=True, fmt='1.2f',  annot_kws={"fontsize":8})
-    plt.savefig(PLOTS+'Sensitivity/' + ID +'_'+str(bl)+ "Sensitivity_heatmap"+".eps", format='eps', dpi=350)
+    plt.savefig(PLOTS+'Sensitivity/' + ID +'_'+str(bl)+ 'epochs' + str(epochs) + "Sensitivity_heatmap"+".eps", format='eps', dpi=350)
     plt.close()
     #elasticity score per point
     #SC = np.concatenate([SC[lbls == i, :] * aFrame[lbls == i, :] * np.expand_dims(1/lmbd[lbls == i], -1) for i in l_list], axis=0)
@@ -346,7 +346,7 @@ for bl in list_of_branches:
         sns.violinplot(data=SC[lbls == i, :], ax=axs[int(i)])
         axs[int(i)].set_ylim(yl, yu)
         axs[int(i)].set_title(str(int(i)), rotation=-90, x=1.05, y =0.5)
-    fig.savefig(PLOTS+'Sensitivity/' + ID +'_'+ str(bl)+ "Sensitivity_violinplot"+".eps", format='eps', dpi=700)
+    fig.savefig(PLOTS+'Sensitivity/' + ID +'_'+ str(bl)+ 'epochs' + str(epochs) + "Sensitivity_violinplot"+".eps", format='eps', dpi=700)
     plt.close()
 
     fig, axs = plt.subplots(nrows=8)
@@ -358,7 +358,7 @@ for bl in list_of_branches:
         axs[int(i)].set_title(str(int(i)), rotation=-90, x=1.05, y =0.5)
     fig.savefig(PLOTS + 'Sensitivity/' + ID +'_'+ str(bl) + "Signal_violinplot" + ".eps", format='eps', dpi=350)
     plt.close()
-
+    '''#plot the autoencoder output
     fig, axs = plt.subplots(nrows=8)
     yl = out.min()
     yu = out.max()
@@ -366,9 +366,9 @@ for bl in list_of_branches:
         sns.violinplot(data=out[lbls == i, :], ax=axs[int(i)])
         axs[int(i)].set_ylim(yl, yu)
         axs[int(i)].set_title(str(int(i)), rotation=-90, x=1.05, y=0.5)
-    fig.savefig(PLOTS + 'Sensitivity/' + ID +'_'+ str(bl) + "Autoencoder_out" + ".eps", format='eps', dpi=350)
+    fig.savefig(PLOTS + 'Sensitivity/' + ID +'_'+ str(bl) + "Autoencoder_out" + 'epochs' + str(epochs) + ".eps", format='eps', dpi=350)
     plt.close()
-
+    '''
 
 
     from scipy.stats import brunnermunzel
@@ -419,9 +419,9 @@ for bl in list_of_branches:
     Pvals.append(test_res)
     df7 = pd.DataFrame(Pvals, columns=col_names)
 
-    outfile = sensitivity_dir + ID +'_'+   str(bl) + '_df_sensitivity_table_experiment.csv'
+    outfile = sensitivity_dir + ID +'_'+   str(bl) + 'epochs' + str(epochs) + '_df_sensitivity_table_experiment.csv'
     df.to_csv(outfile,encoding ='utf-8')
-    outfile = sensitivity_dir  + ID +'_'+  str(bl) + '_df7_sensitivity_table_experiment.csv'
+    outfile = sensitivity_dir  + ID +'_'+  str(bl) + 'epochs' + str(epochs) + '_df7_sensitivity_table_experiment.csv'
     df7.to_csv(outfile,encoding ='utf-8')
 
 #combine dataframes and create summary information on sensitivity in all 25 clusters
@@ -429,9 +429,9 @@ df_all = list()
 df7_all = list()
 #bl = list_of_branches[0]
 for bl in list_of_branches:
-    outfile = sensitivity_dir  + ID + '_'+  str(bl) + '_df7_sensitivity_table_experiment.csv'
+    outfile = sensitivity_dir  + ID + '_'+  str(bl) + 'epochs' + str(epochs) + '_df7_sensitivity_table_experiment.csv'
     df7  = pd.read_csv(outfile).iloc[: , 1:]
-    outfile = sensitivity_dir + ID + '_'+   str(bl) + '_df_sensitivity_table_experiment.csv'
+    outfile = sensitivity_dir + ID + '_'+   str(bl) + 'epochs' + str(epochs) + '_df_sensitivity_table_experiment.csv'
     df = pd.read_csv(outfile).iloc[: , 1:]
     df_all.append(df)
     df7_all.append(df7)

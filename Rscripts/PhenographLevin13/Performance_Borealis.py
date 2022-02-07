@@ -28,7 +28,7 @@ min_delta = 1e-4
 g=0.1
 ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
-epochs = 500
+epochs = 250
 # Compute performance for DCAE
 z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"
@@ -47,8 +47,10 @@ for bl in list_of_branches:
     z = npz_res['z']
 
     discontinuity, manytoone = get_wsd_scores_normalized(aFrame, z, 30, num_meandist=10000, compute_knn_x=False, x_knn=Idx, nc=16)
+    print('discontinuity=', np.median(discontinuity))
+    print('manytoone =', np.median(manytoone))
 
-    outfile = output_dir + '/'  + ID + "_"  + str(bl) + '_BOREALIS_PerformanceMeasures_normalized.npz'
+    outfile = output_dir + '/'  + ID + "_"  + str(bl) +  'epochs' + str(epochs) +'_BOREALIS_PerformanceMeasures_normalized.npz'
     np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
 
 '''
@@ -114,7 +116,7 @@ for i in range(3):
         if bor_res_dirs[i] != bor_res_dirs[0]:
             outfile = bor_res_dirs[i] + '/' + str(bl) + '_BOREALIS_PerformanceMeasures_normalized.npz'
         else:
-            outfile = bor_res_dirs[i] + ID + '_' + str(bl) + '_BOREALIS_PerformanceMeasures_normalized.npz'
+            outfile = bor_res_dirs[i] + ID + '_' + str(bl) + 'epochs' + str(epochs) + '_BOREALIS_PerformanceMeasures_normalized.npz'
 
         npz_res =  np.load(outfile)
         discontinuity = npz_res['discontinuity']

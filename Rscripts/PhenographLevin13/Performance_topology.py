@@ -102,8 +102,8 @@ os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'clip_grad_exp_MDS_g_0.1_lam_0.1_batch_128_alp_0.2_m_10'
-epochs = 500
+ID = 'zero_MDS_g_0_lam_0.1_batch_128_alp_0.2_m_10' #'clip_grad_exp_MDS_g_0.1_lam_0.1_batch_128_alp_0.2_m_10'
+epochs = 250
 # Compute performance for DCAE
 z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"
@@ -119,7 +119,7 @@ for bl in list_of_branches:
     topolist_estimate = get_representation_topology(z, lbls)
     top_score = get_topology_match_score(topolist, topolist_estimate)
     print(top_score)
-    outfile = output_dir + '/' + ID +  str(bl) + '_Topological_PerformanceMeasures.npz'
+    outfile = output_dir + '/' + ID +  str(bl) + 'epochs' + str(epochs) + '_Topological_PerformanceMeasures.npz'
     np.savez(outfile, top_score= top_score)
 '''
 # Compute performance for UMAP
@@ -169,7 +169,7 @@ for i in range(3):
         if  bor_res_dirs[i]!=bor_res_dirs[0]:
             outfile = bor_res_dirs[i] + '/' +  str(bl) + '_Topological_PerformanceMeasures.npz'
         else:
-            outfile = bor_res_dirs[i] + '/'   + ID +   str(bl) + '_Topological_PerformanceMeasures.npz'
+            outfile = bor_res_dirs[i] + '/'   + ID +   str(bl) + 'epochs' + str(epochs) + '_Topological_PerformanceMeasures.npz'
         npz_res =  np.load(outfile)
         score = int(npz_res['top_score'])
 
@@ -185,11 +185,11 @@ matplotlib.use('PS')
 sns.set(rc={'figure.figsize':(14, 4)})
 g = sns.barplot(x='branch', y='score', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS + ID +"_" + "TopoScore.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + ID +"_" + 'epochs' + str(epochs) + "TopoScore.eps", format='eps', dpi = 350)
 plt.close()
 
 df2 = df.groupby('method').sum()
 print(df2)
-df2.to_csv(output_dir + '/' + ID +  '_Summary_Performance_topology.csv', index=True)
+df2.to_csv(output_dir + '/' + ID + 'epochs' + str(epochs) +'_Summary_Performance_topology.csv', index=True)
 
 

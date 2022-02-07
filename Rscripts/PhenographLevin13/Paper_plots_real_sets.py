@@ -4,9 +4,11 @@ real sets
 '''
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
+from matplotlib import rcParams
 import numpy as np
 import os
 import seaborn as sns
+
 
 k = 30
 epoch_list = [250, 500, 1000]
@@ -58,7 +60,7 @@ for idx in bl_index:
     cl = np.unique(lb)
 
     if idx!=2:
-        smpl = np.random.choice(range(z.shape[0]), size=20000, replace=False)
+        smpl = np.random.choice(range(z.shape[0]), size=50000, replace=False)
         lb = lb[smpl]
         z = z[smpl,:]
 
@@ -67,10 +69,9 @@ for idx in bl_index:
 
     #z = z[:10000,:]
     #lb= lb[:10000]
-    from matplotlib import rcParams
     dpi = 350
     rcParams['savefig.dpi'] = dpi
-    sz=0.0001
+    sz=0.01
     fig = plt.figure(dpi = dpi, figsize=(18,5))
     # First subplot
     ax = fig.add_subplot(1, 3, 1, projection='3d')
@@ -154,7 +155,7 @@ for idx in bl_index:
 
     dpi = 350
     rcParams['savefig.dpi'] = dpi
-    sz = 0.0001
+    sz = 0.01
 
     fig = plt.figure(dpi=dpi, figsize=(10, 5))
     # plot UMAP
@@ -164,7 +165,7 @@ for idx in bl_index:
     z = z[lbls!=unassigned_lbls[idx],:]
     cl = np.unique(lb)
     if idx!=2:
-        smpl = np.random.choice(range(z.shape[0]), size=20000, replace=False)
+        smpl = np.random.choice(range(z.shape[0]), size=50000, replace=False)
         lb = lb[smpl]
         z = z[smpl,:]
 
@@ -182,6 +183,8 @@ for idx in bl_index:
         groups.append(
             ax.scatter(x=z[:, 0][lb == cl[i]], y=z[:, 1][lb == cl[i]], c=colors[i], s=sz))
         # ax.legend()
+    plt.grid(True, linewidth=0.5)
+
     # plot SAUCIE
     infile = DATA_DIR + bl
     npzfile = np.load(infile, allow_pickle=True)
@@ -192,7 +195,7 @@ for idx in bl_index:
     z = z[lbls != unassigned_lbls[idx], :]
     cl = np.unique(lb)
     if idx != 2:
-        smpl = np.random.choice(range(z.shape[0]), size=20000, replace=False)
+        smpl = np.random.choice(range(z.shape[0]), size=50000, replace=False)
         lb = lb[smpl]
         z = z[smpl, :]
     ax = fig.add_subplot(1, 2, 2)
@@ -204,6 +207,7 @@ for idx in bl_index:
     for i in range(len(cl)):
         groups.append(
             ax.scatter(x=z[:, 0][lb == cl[i]], y=z[:, 1][lb == cl[i]], c=colors[i], s=sz))
+    plt.grid(True, linewidth=0.5)
     plt.savefig(PLOTS + list_of_inputs[idx] + 'UMAP_SAUCIE_paper_DCAE.eps', dpi=dpi, format='eps')
         # ax.legend()
 

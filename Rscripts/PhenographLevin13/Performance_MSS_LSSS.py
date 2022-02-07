@@ -28,7 +28,7 @@ min_delta = 1e-4
 g=0.1
 ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
-epochs = 500
+epochs = 250
 # Compute performance for DCAE
 z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"
@@ -135,14 +135,14 @@ sns.set(rc={'figure.figsize':(14, 4)})
 g = sns.barplot(x='branch', y='MSS', hue='method', data=df.reset_index(), estimator=np.mean, ci=95, palette=['tomato','yellow','limegreen'])
 g.set(ylim=(0, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS + ID + '_''k_'+str(k)+'_'+ "MSS_normalized.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + ID + '_''k_'+str(k)+'_'+ 'epochs' + str(epochs) +"MSS_normalized.eps", format='eps', dpi = 350)
 plt.close()
 
 
 g = sns.barplot(x='branch', y='LSSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.set(ylim=(0, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS + ID + '_''k_'+str(k)+'_'+ "LSSS_normalized.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + ID + '_''k_'+str(k)+'_'+ 'epochs' + str(epochs) +"LSSS_normalized.eps", format='eps', dpi = 350)
 plt.close()
 
 
@@ -154,7 +154,7 @@ for i in range(3):
         if bor_res_dirs[i] != bor_res_dirs[0]:
             outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
         else:
-            outfile = bor_res_dirs[i] + ID + '_' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
+            outfile = bor_res_dirs[i] + ID + '_' + str(bl) + 'epochs' + str(epochs) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
         npz_res =  np.load(outfile)
         #MSS0 = npz_res['MSS0'][k]
         MSS1 = npz_res['MSS1']
@@ -171,14 +171,14 @@ sns.set(rc={'figure.figsize':(14, 4)})
 g = sns.barplot(x='branch', y='MSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.set(ylim=(0, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS + ID +'k_'+str(k)+'_'+ "MSS_k_20_normalized.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + ID +'k_'+str(k)+'_'+ 'epochs' + str(epochs) + "MSS_k_20_normalized.eps", format='eps', dpi = 350)
 plt.close()
 
 
 g = sns.barplot(x='branch', y='LSSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.set(ylim=(0, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS + ID +'k_'+str(k)+'_'+ "LSSS_k_20_normalized.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + ID +'k_'+str(k)+'_'+ 'epochs' + str(epochs) +"LSSS_k_20_normalized.eps", format='eps', dpi = 350)
 plt.close()
 
 
@@ -189,7 +189,7 @@ for i in range(3):
         if bor_res_dirs[i] != bor_res_dirs[0]:
             outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
         else:
-            outfile = bor_res_dirs[i] + ID + '_' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
+            outfile = bor_res_dirs[i] + ID + '_' + str(bl)  + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
         npz_res =  np.load(outfile)
         #MSS0 = npz_res['MSS0'][k]
         MSS1 = npz_res['MSS1']
@@ -206,12 +206,12 @@ sns.set(rc={'figure.figsize':(14, 4)})
 g = sns.barplot(x='branch', y='MSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.set(ylim=(0, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS + ID +'k_'+str(k)+'_'+ "MSS_k_60_normalized.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + ID +'k_'+str(k)+'_'+ 'epochs' + str(epochs) + "MSS_k_60_normalized.eps", format='eps', dpi = 350)
 plt.close()
 
 
 g = sns.barplot(x='branch', y='LSSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.set(ylim=(0, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS + ID +'k_'+str(k)+'_'+ "LSSS_k_60_normalized.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + ID +'k_'+str(k)+'_'+ 'epochs' + str(epochs) + "LSSS_k_60_normalized.eps", format='eps', dpi = 350)
 plt.close()

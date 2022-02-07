@@ -17,14 +17,19 @@ pio.renderers.default = "browser"
 
 from utils_evaluation import plot3D_cluster_colors, table
 from utils_model import plotCallback, AnnealingCallback, saveEncoder
-from utils_model import frange_anneal, relu_derivative, elu_derivative, leaky_relu_derivative, linear_derivative
+from utils_model import frange_anneal,  linear_derivative
+
+#def elu_derivative(a):
+#    cond = tf.math.greater_equal(a, tf.constant(0.0))
+#    return tf.where(cond, tf.constant(1.0, shape=), a + 1)
+
 
 from pathos import multiprocessing
 num_cores = multiprocessing.cpu_count()
 pool = multiprocessing.Pool(num_cores)
 
 k = 30
-epochs_list = [250,500]
+epochs_list = [250]
 coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
@@ -33,25 +38,25 @@ alp = 0.2
 m = 10
 patience = 500
 min_delta = 1e-4
-g=1
-#epochs=100
+g=0.1
+epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
-output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/temp/'
+output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'BATCH_LDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'gpu_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 #ID = 'ELU_' + '_DCAE_norm_0.5' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
 #output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output'
 #load earlier generated data
-epochs=500
-tf.config.threading.set_inter_op_parallelism_threads(0)
-tf.config.threading.set_intra_op_parallelism_threads(0)
-tf.compat.v1.disable_eager_execution()
-#bl = list_of_branches[0]
+#epochs=500
+#tf.config.threading.set_inter_op_parallelism_threads(0)
+#tf.config.threading.set_intra_op_parallelism_threads(0)
+#tf.compat.v1.disable_eager_execution()
+bl = list_of_branches[0]
 # possibly final parameters: m=10 ; lam = 0.1; g=0.1
 # worst: lam = 0.01; # g=0.1; lam = 0.01; # g=0.01, seems like lam =0.001 is to small
 for epochs in epochs_list:
-    for bl in list_of_branches[0:2]:
+    for bl in list_of_branches:
         infile = source_dir + 'set_' + str(bl) + '.npz'
         # markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
         # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
@@ -123,80 +128,71 @@ for epochs in epochs_list:
 
 
         # optimize matrix multiplication
-        def DCAE_loss(y_true, y_pred):  # (x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
-            U = encoder.get_layer('intermediate').trainable_weights[0]
-            W = encoder.get_layer('intermediate2').trainable_weights[0]
-            Z = encoder.get_layer('z_mean').trainable_weights[0]  # N x N_hidden
-            U = K.transpose(U);
-            W = K.transpose(W);
-            Z = K.transpose(Z);  # N_hidden x N
-
-            u = encoder.get_layer('intermediate').output
-            du = elu_derivative(u)
-            m = encoder.get_layer('intermediate2').output
-            dm = elu_derivative(m)
-            s = encoder.get_layer('z_mean').output
-            ds = linear_derivative(s)
-
-            r = tf.linalg.einsum('aj->a', s ** 2)  # R^2 in reality. to think this trough
-
-            # pot = 500 * tf.math.square(alp - r) * tf.dtypes.cast(tf.less(r, alp), tf.float32) + \
-            #      500 * (r - 1) * tf.dtypes.cast(tf.greater_equal(r, 1), tf.float32) + 1
-            # pot=1
-            pot = tf.math.square(r - 1) + 1
-
-            ds = tf.einsum('ak,a->ak', ds, pot)
-            diff_tens = tf.einsum('al,lj->alj', ds, Z)
-            diff_tens = tf.einsum('al,ajl->ajl', dm, diff_tens)
-            diff_tens = tf.einsum('ajl,lk->ajk', diff_tens, W)
-            u_U = tf.einsum('al,lj->alj', du, U)
-            diff_tens = tf.einsum('ajl,alk->ajk', diff_tens, u_U)
-            return lam * SigmaTsq[:, 0] * K.sqrt(K.sum(diff_tens ** 2, axis=[1, 2]))
-            # return lam * K.sum(diff_tens ** 2, axis=[1, 2])
-
+        # def DCAE_loss(y_true, y_pred):  # (x, x_decoded_mean):  # attempt to avoid vanishing derivative of sigmoid
+        #     U = encoder.get_layer('intermediate').trainable_weights[0]
+        #     W = encoder.get_layer('intermediate2').trainable_weights[0]
+        #     Z = encoder.get_layer('z_mean').trainable_weights[0]  # N x N_hidden
+        #     U = K.transpose(U);
+        #     W = K.transpose(W);
+        #     Z = K.transpose(Z);  # N_hidden x N
+        #
+        #     u = encoder.get_layer('intermediate').output
+        #     du = elu_derivative(u)
+        #     m = encoder.get_layer('intermediate2').output
+        #     dm = elu_derivative(m)
+        #     s = encoder.get_layer('z_mean').output
+        #     ds = linear_derivative(s)
+        #
+        #     r = tf.linalg.einsum('aj->a', s ** 2)  # R^2 in reality. to think this trough
+        #
+        #     # pot = 500 * tf.math.square(alp - r) * tf.dtypes.cast(tf.less(r, alp), tf.float32) + \
+        #     #      500 * (r - 1) * tf.dtypes.cast(tf.greater_equal(r, 1), tf.float32) + 1
+        #     # pot=1
+        #     pot = tf.math.square(r - 1) + 1
+        #
+        #     ds = tf.einsum('ak,a->ak', ds, pot)
+        #     diff_tens = tf.einsum('al,lj->alj', ds, Z)
+        #     diff_tens = tf.einsum('al,ajl->ajl', dm, diff_tens)
+        #     diff_tens = tf.einsum('ajl,lk->ajk', diff_tens, W)
+        #     u_U = tf.einsum('al,lj->alj', du, U)
+        #     diff_tens = tf.einsum('ajl,alk->ajk', diff_tens, u_U)
+        #     return lam * SigmaTsq[:, 0] * K.sqrt(K.sum(diff_tens ** 2, axis=[1, 2]))
+        #     # return lam * K.sum(diff_tens ** 2, axis=[1, 2])
 
         meanS = np.mean(Sigma)
-        neib_dist = np.mean(Dist[:, 30])
+        neib_dist = np.mean(Dist[:,30])
+        #plt.hist(Dist[:,30],50)
 
-
-        # plt.hist(Dist[:,30],50)
 
         def compute_graph_weights_Inp(x):
             x_size = tf.shape(x)[0]
             dim = tf.shape(x)[1]
             # TODO: x = x/meanS we nead update this function in the fashion that weights are computed
-            # from w_ij = kernel((x_i-x_j)/sigma_i) and then symmetrized
-            # x=x/max_dist
+            #from w_ij = kernel((x_i-x_j)/sigma_i) and then symmetrized
+            #x=x/max_dist
             tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
             tiled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
-            D = tf.reduce_sum(tf.square(tiled_x - tiled_y), axis=2)  # / tf.cast(x_size**2, tf.float32)
-            # apply monotone f to sqeeze  and normalize
+            D = tf.reduce_sum(tf.square(tiled_x - tiled_y), axis=2)#/ tf.cast(x_size**2, tf.float32)
+            #apply monotone f to sqeeze  and normalize
             D = K.sqrt(D)
-            D = 2 * (D - min_dist) / (max_dist)
+            D = 2 * (D - min_dist)/(max_dist)
             D = tf.linalg.set_diag(D, tf.zeros(x_size), name=None)
             return D
-            # no log version
-
-
+            #no log version
         def compute_graph_weights_enc(x):
             x_size = tf.shape(x)[0]
             dim = tf.shape(x)[1]
-            # x = tf.linalg.normalize(x, ord=2, axis=1)[0]
+            #x = tf.linalg.normalize(x, ord=2, axis=1)[0]
             tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
             tiled_y = tf.tile(tf.reshape(x, tf.stack([1, x_size, dim])), tf.stack([x_size, 1, 1]))
-            D = tf.reduce_sum(tf.square(tiled_x - tiled_y), axis=2)
+            D =  tf.reduce_sum(tf.square(tiled_x - tiled_y), axis=2)
             D = K.sqrt(D)
-            # D = tf.linalg.set_diag(D, tf.zeros(x_size), name=None)# / tf.cast(dim, tf.float32))
+            #D = tf.linalg.set_diag(D, tf.zeros(x_size), name=None)# / tf.cast(dim, tf.float32))
             return D
-
-
         # no log version
         def graph_diff(x, y):
-            # pot = tf.math.square(r - 1)
-            return g * K.sqrt(
-                K.sum(K.square(1 - K.exp(compute_graph_weights_Inp(X) - compute_graph_weights_enc(z_mean)))) / tf.cast(
-                    batch_size ** 2, tf.float32))
-
+            #pot = tf.math.square(r - 1)
+            return g * K.sqrt(K.sum(K.square(1 - K.exp ( compute_graph_weights_Inp(X) -  compute_graph_weights_enc(z_mean)))) /tf.cast( batch_size**2, tf.float32))
 
         #idx =np.random.choice(nrow, size=30,replace=False)
         #LL = lbls[idx]
@@ -231,7 +227,7 @@ for epochs in epochs_list:
             # first sample spherical
             vec = K.random_normal(shape=(npoints, ndim))
             # K.get_value(vec)
-            vec = tf.linalg.normalize(vec, axis=1)[0]
+            vec = tf.linalg.l2_normalize(vec, axis=1)#[0]
 
             R = tf.pow(K.random_uniform(shape=[npoints], minval=a ** 3, maxval=b ** 3), 1 / 3)
             #sns.displot( np.power(np.random.uniform(a ** 3, b ** 3, 50000), 1 / 3))
@@ -262,25 +258,27 @@ for epochs in epochs_list:
                 msew = mean_square_error_NN(y_true, y_pred)
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean)
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
-                # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
-                return coeffMSE * msew +     (1)* graph_diff(y_true, y_pred)
+                return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(y_true, y_pred)
+                #return coeffMSE * msew +   1 *  loss_mmd(y_true, y_pred) +  (
+                #        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) +  (MMD_weight + 0.01)* graph_diff(y_true, y_pred)
                 # return  loss_mmd(x, x_decoded_mean)
 
             return loss
             # return K.switch(tf.equal(Epoch_count, 10),  loss1(x, x_decoded_mean), loss1(x, x_decoded_mean))
 
 
-        opt = tf.keras.optimizers.Adam(
-            learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False, clipvalue=1.0
-        )
+        #opt = tf.keras.optimizers.Adam(
+        #    learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False, clipvalue=1.0
+        #)
 
-        autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst),
-                            metrics=[ graph_diff,  mean_square_error_NN])
+        autoencoder.compile(optimizer='adam', loss=ae_loss(MMD_weight, MMD_weight_lst),
+                            metrics=[graph_diff, loss_mmd, mean_square_error_NN])
 
         autoencoder.summary()
 
         save_period = 10
-
+        #DCAEStop = EarlyStopping(monitor='DCAE_loss', min_delta=min_delta, patience=patience, mode='min',
+        #                         restore_best_weights=False)
         start = timeit.default_timer()
         history_multiple = autoencoder.fit([aFrame, Sigma], aFrame,
                                            batch_size=batch_size,

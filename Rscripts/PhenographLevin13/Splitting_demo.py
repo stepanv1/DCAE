@@ -42,7 +42,7 @@ DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Split_demo/'
 output_dir  = DATA_ROOT + 'Artificial_sets/Split_demo/'
 PLOTS = DATA_ROOT + 'Artificial_sets/Split_demo/PLOTS/'
-list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
+
 ID1 = 'Split_demo'
 
 epochs=10000
@@ -61,7 +61,7 @@ nrow = 30000
 s=1
 
 inp_d =10
-#TODO: uncomment later
+#TODO: uncomment before submission
 #aFrame = np.random.uniform(low=np.zeros(inp_d), high=np.ones(inp_d), size=(nrow,inp_d))
 #np.savez(output_dir + '/' + ID1 + "_" +  'epochs' + str(epochs) + '_aFrame.npz', aFrame=aFrame)
 npzfile = np.load(output_dir + '/' + ID1 + "_" +  'epochs' + str(epochs) + '_aFrame.npz')
@@ -479,14 +479,252 @@ fig.tight_layout(pad = 1.0)
 plt.savefig(PLOTS + 'splitting_demo.eps', dpi=dpi, format='eps')
 plt.show()
 
+########################################################################################################
+#low dimensional demonstration
 
-#plt.plot(np.array(history2['MSE'][1000:2000]))
-#plt.plot(history2['DCAE_loss'][1000:2000])
+ID3 = 'Split_demo_LD'
+
+epochs=100000
+
+nrow = 10000
+s=1
+inp_d =2
+#TODO: uncomment later
+aFrame = np.random.uniform(low=np.zeros(inp_d), high=np.ones(inp_d), size=(nrow,inp_d))
+aFrame = aFrame -0.5
+np.savez(output_dir + '/' + ID3 + "_" +  'epochs' + str(epochs) + '_aFrame.npz', aFrame=aFrame)
+npzfile = np.load(output_dir + '/' + ID3 + "_" +  'epochs' + str(epochs) + '_aFrame.npz')
+aFrame = npzfile['aFrame']
+
+lam = 0.1
+latent_dim = 1
+original_dim = aFrame.shape[1]
+intermediate_dim = 2
+
+
+initializer = tf.keras.initializers.he_normal(12345)
+
+X = Input(shape=(original_dim,))
+h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(X)
+#h2= Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
+z_mean = Dense(latent_dim, activation='sigmoid', name='z_mean', kernel_initializer=initializer)(h)
+
+encoder = Model(X, z_mean, name='encoder')
+
+decoder_h = Dense(intermediate_dim, activation='relu', name='intermediate3', kernel_initializer=initializer)(z_mean)
+#decoder_h2 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)(decoder_h)
+decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)(decoder_h)
+autoencoder = Model(inputs=X, outputs=decoder_mean)
+
+def loss(y_true, y_pred):
+    return tf.keras.losses.mean_squared_error(y_true, y_pred)
+
+opt = tf.keras.optimizers.Adam(
+    learning_rate=0.001, beta_1=0.99, beta_2=0.999, epsilon=1e-07, amsgrad=True
+)
+
+autoencoder.compile(optimizer=opt, loss=loss,
+                    metrics=[loss])
+
+autoencoder.summary()
+
+save_period = 100
+batch_size = 250
+
+start = timeit.default_timer()
+history_multiple = autoencoder.fit(aFrame, aFrame,
+                                   batch_size=batch_size,
+                                   epochs=epochs,
+                                   shuffle=True,
+                                   callbacks=[saveEncoder(encoder=encoder, ID=ID3, epochs=epochs,
+                                                                  output_dir=output_dir, save_period=save_period)],
+                                   verbose=1)
+stop = timeit.default_timer()
+z = encoder.predict([aFrame])
+print(stop - start)
+
+encoder.save_weights(output_dir + '/' + ID3 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+autoencoder.save_weights(output_dir + '/autoencoder_' + ID3 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+np.savez(output_dir + '/' + ID3+ "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
+with open(output_dir + '/' + ID3 + 'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+    pickle.dump(history_multiple.history, file_pi)
+
+plt.hist(z,200)
+from scipy.stats import spearmanr
+spearmanr(z, aFrame[:,1])
+
+fig01 = plt.figure();
+col = 1
+plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=z, c=aFrame[:, 1], cmap='winter', s=0.1)
+plt.title('color ' + str(col))
+plt.colorbar()
+
+fig01 = plt.figure();
+col = 1
+plt.scatter(aFrame[:, 1], y=z, c=aFrame[:, 1], cmap='winter', s=0.1)
+plt.title('color ' + str(col))
+plt.colorbar()
+
+for w in encoder.trainable_weights:
+    print(K.eval(w))
 
 
 
+for i in range(original_dim):
+    fig01 = plt.figure();
+    col=i
+    plt.scatter(aFrame[:,i], z, c=aFrame[:,col],  cmap='winter', s=0.1)
+    plt.title('color ' + str(col))
+    plt.colorbar()
 
 
+history = pickle.load(open(output_dir + '/' + ID3 + 'epochs' + str(epochs) + '_history',  "rb"))
+st = 20;
+stp = 4000 #len(history['loss'])
+fig01 = plt.figure();
+plt.plot(history['loss'][st:stp]);
+plt.title('loss')
+
+####################################################################################################
+#start with assigned weights
+ID4 = 'Split_demo_assigned weights'
+epochs=10000
+
+nrow = 10000
+s=1
+inp_d = 2
+#TODO: uncomment later
+aFrame = np.random.uniform(low=np.zeros(inp_d), high=np.ones(inp_d), size=(nrow,inp_d))
+aFrame = aFrame - 0.5
+np.savez(output_dir + '/' + ID4 + "_" +  'epochs' + str(epochs) + '_aFrame.npz', aFrame=aFrame)
+npzfile = np.load(output_dir + '/' + ID4 + "_" +  'epochs' + str(epochs) + '_aFrame.npz')
+aFrame = npzfile['aFrame']
+
+lam = 0.1
+latent_dim = 1
+original_dim = aFrame.shape[1]
+intermediate_dim = 2
+
+
+initializer = tf.keras.initializers.he_normal(12345)
+
+X = Input(shape=(original_dim,))
+h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(X)
+#h2= Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
+z_mean = Dense(latent_dim, activation='tanh', name='z_mean', kernel_initializer=initializer)(h)
+
+encoder = Model(X, z_mean, name='encoder')
+
+decoder_h = Dense(intermediate_dim, activation='relu', name='intermediate3', kernel_initializer=initializer)(z_mean)
+#decoder_h2 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)(decoder_h)
+decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)(decoder_h)
+autoencoder = Model(inputs=X, outputs=decoder_mean)
+
+# assign encoder  weights to create split from the beginning
+w1 = np.zeros((2, 2)) # two input neurons for two neurons at the hidden layer
+b1 = np.zeros((2,))   # one bias neuron for two neurons in the hidden layer
+w2 = np.zeros((2, 1)) # two input neurons for one output neuron of encoder
+b2 = np.zeros((1,))   # one bias for one output neuron of encoder
+
+w1[0, 0] =  0.1;  w1[1, 0] =  100; # the weights for the first hidden neuron
+b1[0]    = 0.1  # bias for the first neuron
+w1[0, 1] =  0.1; w1[1, 1] =   -100 # the weights for the second hidden
+b1[1]    = 0.1 # bias for the second neuron
+
+w2[0, 0] =  0.01 # weight for the first input of the output neuron
+w2[1, 0] =  -0.01 # weight for the second input of the output neuron
+b2[0]    =  0 # bias for the output neuron
+
+encoder.set_weights([w1, b1, w2, b2])
+
+encoder.predict(np.array([[0.1,0.01]]))
+encoder.predict(np.array([[0.1,-0.01]]))
+
+for w in encoder.trainable_weights:
+    print(K.eval(w))
+z = encoder.predict([aFrame])
+fig01 = plt.figure();
+col = 0
+plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=z, c=aFrame[:, col], cmap='winter', s=0.1)
+plt.title('color ' + str(col))
+plt.colorbar()
+
+plt.hist(z,200)
+
+
+def loss(y_true, y_pred):
+    return tf.keras.losses.mean_squared_error(y_true, y_pred)
+
+opt = tf.keras.optimizers.Adam(
+    learning_rate=0.01, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=True
+)
+
+autoencoder.compile(optimizer=opt, loss=loss,
+                    metrics=[loss])
+
+autoencoder.summary()
+
+save_period = 100
+batch_size = 250
+
+start = timeit.default_timer()
+history_multiple = autoencoder.fit(aFrame, aFrame,
+                                   batch_size=batch_size,
+                                   epochs=epochs,
+                                   shuffle=True,
+                                   callbacks=[saveEncoder(encoder=encoder, ID=ID4, epochs=epochs,
+                                                                  output_dir=output_dir, save_period=save_period)],
+                                   verbose=1)
+stop = timeit.default_timer()
+z = encoder.predict([aFrame])
+print(stop - start)
+
+encoder.save_weights(output_dir + '/' + ID4 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+autoencoder.save_weights(output_dir + '/autoencoder_' + ID4 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+np.savez(output_dir + '/' + ID4+ "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
+with open(output_dir + '/' + ID4 + 'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+    pickle.dump(history_multiple.history, file_pi)
+
+fig01 = plt.figure();
+plt.hist(z,200)
+from scipy.stats import spearmanr
+spearmanr(z, aFrame[:,0])
+
+fig01 = plt.figure();
+col = 0
+plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=z, c=aFrame[:, col], cmap='winter', s=0.1)
+plt.title('color ' + str(col))
+plt.colorbar()
+
+fig01 = plt.figure();
+col = 1
+plt.scatter(aFrame[:, 0], y=z, c=aFrame[:, 0], cmap='winter', s=0.1)
+plt.title('color ' + str(col))
+plt.colorbar()
+
+for w in encoder.trainable_weights:
+    print(K.eval(w))
+
+
+for w in autoencoder.trainable_weights:
+    print(K.eval(w))
+
+
+
+for i in range(original_dim):
+    fig01 = plt.figure();
+    col=i
+    plt.scatter(aFrame[:,i], z, c=aFrame[:,col],  cmap='winter', s=0.1)
+    plt.title('color ' + str(col))
+    plt.colorbar()
+
+
+history = pickle.load(open(output_dir + '/' + ID4 + 'epochs' + str(epochs) + '_history',  "rb"))
+st = 1000;
+stp = 10000 #len(history['loss'])
+fig01 = plt.figure();
+plt.plot(history['loss'][st:stp]);
+plt.title('loss')
 
 
 
