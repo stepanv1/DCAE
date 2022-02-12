@@ -93,11 +93,7 @@ class relative_stop_callback(tf.keras.callbacks.Callback):
             self.model.stop_training = True
 
 
-
-
-
-
-# relu
+# derivative of relu
 def relu_derivative(a):
     cond = tf.math.greater_equal(a, tf.constant(0.0))
     return tf.where(cond, tf.constant(1.0), tf.constant(0.0))
@@ -112,6 +108,11 @@ def leaky_relu_derivative(a):
     cond = tf.math.greater_equal(a, tf.constant(0.0))
     return tf.where(cond, tf.constant(1.0), tf.constant(0.3))
 
-    # linear
+# linear
 def linear_derivative(a):
     return tf.ones(tf.shape(a), dtype=tf.float32)
+
+# derivative of tanh
+def tanh_derivative(a):
+    return 1-a**2
+

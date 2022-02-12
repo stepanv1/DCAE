@@ -79,7 +79,7 @@ for epochs in epochs_list:
         D = pdist(aFrame[IDX, :])
         D = squareform(D);
         max_dist, [I_row, I_col] = nanmax(D), unravel_index(argmax(D), D.shape)
-        np.fill_diagonal(D, 1000)
+        np.fill_diagonal(D, 10000)
         min_dist = np.min(D)
         np.fill_diagonal(D, 0)
         mean_dist = np.mean(D)
