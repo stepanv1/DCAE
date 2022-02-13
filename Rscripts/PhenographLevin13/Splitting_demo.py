@@ -51,7 +51,7 @@ PLOTS = DATA_ROOT + 'Artificial_sets/Split_demo/PLOTS/'
 #####################################################################################
 ID1 = 'Split_demo_tanh'
 
-epochs=100000
+epochs=30000
 
 ############################################################################################################
 # 10 dimensional example
@@ -171,8 +171,9 @@ for i in range(original_dim):
     plt.title('color ' + str(col))
     plt.colorbar()
 
+###############################################################################################################
 # Include DCAE
-epochs=100000
+epochs=30000
 lam=0.01
 ID2 = 'Split_demo_with_DCAE_lam_' + str(lam)
 def DCAE_loss(y_true, y_pred):
@@ -254,7 +255,7 @@ print(stop - start)
 encoder.save_weights(output_dir + '/' + ID2 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
 autoencoder.save_weights(output_dir + '/autoencoder_' + ID2 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
 np.savez(output_dir + '/' + ID2 + "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
-with open(output_dir + '/' + ID2 + 'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+with open(output_dir + '/' + ID2 + "_tanh"+'epochs' + str(epochs) + '_history', 'wb') as file_pi:
     pickle.dump(history_multiple.history, file_pi)
 history = pickle.load(open(output_dir + '/' + ID2 + "_tanh"+'epochs' + str(epochs) + '_history',  "rb"))
 st = 10;
