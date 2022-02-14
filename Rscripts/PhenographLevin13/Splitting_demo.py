@@ -61,8 +61,8 @@ s=1
 
 inp_d =10
 #TODO: uncomment before submission
-aFrame = np.random.uniform(low=np.zeros(inp_d), high=np.ones(inp_d), size=(nrow,inp_d))
-np.savez(output_dir + '/' + ID1 + "_" +  'epochs' + str(epochs) + '_aFrame.npz', aFrame=aFrame)
+#aFrame = np.random.uniform(low=np.zeros(inp_d), high=np.ones(inp_d), size=(nrow,inp_d))
+#np.savez(output_dir + '/' + ID1 + "_" +  'epochs' + str(epochs) + '_aFrame.npz', aFrame=aFrame)
 npzfile = np.load(output_dir + '/' + ID1 + "_" +  'epochs' + str(epochs) + '_aFrame.npz')
 aFrame = npzfile['aFrame']
 
@@ -144,11 +144,11 @@ z = encoder.predict([aFrame])
 print(stop - start)
 
 # Comment this after the first run
-encoder.save_weights(output_dir + '/' + ID1 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
-autoencoder.save_weights(output_dir + '/autoencoder_' + ID1 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
-np.savez(output_dir + '/' + ID1 + "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
-with open(output_dir + '/' + ID1 + 'epochs' + str(epochs) + '_history', 'wb') as file_pi:
-    pickle.dump(history_multiple.history, file_pi)
+#encoder.save_weights(output_dir + '/' + ID1 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+#autoencoder.save_weights(output_dir + '/autoencoder_' + ID1 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+#np.savez(output_dir + '/' + ID1 + "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
+#with open(output_dir + '/' + ID1 + 'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+#    pickle.dump(history_multiple.history, file_pi)
 
 
 
@@ -163,6 +163,10 @@ stp = 10000 #len(history['loss'])
 fig01 = plt.figure();
 plt.plot(history['loss'][st:stp]);
 plt.title('loss')
+fig02 = plt.figure();
+plt.plot(history['DCAE_loss'][st:stp]);
+plt.title('DCAE_loss')
+
 
 for i in range(original_dim):
     fig01 = plt.figure();
@@ -252,11 +256,11 @@ stop = timeit.default_timer()
 z = encoder.predict([aFrame])
 print(stop - start)
 
-encoder.save_weights(output_dir + '/' + ID2 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
-autoencoder.save_weights(output_dir + '/autoencoder_' + ID2 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
-np.savez(output_dir + '/' + ID2 + "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
-with open(output_dir + '/' + ID2 + "_tanh"+'epochs' + str(epochs) + '_history', 'wb') as file_pi:
-    pickle.dump(history_multiple.history, file_pi)
+#encoder.save_weights(output_dir + '/' + ID2 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+#autoencoder.save_weights(output_dir + '/autoencoder_' + ID2 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+#np.savez(output_dir + '/' + ID2 + "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
+#with open(output_dir + '/' + ID2 + "_tanh"+'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+#    pickle.dump(history_multiple.history, file_pi)
 history = pickle.load(open(output_dir + '/' + ID2 + "_tanh"+'epochs' + str(epochs) + '_history',  "rb"))
 st = 10;
 stp = 10000 #len(history['loss'])
@@ -273,7 +277,7 @@ for i in range(original_dim):
     plt.title('color ' + str(col))
     plt.colorbar()
 
-
+####################################################################################################################
 npzfile = np.load(output_dir + '/' + ID1 + "_" +  'epochs' + str(epochs) + '_aFrame.npz')
 aFrame = npzfile['aFrame']
 
@@ -283,7 +287,7 @@ history1 = pickle.load(open(output_dir + '/'  + ID1 +  'epochs'+ str(epochs)+ '_
 
 npzfile2 = np.load(output_dir + '/' + ID2 + "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz')
 z2 = npzfile2['z']
-history2 = pickle.load(open(output_dir + '/'  + ID2 +  'epochs'+ str(epochs)+ '_history',  "rb"))
+history2 = pickle.load(open(output_dir + '/' + ID2 + "_tanh"+'epochs' + str(epochs) + '_history',  "rb"))
 
 from matplotlib import rcParams
 import matplotlib.gridspec as gridspec
