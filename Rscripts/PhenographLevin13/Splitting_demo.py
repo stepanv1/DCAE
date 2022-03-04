@@ -389,7 +389,7 @@ encoder.load_weights(output_dir + '/' + ID3 +  "_tanh_"  + 'epochs' + str(epochs
 autoencoder.load_weights(output_dir + '/autoencoder_' + ID3  + "_tanh_"  + 'epochs' + str(epochs) + '_3D.h5')
 A_rest = autoencoder.predict(aFrame)
 z = encoder.predict(aFrame)
-
+print(output_dir + '/autoencoder_' + ID3  + "_tanh_"  + 'epochs' + str(epochs) + '_3D.h5')
 
 fig01 = plt.figure();
 plt.hist(z,200)
@@ -400,6 +400,12 @@ spearmanr(z[z<0.378],aFrame[np.where(z<0.378)[0],1] )
 
 for w in autoencoder.trainable_weights:
     print(K.eval(w))
+
+fig01 = plt.figure();
+col = 1
+plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=z, c=aFrame[:,col], cmap='winter', s=0.1)
+plt.title('color ' + str(col))
+plt.colorbar()
 
 fig01 = plt.figure();
 col = 0
@@ -595,6 +601,298 @@ col=0
 plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
 plt.title('color ' + str(col))
 plt.colorbar()
+
+
+########################################################################################################
+#low dimensional demonstration
+
+ID5 = 'Split_demo_HD_to_1D'
+
+epochs=10000
+
+nrow = 10000
+s=1
+inp_d = 10
+#TODO: uncomment later
+aFrame = np.random.uniform(low=np.zeros(inp_d), high=np.ones(inp_d), size=(nrow,inp_d))
+np.savez(output_dir + '/' + ID5 + "_" +  'epochs' + str(epochs) + '_aFrame.npz', aFrame=aFrame)
+npzfile = np.load(output_dir + '/' +ID5 + "_" +  'epochs' + str(epochs) + '_aFrame.npz')
+aFrame = npzfile['aFrame']
+
+lam = 0.1
+latent_dim = 1
+original_dim = aFrame.shape[1]
+intermediate_dim = original_dim *3
+intermediate_dim2= original_dim *2
+
+initializer = tf.keras.initializers.he_normal(12345)
+
+X = Input(shape=(original_dim,))
+h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(X)
+#h2= Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
+z_mean = Dense(latent_dim, activation='tanh', name='z_mean', kernel_initializer=initializer)(h)
+
+encoder = Model(X, z_mean, name='encoder')
+
+decoder_h = Dense(intermediate_dim, activation='relu', name='intermediate3', kernel_initializer=initializer)(z_mean)
+#decoder_h2 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)(decoder_h)
+decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)(decoder_h)
+autoencoder = Model(inputs=X, outputs=decoder_mean)
+
+def loss(y_true, y_pred):
+    return tf.keras.losses.mean_squared_error(y_true, y_pred)
+
+opt = tf.keras.optimizers.Adam(
+    learning_rate=0.001, beta_1=0.99, beta_2=0.999, epsilon=1e-07, amsgrad=True
+)
+
+autoencoder.compile(optimizer=opt, loss=loss,
+                    metrics=[loss])
+
+autoencoder.summary()
+
+save_period = 100
+batch_size = 250
+
+start = timeit.default_timer()
+history_multiple = autoencoder.fit(aFrame, aFrame,
+                                   batch_size=batch_size,
+                                   epochs=epochs,
+                                   shuffle=True,
+                                   callbacks=[saveEncoder(encoder=encoder, ID=ID3, epochs=epochs,
+                                                                  output_dir=output_dir, save_period=save_period)],
+                                   verbose=1)
+stop = timeit.default_timer()
+z = encoder.predict([aFrame])
+print(stop - start)
+
+#encoder.save_weights(output_dir + '/' +ID5 + "_tanh_"  + 'epochs' + str(epochs) + '_3D.h5')
+#autoencoder.save_weights(output_dir + '/autoencoder_' +ID5 + "_tanh_"  + 'epochs' + str(epochs) + '_3D.h5')
+#np.savez(output_dir + '/' +ID5+ "_tanh_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
+#with open(output_dir + '/' +ID5 + "_tanh"+'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+#    pickle.dump(history_multiple.history, file_pi)
+
+encoder.load_weights(output_dir + '/' +ID5 +  "_tanh_"  + 'epochs' + str(epochs) + '_3D.h5')
+autoencoder.load_weights(output_dir + '/autoencoder_' +ID5  + "_tanh_"  + 'epochs' + str(epochs) + '_3D.h5')
+A_rest = autoencoder.predict(aFrame)
+z = encoder.predict(aFrame)
+print(output_dir + '/autoencoder_' +ID5  + "_tanh_"  + 'epochs' + str(epochs) + '_3D.h5')
+
+fig01 = plt.figure();
+plt.hist(z,200)
+from scipy.stats import spearmanr
+spearmanr(z, aFrame[:,1])
+spearmanr(z[z<0.378],aFrame[np.where(z<0.378)[0],1] )
+
+
+for w in autoencoder.trainable_weights:
+    print(K.eval(w))
+
+fig01 = plt.figure();
+col = 0
+plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=z, c=aFrame[:,col], cmap='winter', s=0.1)
+plt.title('color ' + str(col))
+plt.colorbar()
+
+for col in range(original_dim):
+    fig01 = plt.figure();
+    plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=z, c=aFrame[:,col], cmap='winter', s=0.1)
+    plt.title('color ' + str(col))
+    plt.colorbar()
+
+fig01 = plt.figure();
+col = 2
+plt.scatter(aFrame[:, 1], y=z, c=aFrame[:, 1], cmap='winter', s=0.1)
+plt.title('color ' + str(col))
+plt.colorbar()
+
+fig01 = plt.figure();
+col = 1
+plt.scatter(aFrame[:, 1], y=z, c=aFrame[:, 1], cmap='winter', s=0.1)
+plt.title('color ' + str(col))
+plt.colorbar()
+
+for w in encoder.trainable_weights:
+    print(K.eval(w))
+
+
+fig01 = plt.figure();
+col=0
+plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
+plt.title('color ' + str(col))
+plt.colorbar()
+
+
+history = pickle.load(open(output_dir + '/' +ID5 + "_tanh"+'epochs' + str(epochs) + '_history',  "rb"))
+st = 1000;
+stp = 10000 #len(history['loss'])
+fig01 = plt.figure();
+plt.plot(history['loss'][st:stp]);
+plt.title('loss')
+
+fig01 = plt.figure();
+col=0
+plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
+plt.title('color ' + str(col))
+plt.colorbar()
+
+########################################################################################################
+#low dimensional demonstration with the main component 0 10 yomes more extended
+
+ID6 = 'Split_demo_HD_to_1D_main component'
+
+epochs=100000
+
+nrow = 10000
+s=1
+inp_d = 10
+#TODO: uncomment later
+aFrame = np.random.uniform(low=np.zeros(inp_d), high=np.ones(inp_d), size=(nrow,inp_d))
+aFrame[:, 1:inp_d] = aFrame[:, 1:inp_d] /2
+np.savez(output_dir + '/' + ID6 + "_" +  'epochs' + str(epochs) + '_aFrame.npz', aFrame=aFrame)
+npzfile = np.load(output_dir + '/' +ID6 + "_" +  'epochs' + str(epochs) + '_aFrame.npz')
+aFrame = npzfile['aFrame']
+
+lam = 0.1
+latent_dim = 1
+original_dim = aFrame.shape[1]
+intermediate_dim = original_dim*3
+intermediate_dim2= original_dim *2
+
+initializer = tf.keras.initializers.he_normal(12345)
+
+X = Input(shape=(original_dim,))
+h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(X)
+#h2= Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
+z_mean = Dense(latent_dim, activation='tanh', name='z_mean', kernel_initializer=initializer)(h)
+
+encoder = Model(X, z_mean, name='encoder')
+
+decoder_h = Dense(intermediate_dim, activation='relu', name='intermediate3', kernel_initializer=initializer)(z_mean)
+#decoder_h2 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)(decoder_h)
+decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)(decoder_h)
+autoencoder = Model(inputs=X, outputs=decoder_mean)
+
+# loss for 2 layer encoder
+def DCAE_2l(y_true, y_pred):
+    U = encoder.get_layer('intermediate').trainable_weights[0]
+    Z = encoder.get_layer('z_mean').trainable_weights[0]  # N x N_hidden
+    U = K.transpose(U);
+    Z = K.transpose(Z);  # N_hidden x N
+
+    u = encoder.get_layer('intermediate').output
+    du = elu_derivative(u)
+    s = encoder.get_layer('z_mean').output
+    ds = tanh_derivative(s)
+
+    diff_tens = tf.einsum('al,lj->alj', ds, Z)
+    u_U = tf.einsum('al,lj->alj', du, U)
+    diff_tens = tf.einsum('ajl,alk->ajk', diff_tens, u_U)
+    return lam * K.sqrt(K.sum(diff_tens ** 2, axis=[1, 2]))
+
+
+
+def loss(y_true, y_pred):
+    return tf.keras.losses.mean_squared_error(y_true, y_pred)
+
+opt = tf.keras.optimizers.Adam(
+    learning_rate=0.001, beta_1=0.99, beta_2=0.999, epsilon=1e-07, amsgrad=True
+)
+
+autoencoder.compile(optimizer=opt, loss=loss,
+                    metrics=[loss, DCAE_2l])
+
+autoencoder.summary()
+
+save_period = 100
+batch_size = 250
+
+start = timeit.default_timer()
+history_multiple = autoencoder.fit(aFrame, aFrame,
+                                   batch_size=batch_size,
+                                   epochs=epochs,
+                                   shuffle=True,
+                                   callbacks=[saveEncoder(encoder=encoder, ID=ID6, epochs=epochs,
+                                                                  output_dir=output_dir, save_period=save_period)],
+                                   verbose=1)
+stop = timeit.default_timer()
+z = encoder.predict([aFrame])
+print(stop - start)
+
+#encoder.save_weights(output_dir + '/' +ID6 + "_tanh_"  + 'epochs' + str(epochs) + '_3D.h5')
+#autoencoder.save_weights(output_dir + '/autoencoder_' +ID6 + "_tanh_"  + 'epochs' + str(epochs) + '_3D.h5')
+#np.savez(output_dir + '/' +ID6+ "_tanh_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
+#with open(output_dir + '/' +ID6 + "_tanh"+'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+#    pickle.dump(history_multiple.history, file_pi)
+
+encoder.load_weights(output_dir + '/' +ID6 +  "_tanh_"  + 'epochs' + str(epochs) + '_3D.h5')
+autoencoder.load_weights(output_dir + '/autoencoder_' +ID6  + "_tanh_"  + 'epochs' + str(epochs) + '_3D.h5')
+A_rest = autoencoder.predict(aFrame)
+z = encoder.predict(aFrame)
+print(output_dir + '/autoencoder_' +ID6  + "_tanh_"  + 'epochs' + str(epochs) + '_3D.h5')
+
+fig01 = plt.figure();
+plt.hist(z,200)
+from scipy.stats import spearmanr
+spearmanr(z, aFrame[:,1])
+spearmanr(z[z<0.378],aFrame[np.where(z<0.378)[0],1] )
+
+
+for w in autoencoder.trainable_weights:
+    print(K.eval(w))
+
+fig01 = plt.figure();
+col = 0
+plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=z, c=aFrame[:,col], cmap='winter', s=0.1)
+plt.title('color ' + str(col))
+plt.colorbar()
+
+for col in range(original_dim):
+    fig01 = plt.figure();
+    plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=z, c=aFrame[:,col], cmap='winter', s=0.1)
+    plt.title('color ' + str(col))
+    plt.colorbar()
+
+fig01 = plt.figure();
+col = 2
+plt.scatter(aFrame[:, 1], y=z, c=aFrame[:, 1], cmap='winter', s=0.1)
+plt.title('color ' + str(col))
+plt.colorbar()
+
+fig01 = plt.figure();
+col = 1
+plt.scatter(aFrame[:, 1], y=z, c=aFrame[:, 1], cmap='winter', s=0.1)
+plt.title('color ' + str(col))
+plt.colorbar()
+
+for w in encoder.trainable_weights:
+    print(K.eval(w))
+
+
+fig01 = plt.figure();
+col=0
+plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
+plt.title('color ' + str(col))
+plt.colorbar()
+
+
+history = pickle.load(open(output_dir + '/' +ID6 + "_tanh"+'epochs' + str(epochs) + '_history',  "rb"))
+st = 1000;
+stp = 100000 #len(history['loss'])
+fig01 = plt.figure();
+plt.plot(history['loss'][st:stp]);
+plt.title('loss')
+fig = plt.figure();
+plt.plot(history['DCAE_2l'][st:stp]);
+plt.title('DCAE_2l')
+
+fig01 = plt.figure();
+col=0
+plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
+plt.title('color ' + str(col))
+plt.colorbar()
+
+
 
 
 
