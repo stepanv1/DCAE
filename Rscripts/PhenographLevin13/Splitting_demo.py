@@ -1220,7 +1220,7 @@ plt.colorbar()
 
 ########################################################################################################
 #
-ID10 = 'Split_demo_2D_to_1D_by_latent_circle_nodes_16_16_tanh'
+ID10 = 'Split_demo_2D_to_1D_by_latent_circle_nodes_8_8_linear'
 epochs=100000
 
 nrow = 10000
@@ -1238,7 +1238,7 @@ y = radius * np.sin(theta)
 #plt.scatter(x,y, s=1)
 
 
-aFrame[:,0] =x+1;aFrame[:,1] =y+1;
+aFrame=np.column_stack((x,y))+1
 #plt.scatter(aFrame[:,0] ,aFrame[:,1] , s=1)
 np.savez(output_dir + '/' + ID10 + "_" +  'epochs' + str(epochs) + '_aFrame.npz', aFrame=aFrame)
 npzfile = np.load(output_dir + '/' +ID10 + "_" +  'epochs' + str(epochs) + '_aFrame.npz')
@@ -1247,8 +1247,8 @@ aFrame = npzfile['aFrame']
 lam = 0.1
 latent_dim = 1
 original_dim = inp_d
-intermediate_dim = original_dim*8
-intermediate_dim2= original_dim * 4 +8
+intermediate_dim = original_dim * 4
+intermediate_dim2= original_dim * 4
 # remove one unit to see of splitting stops -1 -still splits
 #                                           -2
 
@@ -1257,7 +1257,7 @@ initializer = tf.keras.initializers.he_normal(12345)
 X = Input(shape=(original_dim,))
 h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(X)
 #h2= Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
-z_mean = Dense(latent_dim, activation='tanh', name='z_mean', kernel_initializer=initializer)(h)
+z_mean = Dense(latent_dim, activation='linear', name='z_mean', kernel_initializer=initializer)(h)
 
 encoder = Model(X, z_mean, name='encoder')
 
@@ -1276,7 +1276,7 @@ def DCAE_2l(y_true, y_pred):
     u = encoder.get_layer('intermediate').output
     du = relu_derivative(u)
     s = encoder.get_layer('z_mean').output
-    ds = tanh_derivative(s)
+    ds = linear_derivative(s)
     diff_tens = tf.einsum('al,lj->alj', ds, Z)
     u_U = tf.einsum('al,lj->alj', du, U)
     diff_tens = tf.einsum('ajl,alk->ajk', diff_tens, u_U)
@@ -1384,7 +1384,7 @@ plt.colorbar()
 
 
 history = pickle.load(open(output_dir + '/' +ID10 + "_linear"+'epochs' + str(epochs) + '_history',  "rb"))
-st = 4000;
+st = 10000;
 stp = 100000 #len(history['loss'])
 fig01 = plt.figure();
 plt.plot((history['loss'][st:stp]));
