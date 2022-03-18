@@ -116,3 +116,6 @@ def linear_derivative(a):
 def tanh_derivative(a):
     return 1-a**2
 
+# derivative of sigmoid
+def sigmoid_derivative(a):
+    return a*(1-a)

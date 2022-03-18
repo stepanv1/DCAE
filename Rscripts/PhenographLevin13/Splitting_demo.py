@@ -15,7 +15,8 @@ import pickle
 pio.renderers.default = "browser"
 
 from utils_evaluation import plot3D_cluster_colors, table
-from utils_model import frange_anneal, relu_derivative, elu_derivative, tanh_derivative, linear_derivative
+from utils_model import frange_anneal, relu_derivative, elu_derivative, tanh_derivative, linear_derivative,\
+    sigmoid_derivative
 
 
 class saveEncoder(Callback):
@@ -1142,7 +1143,7 @@ z = encoder.predict(aFrame)
 print(output_dir + '/autoencoder_' +ID9  + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
 
 fig01 = plt.figure();
-plt.hist(z,200)
+plt.hist(z,500)
 from scipy.stats import spearmanr
 spearmanr(z, aFrame[:,1])
 spearmanr(z[z<0.-0.085],aFrame[np.where(z<0.-0.085)[0],0] )
@@ -1159,7 +1160,7 @@ plt.colorbar()
 
 for col in range(original_dim):
     fig01 = plt.figure();
-    plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=np.tanh(z), c=aFrame[:,col], cmap='winter', s=0.1)
+    plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=z, c=aFrame[:,col], cmap='winter', s=0.1)
     plt.title('color ' + str(col))
     plt.colorbar()
 
@@ -1220,7 +1221,7 @@ plt.colorbar()
 
 ########################################################################################################
 #
-ID10 = 'Split_demo_2D_to_1D_by_latent_circle_nodes_8_8_linear'
+ID10 = 'Split_demo_2D_to_1D_by_latent_circle_nodes_8_8_sigmoid'
 epochs=100000
 
 nrow = 10000
@@ -1255,15 +1256,15 @@ intermediate_dim2= original_dim * 4
 initializer = tf.keras.initializers.he_normal(12345)
 
 X = Input(shape=(original_dim,))
-h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(X)
+h = Dense(intermediate_dim, activation='sigmoid', name='intermediate', kernel_initializer=initializer)(X)
 #h2= Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
-z_mean = Dense(latent_dim, activation='linear', name='z_mean', kernel_initializer=initializer)(h)
+z_mean = Dense(latent_dim, activation='sigmoid', name='z_mean', kernel_initializer=initializer)(h)
 
 encoder = Model(X, z_mean, name='encoder')
 
-decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer=initializer)(z_mean)
+decoder_h = Dense(intermediate_dim2, activation='sigmoid', name='intermediate3', kernel_initializer=initializer)(z_mean)
 #decoder_h2 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)(decoder_h)
-decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)(decoder_h)
+decoder_mean = Dense(original_dim, activation='sigmoid', name='output', kernel_initializer=initializer)(decoder_h)
 autoencoder = Model(inputs=X, outputs=decoder_mean)
 
 # loss for 2 layer encoder
@@ -1276,7 +1277,7 @@ def DCAE_2l(y_true, y_pred):
     u = encoder.get_layer('intermediate').output
     du = relu_derivative(u)
     s = encoder.get_layer('z_mean').output
-    ds = linear_derivative(s)
+    ds = sigmoid_derivative(s)
     diff_tens = tf.einsum('al,lj->alj', ds, Z)
     u_U = tf.einsum('al,lj->alj', du, U)
     diff_tens = tf.einsum('ajl,alk->ajk', diff_tens, u_U)
@@ -1324,10 +1325,29 @@ z = encoder.predict(aFrame)
 print(output_dir + '/autoencoder_' +ID10  + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
 
 fig01 = plt.figure();
-plt.hist(z,200)
+plt.hist(z,500)
+
+fig02 = plt.figure();
+idx1 = z>0.012
+plt.hist(aFrame[idx1[:,0],1],200)
+
+fig03 = plt.figure();
+idx0 = z<0.012
+plt.hist(aFrame[idx0[:,0],1],200)
+
+fig02 = plt.figure();
+idx1 = z>0.012
+plt.hist(aFrame[idx1[:,0],0],200)
+
+fig03 = plt.figure();
+idx0 = z<0.012
+plt.hist(aFrame[idx0[:,0],0],200)
+
+
+
 from scipy.stats import spearmanr
 spearmanr(z, aFrame[:,1])
-spearmanr(z[z<0.-0.085],aFrame[np.where(z<0.-0.085)[0],0] )
+spearmanr(z[z<0.012],aFrame[np.where(z<0.012)[0],0] )
 
 
 for w in autoencoder.trainable_weights:
@@ -1341,7 +1361,7 @@ plt.colorbar()
 
 for col in range(original_dim):
     fig01 = plt.figure();
-    plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=np.tanh(z), c=aFrame[:,col], cmap='winter', s=0.1)
+    plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=z, c=aFrame[:,col], cmap='winter', s=0.1)
     plt.title('color ' + str(col))
     plt.colorbar()
 
@@ -1394,7 +1414,6 @@ plt.plot((history['DCAE_2l'][st:stp]));
 plt.title('DCAE_2l')
 
 fig01 = plt.figure();
-col=1
-plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
+plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=z,  cmap='winter', s=0.1)
 plt.title('color ' + str(col))
 plt.colorbar()
