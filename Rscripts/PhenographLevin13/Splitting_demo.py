@@ -1221,7 +1221,7 @@ plt.colorbar()
 
 ########################################################################################################
 #
-ID10 = 'Split_demo_2D_to_1D_by_latent_circle_nodes_8_8_sigmoid'
+ID10 = 'Split_demo_2D_to_1D_by_latent_circle_nodes_4_8_sigmoid'
 epochs=100000
 
 nrow = 10000
@@ -1248,7 +1248,7 @@ aFrame = npzfile['aFrame']
 lam = 0.1
 latent_dim = 1
 original_dim = inp_d
-intermediate_dim = original_dim * 4
+intermediate_dim = original_dim * 2
 intermediate_dim2= original_dim * 4
 # remove one unit to see of splitting stops -1 -still splits
 #                                           -2
@@ -1256,15 +1256,15 @@ intermediate_dim2= original_dim * 4
 initializer = tf.keras.initializers.he_normal(12345)
 
 X = Input(shape=(original_dim,))
-h = Dense(intermediate_dim, activation='sigmoid', name='intermediate', kernel_initializer=initializer)(X)
+h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(X)
 #h2= Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
 z_mean = Dense(latent_dim, activation='sigmoid', name='z_mean', kernel_initializer=initializer)(h)
 
 encoder = Model(X, z_mean, name='encoder')
 
-decoder_h = Dense(intermediate_dim2, activation='sigmoid', name='intermediate3', kernel_initializer=initializer)(z_mean)
+decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer=initializer)(z_mean)
 #decoder_h2 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)(decoder_h)
-decoder_mean = Dense(original_dim, activation='sigmoid', name='output', kernel_initializer=initializer)(decoder_h)
+decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)(decoder_h)
 autoencoder = Model(inputs=X, outputs=decoder_mean)
 
 # loss for 2 layer encoder
