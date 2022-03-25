@@ -1050,7 +1050,7 @@ plt.colorbar()
 
 ########################################################################################################
 #
-ID9 = 'Split_demo_2D_to_1D_by_latent_linear_small_decoder_nodes_16_16_tanh'
+ID9 = 'Split_demo_2D_to_1D_by_latent_linear_small_decoder_nodes_4_8_tanh'
 epochs=100000
 
 nrow = 10000
@@ -1058,7 +1058,7 @@ s=1
 inp_d = 2
 #TODO: uncomment later
 aFrame = np.random.uniform(low=np.zeros(inp_d), high=np.ones(inp_d), size=(nrow,inp_d))
-aFrame[:, 1:inp_d] = aFrame[:, 1:inp_d]
+
 np.savez(output_dir + '/' + ID9 + "_" +  'epochs' + str(epochs) + '_aFrame.npz', aFrame=aFrame)
 npzfile = np.load(output_dir + '/' +ID9 + "_" +  'epochs' + str(epochs) + '_aFrame.npz')
 aFrame = npzfile['aFrame']
@@ -1066,8 +1066,8 @@ aFrame = npzfile['aFrame']
 lam = 0.1
 latent_dim = 1
 original_dim = inp_d
-intermediate_dim = original_dim*8
-intermediate_dim2= original_dim * 4 +8
+intermediate_dim = original_dim * 2
+intermediate_dim2= original_dim * 4
 # remove one unit to see of splitting stops -1 -still splits
 #                                           -2
 
@@ -1160,7 +1160,7 @@ plt.colorbar()
 
 for col in range(original_dim):
     fig01 = plt.figure();
-    plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=z, c=aFrame[:,col], cmap='winter', s=0.1)
+    plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=np.arctanh(2* (z- np.min(z) / (np.max(z) - np.min(z)) ) -1 ) , c=aFrame[:,col], cmap='winter', s=0.1)
     plt.title('color ' + str(col))
     plt.colorbar()
 
@@ -1221,7 +1221,7 @@ plt.colorbar()
 
 ########################################################################################################
 #
-ID10 = 'Split_demo_2D_to_1D_by_latent_circle_nodes_4_8_sigmoid'
+ID10 = 'Split_demo_2D_to_1D_by_latent_circle_nodes_6_8_tanh'
 epochs=100000
 
 nrow = 10000
@@ -1248,7 +1248,7 @@ aFrame = npzfile['aFrame']
 lam = 0.1
 latent_dim = 1
 original_dim = inp_d
-intermediate_dim = original_dim * 2
+intermediate_dim = original_dim * 3
 intermediate_dim2= original_dim * 4
 # remove one unit to see of splitting stops -1 -still splits
 #                                           -2
@@ -1258,7 +1258,7 @@ initializer = tf.keras.initializers.he_normal(12345)
 X = Input(shape=(original_dim,))
 h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(X)
 #h2= Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
-z_mean = Dense(latent_dim, activation='sigmoid', name='z_mean', kernel_initializer=initializer)(h)
+z_mean = Dense(latent_dim, activation='tanh', name='z_mean', kernel_initializer=initializer)(h)
 
 encoder = Model(X, z_mean, name='encoder')
 
@@ -1277,7 +1277,7 @@ def DCAE_2l(y_true, y_pred):
     u = encoder.get_layer('intermediate').output
     du = relu_derivative(u)
     s = encoder.get_layer('z_mean').output
-    ds = sigmoid_derivative(s)
+    ds = tanh_derivative(s)
     diff_tens = tf.einsum('al,lj->alj', ds, Z)
     u_U = tf.einsum('al,lj->alj', du, U)
     diff_tens = tf.einsum('ajl,alk->ajk', diff_tens, u_U)
@@ -1346,7 +1346,7 @@ plt.hist(aFrame[idx0[:,0],0],200)
 
 
 from scipy.stats import spearmanr
-spearmanr(z, aFrame[:,1])
+spearmanr(z, aFrame[:,0])
 spearmanr(z[z<0.012],aFrame[np.where(z<0.012)[0],0] )
 
 
