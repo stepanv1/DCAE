@@ -1050,7 +1050,7 @@ plt.colorbar()
 
 ########################################################################################################
 #
-ID9 = 'Split_demo_2D_to_1D_by_latent_linear_small_decoder_nodes_4_8_tanh'
+ID9 = 'Split_demo_2D_to_1D_by_latent_linear_small_decoder_nodes_4_16_tanh'
 epochs=100000
 
 nrow = 10000
@@ -1067,7 +1067,7 @@ lam = 0.1
 latent_dim = 1
 original_dim = inp_d
 intermediate_dim = original_dim * 2
-intermediate_dim2= original_dim * 4
+intermediate_dim2= original_dim * 8
 # remove one unit to see of splitting stops -1 -still splits
 #                                           -2
 
@@ -1157,10 +1157,10 @@ col = 0
 plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=z, c=aFrame[:,col], cmap='winter', s=0.1)
 plt.title('color ' + str(col))
 plt.colorbar()
-
+#np.arctanh(2* (z- np.min(z) / (np.max(z) - np.min(z)) ) -1 )
 for col in range(original_dim):
     fig01 = plt.figure();
-    plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=np.arctanh(2* (z- np.min(z) / (np.max(z) - np.min(z)) ) -1 ) , c=aFrame[:,col], cmap='winter', s=0.1)
+    plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=z , c=aFrame[:,col], cmap='winter', s=0.1)
     plt.title('color ' + str(col))
     plt.colorbar()
 
@@ -1217,6 +1217,17 @@ col=1
 plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
 plt.title('color ' + str(col))
 plt.colorbar()
+
+#from mpl_toolkits import mplot3d
+fig01 = plt.figure();
+col=1
+ax = fig01.add_subplot(projection='3d')
+#zs =np.arctanh(2* (z- np.min(z) / (np.max(z) - np.min(z)) ) -1 )
+ax.scatter3D(aFrame[:,0], aFrame[:,1], z, c = z, s=0.1)
+ax.scatter3D(A_rest[:,0], A_rest[:,1], 0, c=aFrame[:,col],  cmap='winter', s=0.5)
+#plt.title('color ' + str(col))
+#plt.colorbar()
+
 
 
 ########################################################################################################
