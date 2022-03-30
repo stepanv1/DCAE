@@ -1224,7 +1224,7 @@ col=1
 ax = fig01.add_subplot(projection='3d')
 #zs =np.arctanh(2* (z- np.min(z) / (np.max(z) - np.min(z)) ) -1 )
 ax.scatter3D(aFrame[:,0], aFrame[:,1], z, c = z, s=0.1)
-ax.scatter3D(A_rest[:,0], A_rest[:,1], 0, c=aFrame[:,col],  cmap='winter', s=0.5)
+ax.scatter3D(A_rest[:,0], A_rest[:,1], -1, c=aFrame[:,col],  cmap='winter', s=0.5)
 #plt.title('color ' + str(col))
 #plt.colorbar()
 
