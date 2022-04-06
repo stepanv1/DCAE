@@ -1072,26 +1072,17 @@ intermediate_dim2= original_dim * 8
 #                                           -2
 
 initializer = tf.keras.initializers.he_normal(12345)
-
 X = Input(shape=(original_dim,))
 h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(X)
 #h2= Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
-encoded = Dense(latent_dim, activation='tanh', name='z_mean', kernel_initializer=initializer)(h)
+z_mean = Dense(latent_dim, activation='tanh', name='z_mean', kernel_initializer=initializer)(h)
 
-encoder = Model(X, encoded, name='encoder')
+encoder = Model(X, z_mean, name='encoder')
 
-decoder_input= Input(shape=(latent_dim,))
-decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer=initializer)(decoder_input)
+decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer=initializer)(z_mean)
 #decoder_h2 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)(decoder_h)
-decoded  = Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)(decoder_h)
-
-decoder = Model(decoder_input, decoded)
-
-auto_input = Input(shape=(original_dim,))
-encoded = encoder(auto_input)
-decoded = decoder(encoded)
-
-autoencoder = Model(auto_input, decoded,  name='autoencoder')
+decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)(decoder_h)
+autoencoder = Model(inputs=X, outputs=decoder_mean)
 
 
 # loss for 2 layer encoder
@@ -1141,7 +1132,7 @@ print(stop - start)
 #
 encoder.save_weights(output_dir + '/' +ID9 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
 autoencoder.save_weights(output_dir + '/autoencoder_' +ID9 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
-decoder.save_weights(output_dir + '/decoder_' +ID9 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
+#decoder.save_weights(output_dir + '/decoder_' +ID9 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
 np.savez(output_dir + '/' +ID9+ "_linear_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
 with open(output_dir + '/' +ID9 + "_linear"+'epochs' + str(epochs) + '_history', 'wb') as file_pi:
     pickle.dump(history_multiple.history, file_pi)
@@ -1152,15 +1143,16 @@ A_rest = autoencoder.predict(aFrame)
 z = encoder.predict(aFrame)
 print(output_dir + '/autoencoder_' +ID9  + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
 
-
 # extract decoder
 decoder_input = Input(shape=(latent_dim,))
-decoder = Model(decoder_input, autoencoder.layers[3:5])
-
-import kerassurgeon
-from kerassurgeon.operations import delete_layer, insert_layer, delete_channels
-model = delete_layer(autoencoder, autoencoder.layers[3:5])
-
+x= Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer=initializer)(decoder_input )
+#decoder_h2 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)(decoder_h)
+decoded= Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)(x)
+decoder = Model(inputs=decoder_input, outputs=decoded)
+decoder.summary()
+weights_list = autoencoder.get_weights()[4:8]
+decoder.set_weights(weights_list)
+dec_map = decoder.predict(np.linspace(-1, 1, num=1000))
 
 
 fig01 = plt.figure();
@@ -1248,13 +1240,35 @@ plt.colorbar()
 fig01 = plt.figure();
 col=1
 ax = fig01.add_subplot(projection='3d')
-ax.set_zlim3d(0.1,0.2)
+#ax.set_zlim3d(0.1,0.2)
 #zs =np.arctanh(2* (z- np.min(z) / (np.max(z) - np.min(z)) ) -1 )
 p = ax.scatter3D(aFrame[:,0], aFrame[:,1], z, c = z, s=0.1)
 fig01.colorbar(p)
 ax.scatter3D(A_rest[:,0], A_rest[:,1], -1, c=aFrame[:,col],  cmap='winter', s=1)
 #plt.title('color ' + str(col))
 #plt.colorbar()
+fig01 = plt.figure();
+col=1
+ax = fig01.add_subplot(projection='3d')
+#ax.set_zlim3d(0.1,0.2)
+#zs =np.arctanh(2* (z- np.min(z) / (np.max(z) - np.min(z)) ) -1 )
+p = ax.scatter3D(aFrame[:,0], aFrame[:,1], z, c = z, s=0.1)
+fig01.colorbar(p)
+#ax.scatter3D(A_rest[:,0], A_rest[:,1], -1, c=aFrame[:,col],  cmap='winter', s=1)
+ax.scatter3D(dec_map[:,0], dec_map[:,1], -1, c=np.linspace(-1, 1, num=1000), s=1)
+
+z_gap = np.linspace(-0.97, 0.97, num=1000)
+z_gap = z_gap[(np.logical_or(z_gap<0.14, z_gap<0.14))]
+gap_map = decoder.predict(z_gap)
+fig01 = plt.figure();
+col=1
+ax = fig01.add_subplot(projection='3d')
+#ax.set_zlim3d(0.1,0.2)
+#zs =np.arctanh(2* (z- np.min(z) / (np.max(z) - np.min(z)) ) -1 )
+p = ax.scatter3D(aFrame[:,0], aFrame[:,1], z, c = z, s=0.1)
+fig01.colorbar(p)
+#ax.scatter3D(A_rest[:,0], A_rest[:,1], -1, c=aFrame[:,col],  cmap='winter', s=1)
+ax.scatter3D(gap_map[:,0], gap_map[:,1], -1, c='red',s=1)
 
 
 
