@@ -1130,12 +1130,12 @@ stop = timeit.default_timer()
 z = encoder.predict([aFrame])
 print(stop - start)
 #
-encoder.save_weights(output_dir + '/' +ID9 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
-autoencoder.save_weights(output_dir + '/autoencoder_' +ID9 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
-#decoder.save_weights(output_dir + '/decoder_' +ID9 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
-np.savez(output_dir + '/' +ID9+ "_linear_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
-with open(output_dir + '/' +ID9 + "_linear"+'epochs' + str(epochs) + '_history', 'wb') as file_pi:
-    pickle.dump(history_multiple.history, file_pi)
+#encoder.save_weights(output_dir + '/' +ID9 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
+#autoencoder.save_weights(output_dir + '/autoencoder_' +ID9 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
+
+#np.savez(output_dir + '/' +ID9+ "_linear_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
+#with open(output_dir + '/' +ID9 + "_linear"+'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+#    pickle.dump(history_multiple.history, file_pi)
 
 encoder.load_weights(output_dir + '/' +ID9 +  "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
 autoencoder.load_weights(output_dir + '/autoencoder_' +ID9  + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
@@ -1269,6 +1269,104 @@ p = ax.scatter3D(aFrame[:,0], aFrame[:,1], z, c = z, s=0.1)
 fig01.colorbar(p)
 #ax.scatter3D(A_rest[:,0], A_rest[:,1], -1, c=aFrame[:,col],  cmap='winter', s=1)
 ax.scatter3D(gap_map[:,0], gap_map[:,1], -1, c='red',s=1)
+
+# plot a mapping portrait of autoencoder
+# create a mesh in a square in [-1,1] cube
+nx=100; ny=100
+x = np.linspace(0, 1, nx)
+y = np.linspace(0, 1, ny)
+xv, yv = np.meshgrid(x, y, sparse=False)
+nz = nx*ny
+a = np.reshape(xv, nz)
+b = np.reshape(yv, nz)
+mesh_array = np.c_[a,b ]
+mesh_map =  autoencoder.predict(mesh_array)
+
+fig01 = plt.figure();
+plt.scatter(x=dec_map[:,0], y=dec_map[:,1], c='red',  cmap='winter', s=3)
+for i in range(nz):
+    plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , 'bo', linestyle="--", markersize=0.1 ,linewidth=0.1)
+#plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
+plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
+plt.title("Decoder mapping (red) vs input mesh autoencoder mapping (blue)")
+plt.show()
+
+fig01 = plt.figure();
+plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c='red',  cmap='winter', s=3)
+for i in range(nz):
+    plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , 'bo', linestyle="--", markersize=0.1 ,linewidth=0.1)
+#plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
+plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
+plt.title("autoencoder random input mapping (red) vs input mesh autoencoder mapping (blue)")
+plt.show()
+
+# plot a 'corner' are of mapping
+nx=100; ny=100
+x = np.linspace(0.6, 1, nx)
+y = np.linspace(0.0, 0.6, ny)
+xv, yv = np.meshgrid(x, y, sparse=False)
+nz = nx*ny
+a = np.reshape(xv, nz)
+b = np.reshape(yv, nz)
+mesh_array = np.c_[a,b ]
+mesh_map =  autoencoder.predict(mesh_array)
+
+fig01 = plt.figure();
+plt.xlim([0.6, 1])
+plt.ylim([0.0, 0.6])
+plt.scatter(x=dec_map[:,0], y=dec_map[:,1], c='red',  cmap='winter', s=3)
+for i in range(nz):
+    plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , 'bo', linestyle="--", markersize=0.1 ,linewidth=0.1)
+#plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
+plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
+plt.title("Decoder mapping (red) vs input mesh autoencoder mapping (blue)")
+plt.show()
+
+fig01 = plt.figure();
+plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c='red',  cmap='winter', s=3)
+for i in range(nz):
+    plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , 'bo', linestyle="--", markersize=0.1 ,linewidth=0.1)
+#plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
+plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
+plt.title("autoencoder random input mapping (red) vs input mesh autoencoder mapping (blue)")
+plt.show()
+
+# plot mapping of the lower bottom of the aquare
+# plot a mapping portrait of autoencoder
+# create a mesh in a square in [-1,1] cube
+nx=1000; ny=1
+x = np.linspace(0, 1, nx)
+y = np.linspace(0, 0.01, ny)
+xv, yv = np.meshgrid(x, y, sparse=False)
+nz = nx*ny
+a = np.reshape(xv, nz)
+b = np.reshape(yv, nz)
+mesh_array = np.c_[a,b ]
+mesh_map =  autoencoder.predict(mesh_array)
+
+fig01 = plt.figure();
+plt.scatter(x=dec_map[:,0], y=dec_map[:,1], c='red',  cmap='winter', s=3)
+for i in range(nz):
+    plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , 'bo', linestyle="--", markersize=0.1 ,linewidth=0.1)
+#plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
+plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
+plt.title("Decoder mapping (red) vs input mesh autoencoder mapping (blue)")
+plt.show()
+
+fig01 = plt.figure();
+plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c='red',  cmap='winter', s=3)
+for i in range(nz):
+    plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , 'bo', linestyle="--", markersize=0.1 ,linewidth=0.1)
+#plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
+plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
+plt.title("autoencoder random input mapping (red) vs input mesh autoencoder mapping (blue)")
+plt.show()
+
+
+
+
+
+#plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
 
 
 
