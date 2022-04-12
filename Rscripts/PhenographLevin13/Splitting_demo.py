@@ -1362,12 +1362,17 @@ plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
 plt.title("autoencoder random input mapping (red) vs input mesh autoencoder mapping (blue)")
 plt.show()
 
+# plot the gap related to the set above
+z_b = encoder.predict(mesh_array)
+for col in range(original_dim):
+    fig01 = plt.figure();
+    plt.scatter(np.random.uniform(-0.2,0.2,1000), y=z_b , c=mesh_array[:,col], cmap='winter', s=0.1)
+    plt.title('color ' + str(col))
+    plt.colorbar()
 
-
-
-
-#plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
-
+fig01 =plt.figure();
+plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=z,  cmap='winter', s=3)
+fig01.colorbar(p)
 
 
 
