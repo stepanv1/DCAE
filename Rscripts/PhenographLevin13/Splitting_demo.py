@@ -1281,14 +1281,19 @@ a = np.reshape(xv, nz)
 b = np.reshape(yv, nz)
 mesh_array = np.c_[a,b ]
 mesh_map =  autoencoder.predict(mesh_array)
+mesh_z = encoder.predict(mesh_array)
 
+cmap = plt.get_cmap('jet_r')
 fig01 = plt.figure();
-plt.scatter(x=dec_map[:,0], y=dec_map[:,1], c='red',  cmap='winter', s=3)
+colors = cmap(mesh_z[:, 0])
+p = plt.scatter(x=mesh_map[:,0], y=mesh_map[:,1], c=colors, s=1)
+fig01.colorbar(p)
 for i in range(nz):
-    plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , 'bo', linestyle="--", markersize=0.1 ,linewidth=0.1)
-#plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
-plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
-plt.title("Decoder mapping (red) vs input mesh autoencoder mapping (blue)")
+    color = cmap(mesh_z[i, 0])
+    plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , c=colors[i,:], linestyle="--", markersize=0.1 ,linewidth=0.1)
+#p = plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=z, s=0.1)
+#plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
+plt.title("Encoder mapping  vs input mesh autoencoder mapping (blue)")
 plt.show()
 
 fig01 = plt.figure();
@@ -1331,7 +1336,7 @@ plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
 plt.title("autoencoder random input mapping (red) vs input mesh autoencoder mapping (blue)")
 plt.show()
 
-# plot mapping of the lower bottom of the aquare
+# plot mapping of the lower bottom of the square
 # plot a mapping portrait of autoencoder
 # create a mesh in a square in [-1,1] cube
 nx=1000; ny=1
@@ -1343,11 +1348,14 @@ a = np.reshape(xv, nz)
 b = np.reshape(yv, nz)
 mesh_array = np.c_[a,b ]
 mesh_map =  autoencoder.predict(mesh_array)
+mesh_z = encoder.predict(mesh_array)
 
 fig01 = plt.figure();
 plt.scatter(x=dec_map[:,0], y=dec_map[:,1], c='red',  cmap='winter', s=3)
+cmap = plt.get_cmap('jet_r')
 for i in range(nz):
-    plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , 'bo', linestyle="--", markersize=0.1 ,linewidth=0.1)
+    color = cmap(mesh_z[i,0] )
+    plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , c= color,  linestyle="--", markersize=0.1 ,linewidth=0.1)
 #plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
 plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
 plt.title("Decoder mapping (red) vs input mesh autoencoder mapping (blue)")
@@ -1355,8 +1363,10 @@ plt.show()
 
 fig01 = plt.figure();
 plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c='red',  cmap='winter', s=3)
+cmap = plt.get_cmap('jet_r')
 for i in range(nz):
-    plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , 'bo', linestyle="--", markersize=0.1 ,linewidth=0.1)
+    color = cmap(mesh_z[i, 0])
+    plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , c= color,linestyle="--", markersize=0.1 ,linewidth=0.1)
 #plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
 plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
 plt.title("autoencoder random input mapping (red) vs input mesh autoencoder mapping (blue)")
