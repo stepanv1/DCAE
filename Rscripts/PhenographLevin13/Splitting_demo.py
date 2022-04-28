@@ -1923,7 +1923,7 @@ fig01 =plt.figure();
 plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=z,  cmap='winter', s=3)
 fig01.colorbar(p)
 
-#####################################
+#######################################################################################################################
 ID12 = 'step_grad'
 
 @tf.custom_gradient
@@ -1934,9 +1934,9 @@ def binary_activation(x):
         return dy  # TODO define gradient
 
     cond = tf.math.greater_equal(x, tf.constant(0.0))
-    return tf.where(cond, tf.constant(1.0), tf.constant(0.0) ), grad
+    return tf.where(cond, x+tf.constant(0.1), tf.constant(0.0) ), grad
 
-epochs=5000
+epochs=500000
 
 nrow = 10000
 s=1
@@ -1951,14 +1951,14 @@ aFrame = npzfile['aFrame']
 lam = 0.1
 latent_dim = 1
 original_dim = inp_d
-intermediate_dim = original_dim * 2
+intermediate_dim = original_dim * 4
 intermediate_dim2= original_dim * 8
 # remove one unit to see of splitting stops -1 -still splits
 #                                           -2
 
 initializer = tf.keras.initializers.he_normal(12345)
 X = Input(shape=(original_dim,))
-h = Dense(intermediate_dim, activation=binary_activation, name='intermediate', kernel_initializer=initializer)(X)
+h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(X)
 #h2= Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
 z_mean = Dense(latent_dim, activation='tanh', name='z_mean', kernel_initializer=initializer)(h)
 
@@ -2015,12 +2015,12 @@ stop = timeit.default_timer()
 z = encoder.predict([aFrame])
 print(stop - start)
 #
-# encoder.save_weights(output_dir + '/' +ID12 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
-# autoencoder.save_weights(output_dir + '/autoencoder_' +ID12 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
-#
-# np.savez(output_dir + '/' +ID12+ "_linear_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
-# with open(output_dir + '/' +ID12 + "_linear"+'epochs' + str(epochs) + '_history', 'wb') as file_pi:
-#     pickle.dump(history_multiple.history, file_pi)
+encoder.save_weights(output_dir + '/' +ID12 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
+autoencoder.save_weights(output_dir + '/autoencoder_' +ID12 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
+
+np.savez(output_dir + '/' +ID12+ "_linear_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
+with open(output_dir + '/' +ID12 + "_linear"+'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+pickle.dump(history_multiple.history, file_pi)
 
 encoder.load_weights(output_dir + '/' +ID12 +  "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
 autoencoder.load_weights(output_dir + '/autoencoder_' +ID12  + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
@@ -2030,9 +2030,9 @@ print(output_dir + '/autoencoder_' +ID12  + "_linear_"  + 'epochs' + str(epochs)
 
 # extract decoder
 decoder_input = Input(shape=(latent_dim,))
-x= Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer=initializer)(decoder_input )
+x= Dense(intermediate_dim2, activation=binary_activation, name='intermediate3', kernel_initializer=initializer)(decoder_input )
 #decoder_h2 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)(decoder_h)
-decoded= Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)(x)
+decoded= Dense(original_dim, activation=binary_activation, name='output', kernel_initializer=initializer)(x)
 decoder = Model(inputs=decoder_input, outputs=decoded)
 decoder.summary()
 weights_list = autoencoder.get_weights()[4:8]
@@ -2107,7 +2107,7 @@ plt.colorbar()
 
 history = pickle.load(open(output_dir + '/' +ID12 + "_linear"+'epochs' + str(epochs) + '_history',  "rb"))
 st = 4000;
-stp = 100000 #len(history['loss'])
+stp = 500000 #len(history['loss'])
 fig01 = plt.figure();
 plt.plot((history['loss'][st:stp]));
 plt.title('loss')
