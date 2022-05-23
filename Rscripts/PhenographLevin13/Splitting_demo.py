@@ -1589,7 +1589,7 @@ plt.colorbar()
 ######################################################################################################
 # same as ID9 but with elu
 
-ID11 = 'Split_demo_2D_to_1D_ELU_small_decoder_nodes_4_16_tanh'
+ID11 = 'Split_demo_2D_to_1D_RELU_small_decoder_nodes_16_32_tanh'
 epochs=500000
 
 nrow = 10000
@@ -1612,15 +1612,15 @@ intermediate_dim2= original_dim * 8
 
 initializer = tf.keras.initializers.he_normal(12345)
 X = Input(shape=(original_dim,))
-h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(X)
+h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(X)
 #h2= Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
 z_mean = Dense(latent_dim, activation='tanh', name='z_mean', kernel_initializer=initializer)(h)
 
 encoder = Model(X, z_mean, name='encoder')
 
-decoder_h = Dense(intermediate_dim2, activation='elu', name='intermediate3', kernel_initializer=initializer)(z_mean)
+decoder_h = Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer=initializer)(z_mean)
 #decoder_h2 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)(decoder_h)
-decoder_mean = Dense(original_dim, activation='elu', name='output', kernel_initializer=initializer)(decoder_h)
+decoder_mean = Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)(decoder_h)
 autoencoder = Model(inputs=X, outputs=decoder_mean)
 
 
@@ -1632,7 +1632,7 @@ def DCAE_2l(y_true, y_pred):
     Z = K.transpose(Z);  # N_hidden x N
 
     u = encoder.get_layer('intermediate').output
-    du = elu_derivative(u)
+    du = relu_derivative(u)
     s = encoder.get_layer('z_mean').output
     ds = tanh_derivative(s)
     diff_tens = tf.einsum('al,lj->alj', ds, Z)
@@ -1668,13 +1668,13 @@ history_multiple = autoencoder.fit(aFrame, aFrame,
 stop = timeit.default_timer()
 z = encoder.predict([aFrame])
 print(stop - start)
-#
-# encoder.save_weights(output_dir + '/' +ID11 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
-# autoencoder.save_weights(output_dir + '/autoencoder_' +ID11 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
-#
-# np.savez(output_dir + '/' +ID11+ "_linear_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
-# with open(output_dir + '/' +ID11 + "_linear"+'epochs' + str(epochs) + '_history', 'wb') as file_pi:
-#     pickle.dump(history_multiple.history, file_pi)
+
+encoder.save_weights(output_dir + '/' +ID11 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
+autoencoder.save_weights(output_dir + '/autoencoder_' +ID11 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
+
+np.savez(output_dir + '/' +ID11+ "_linear_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
+with open(output_dir + '/' +ID11 + "_linear"+'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+    pickle.dump(history_multiple.history, file_pi)
 
 encoder.load_weights(output_dir + '/' +ID11 +  "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
 autoencoder.load_weights(output_dir + '/autoencoder_' +ID11  + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
@@ -1761,7 +1761,7 @@ plt.colorbar()
 
 history = pickle.load(open(output_dir + '/' +ID11 + "_linear"+'epochs' + str(epochs) + '_history',  "rb"))
 st = 4000;
-stp = 100000 #len(history['loss'])
+stp = 500000 #len(history['loss'])
 fig01 = plt.figure();
 plt.plot((history['loss'][st:stp]));
 plt.title('loss')
@@ -1924,19 +1924,21 @@ plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=z,  cmap='winter', s=3)
 fig01.colorbar(p)
 
 #######################################################################################################################
-ID12 = 'step_grad'
+ID12 = 'step_grad_SRELU'
+# https://github.com/jloveric/high-order-layers
 
 @tf.custom_gradient
-def binary_activation(x):
+def SRELU_activation(x): # step RELU activation, see this post for references:
+    # https://ai.stackexchange.com/questions/17609/in-deep-learning-is-it-possible-to-use-discontinuous-activation-functions
     #ones = tf.ones(tf.shape(x), dtype=x.dtype.base_dtype)
     #zeros = tf.zeros(tf.shape(x), dtype=x.dtype.base_dtype)
-    def grad(dy):
-        return dy  # TODO define gradient
+    def grad(dy): # see https://localcoder.org/how-to-apply-guided-backprop-in-tensorflow-2-0#credit_1 for the details
+        return tf.cast(x>0, "float32")*dy  # TODO define gradient
 
     cond = tf.math.greater_equal(x, tf.constant(0.0))
-    return tf.where(cond, x+tf.constant(0.1), tf.constant(0.0) ), grad
+    return tf.where(cond, x+tf.constant(0.2), tf.constant(0.0) ), grad
 
-epochs=500000
+epochs=40000
 
 nrow = 10000
 s=1
@@ -1958,15 +1960,15 @@ intermediate_dim2= original_dim * 8
 
 initializer = tf.keras.initializers.he_normal(12345)
 X = Input(shape=(original_dim,))
-h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(X)
+h = Dense(intermediate_dim, activation='relu', name='intermediate', kernel_initializer=initializer)(X)
 #h2= Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
 z_mean = Dense(latent_dim, activation='tanh', name='z_mean', kernel_initializer=initializer)(h)
 
 encoder = Model(X, z_mean, name='encoder')
 
-decoder_h = Dense(intermediate_dim2, activation=binary_activation, name='intermediate3', kernel_initializer=initializer)(z_mean)
+decoder_h = Dense(intermediate_dim2, activation= SRELU_activation, name='intermediate3', kernel_initializer=initializer)(z_mean)
 #decoder_h2 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)(decoder_h)
-decoder_mean = Dense(original_dim, activation=binary_activation, name='output', kernel_initializer=initializer)(decoder_h)
+decoder_mean = Dense(original_dim, activation= SRELU_activation, name='output', kernel_initializer=initializer)(decoder_h)
 autoencoder = Model(inputs=X, outputs=decoder_mean)
 
 
@@ -1978,7 +1980,7 @@ def DCAE_2l(y_true, y_pred):
     Z = K.transpose(Z);  # N_hidden x N
 
     u = encoder.get_layer('intermediate').output
-    du = elu_derivative(u)
+    du = relu_derivative(u)
     s = encoder.get_layer('z_mean').output
     ds = tanh_derivative(s)
     diff_tens = tf.einsum('al,lj->alj', ds, Z)
@@ -2030,9 +2032,9 @@ print(output_dir + '/autoencoder_' +ID12  + "_linear_"  + 'epochs' + str(epochs)
 
 # extract decoder
 decoder_input = Input(shape=(latent_dim,))
-x= Dense(intermediate_dim2, activation=binary_activation, name='intermediate3', kernel_initializer=initializer)(decoder_input )
+x= Dense(intermediate_dim2, activation=SRELU_activation, name='intermediate3', kernel_initializer=initializer)(decoder_input )
 #decoder_h2 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)(decoder_h)
-decoded= Dense(original_dim, activation=binary_activation, name='output', kernel_initializer=initializer)(x)
+decoded= Dense(original_dim, activation=SRELU_activation, name='output', kernel_initializer=initializer)(x)
 decoder = Model(inputs=decoder_input, outputs=decoded)
 decoder.summary()
 weights_list = autoencoder.get_weights()[4:8]
@@ -2106,8 +2108,8 @@ plt.colorbar()
 
 
 history = pickle.load(open(output_dir + '/' +ID12 + "_linear"+'epochs' + str(epochs) + '_history',  "rb"))
-st = 4000;
-stp = 500000 #len(history['loss'])
+st = 1000;
+stp = 40000 #len(history['loss'])
 fig01 = plt.figure();
 plt.plot((history['loss'][st:stp]));
 plt.title('loss')
