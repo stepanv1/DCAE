@@ -38,7 +38,7 @@ def DELU_activation(x): # step RELU activation, see this post for references:
     return tf.where(cond, x + tf.constant(0.2), expx - 1), grad
 
 k = 30
-epochs_list = [500]
+epochs_list = [250]
 coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
@@ -47,13 +47,14 @@ alp = 0.2
 m = 10
 patience = 500
 min_delta = 1e-4
-g=0.1
+g=10
 #epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'DICSCONT_DELU_0.2' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'DICSCONT_DELU_0.2_repulsive_MMD' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+#ID = 'DICSCONT_DELU_0.2' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 #ID = 'ELU_' + '_DCAE_norm_0.5' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
 #output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output'
 #load earlier generated data
@@ -65,7 +66,7 @@ tf.compat.v1.disable_eager_execution()
 # possibly final parameters: m=10 ; lam = 0.1; g=0.1
 # worst: lam = 0.01; # g=0.1; lam = 0.01; # g=0.01, seems like lam =0.001 is to small
 for epochs in epochs_list:
-    for bl in list_of_branches:
+    for bl in list_of_branches[13:14]:
         infile = source_dir + 'set_' + str(bl) + '.npz'
         # markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
         # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
@@ -107,7 +108,7 @@ for epochs in epochs_list:
 
         MMD_weight = K.variable(value=0)
 
-        MMD_weight_lst = K.variable(np.array(frange_anneal(int(epochs), ratio=1)))
+        MMD_weight_lst = K.variable(np.array(frange_anneal(int(epochs), ratio=0.2)))
 
         latent_dim = 3
         original_dim = aFrame.shape[1]
@@ -184,7 +185,7 @@ for epochs in epochs_list:
             D = tf.reduce_sum(tf.square(tiled_x - tiled_y), axis=2)#/ tf.cast(x_size**2, tf.float32)
             #apply monotone f to sqeeze  and normalize
             D = K.sqrt(D)
-            D = 2 * (D - min_dist)/(max_dist)
+            D = 2 * (D - min_dist)/(max_dist - min_dist)
             D = tf.linalg.set_diag(D, tf.zeros(x_size), name=None)
             return D
             #no log version
@@ -199,16 +200,17 @@ for epochs in epochs_list:
             #D = tf.linalg.set_diag(D, tf.zeros(x_size), name=None)# / tf.cast(dim, tf.float32))
             return D
         # long range version
-        def graph_diff(x, y):
+        #def graph_diff(x, y):
             #pot = tf.math.square(r - 1)
-            return g * K.sqrt(K.sum(K.square(1 - K.exp ( compute_graph_weights_Inp(X) -  compute_graph_weights_enc(z_mean)))) /tf.cast( batch_size**2, tf.float32))
+        #    return g * K.sqrt(K.sum(K.square(1 - K.exp ( compute_graph_weights_Inp(X) -  compute_graph_weights_enc(z_mean)))) /tf.cast( batch_size**2, tf.float32))
 
-        #og version
+        #short range version
         def graph_diff(x, y):
             # pot = tf.math.square(r - 1)
-            return g * K.sqrt(K.sum(
-            K.square(1 - K.exp(compute_graph_weights_Inp(X) - compute_graph_weights_enc(z_mean)))) / tf.cast(
-                    batch_size ** 2, tf.float32))
+            D = compute_graph_weights_Inp(X)
+            d = compute_graph_weights_enc(z_mean)
+            return g * K.sum(K.square((D - d)) / (K.exp(D-1)) ) / K.sum(D)
+
 
         #idx =np.random.choice(nrow, size=30,replace=False)
         #LL = lbls[idx]
@@ -220,6 +222,8 @@ for epochs in epochs_list:
         #g_diff = K.eval(K.square(1 - K.exp ( compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) -  compute_graph_weights_enc(z[idx,:]))))
         #g_enc =  K.eval(compute_graph_weights_enc(z[idx,:]))
         #g_inp =  K.eval(compute_graph_weights_Inp(aFrame[idx,:].astype('float32')))
+        #g_diff  = K.eval( (K.square((compute_graph_weights_Inp(aFrame[idx, :].astype('float32')) - compute_graph_weights_enc(z[idx,:]))) / (K.exp(compute_graph_weights_Inp(aFrame[idx, :].astype('float32'))-1)))
+        #                  / K.sum(compute_graph_weights_Inp(aFrame[idx, :].astype('float32'))))
 
         def compute_kernel(x, y):
             x_size = tf.shape(x)[0]
@@ -276,7 +280,7 @@ for epochs in epochs_list:
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
                 return coeffMSE * msew +   1 *  loss_mmd(y_true, y_pred) +  (
-                        1 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) +  (MMD_weight + 0.01)* graph_diff(y_true, y_pred)
+                        1 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) +  (1-MMD_weight)* graph_diff(y_true, y_pred)
                 # return  loss_mmd(x, x_decoded_mean)
 
             return loss
