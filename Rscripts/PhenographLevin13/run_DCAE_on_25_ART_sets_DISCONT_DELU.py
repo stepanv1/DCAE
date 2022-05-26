@@ -24,19 +24,21 @@ num_cores = multiprocessing.cpu_count()
 pool = multiprocessing.Pool(num_cores)
 
 
+
 @tf.custom_gradient
-def SRELU_activation(x): # step RELU activation, see this post for references:
+def DELU_activation(x): # step RELU activation, see this post for references:
     # https://ai.stackexchange.com/questions/17609/in-deep-learning-is-it-possible-to-use-discontinuous-activation-functions
     #ones = tf.ones(tf.shape(x), dtype=x.dtype.base_dtype)
     #zeros = tf.zeros(tf.shape(x), dtype=x.dtype.base_dtype)
-    def grad(dy): # see https://localcoder.org/how-to-apply-guided-backprop-in-tensorflow-2-0#credit_1 for the details
-        return tf.cast(x>0, "float32")*dy  # TODO check gradient
-
     cond = tf.math.greater_equal(x, tf.constant(0.0))
-    return tf.where(cond, x + tf.constant(0.15), tf.constant(0.0) ), grad
+    expx = tf.math.exp(x)
+    def grad(dy): # see https://localcoder.org/how-to-apply-guided-backprop-in-tensorflow-2-0#credit_1 for the details
+        return tf.where(cond, tf.constant(1.0), expx) * dy  # TODO check gradient
+
+    return tf.where(cond, x + tf.constant(0.2), expx - 1), grad
 
 k = 30
-epochs_list = [250]
+epochs_list = [500]
 coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
@@ -51,7 +53,7 @@ DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'DICSCONT_RELU_0.15' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'DICSCONT_DELU_0.2' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 #ID = 'ELU_' + '_DCAE_norm_0.5' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
 #output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output'
 #load earlier generated data
@@ -123,9 +125,9 @@ for epochs in epochs_list:
 
         encoder = Model([X, SigmaTsq], z_mean, name='encoder')
 
-        decoder_h = Dense(intermediate_dim2, activation= SRELU_activation, name='intermediate3', kernel_initializer=initializer)
-        decoder_h1 = Dense(intermediate_dim, activation= SRELU_activation, name='intermediate4', kernel_initializer=initializer)
-        decoder_mean = Dense(original_dim, activation= SRELU_activation, name='output', kernel_initializer=initializer)
+        decoder_h = Dense(intermediate_dim2, activation= DELU_activation, name='intermediate3', kernel_initializer=initializer)
+        decoder_h1 = Dense(intermediate_dim, activation= DELU_activation, name='intermediate4', kernel_initializer=initializer)
+        decoder_mean = Dense(original_dim, activation= DELU_activation, name='output', kernel_initializer=initializer)
         h_decoded = decoder_h(z_mean)
         h_decoded2 = decoder_h1(h_decoded)
         x_decoded_mean = decoder_mean(h_decoded2)
