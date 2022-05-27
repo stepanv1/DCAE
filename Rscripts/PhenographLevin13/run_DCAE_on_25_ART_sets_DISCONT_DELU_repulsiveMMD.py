@@ -39,7 +39,7 @@ def DELU_activation(x): # step RELU activation, see this post for references:
 
 k = 30
 epochs_list = [250]
-coeffCAE = 0.1
+coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
 lam = 0.1
@@ -53,7 +53,7 @@ DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'DICSCONT_DELU_0.2_repulsive_MMD' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'DICSCONT_DELU_0.2_repulsive_MMD_0.05_experiment' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 #ID = 'DICSCONT_DELU_0.2' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 #ID = 'ELU_' + '_DCAE_norm_0.5' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
 #output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output'
@@ -63,10 +63,11 @@ tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.compat.v1.disable_eager_execution()
 #bl = list_of_branches[0]
+# epochs =250
 # possibly final parameters: m=10 ; lam = 0.1; g=0.1
 # worst: lam = 0.01; # g=0.1; lam = 0.01; # g=0.01, seems like lam =0.001 is to small
 for epochs in epochs_list:
-    for bl in list_of_branches[13:14]:
+    for bl in list_of_branches[11:12]:
         infile = source_dir + 'set_' + str(bl) + '.npz'
         # markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
         # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
@@ -189,7 +190,8 @@ for epochs in epochs_list:
             D = tf.reduce_sum(tf.square(tiled_x - tiled_y), axis=2)#/ tf.cast(x_size**2, tf.float32)
             #apply monotone f to sqeeze  and normalize
             D = K.sqrt(D)
-            D = 2 * (D - min_dist)/(max_dist - min_dist)
+            #D = 2 * (D - min_dist)/(max_dist - min_dist)
+            D = 2 * D  / max_dist
             D = tf.linalg.set_diag(D, tf.zeros(x_size), name=None)
             return D
             #no log version
@@ -210,10 +212,14 @@ for epochs in epochs_list:
 
         #short range version
         def graph_diff(x, y):
-            # pot = tf.math.square(r - 1)
+            x_size = tf.shape(x)[0]
             D = compute_graph_weights_Inp(X)
             d = compute_graph_weights_enc(z_mean)
-            return g * K.sum(K.square((D - d)) / (K.exp(D-1)) ) / K.sum(D)
+            denom = K.exp(D) - 1
+            denom = tf.linalg.set_diag(denom, tf.ones(x_size), name=None)  # / tf.cast(dim, tf.float32))
+            enrg = K.square(D - d)  / denom
+            enrg_no_nan = tf.linalg.set_diag(enrg, tf.zeros(x_size), name=None)
+            return g * K.sum(enrg_no_nan) / K.sum(D)
 
 
         #idx =np.random.choice(nrow, size=30,replace=False)
@@ -226,7 +232,10 @@ for epochs in epochs_list:
         #g_diff = K.eval(K.square(1 - K.exp ( compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) -  compute_graph_weights_enc(z[idx,:]))))
         #g_enc =  K.eval(compute_graph_weights_enc(z[idx,:]))
         #g_inp =  K.eval(compute_graph_weights_Inp(aFrame[idx,:].astype('float32')))
-        #g_diff  = K.eval( (K.square((compute_graph_weights_Inp(aFrame[idx, :].astype('float32')) - compute_graph_weights_enc(z[idx,:]))) / (K.exp(compute_graph_weights_Inp(aFrame[idx, :].astype('float32'))-1)))
+        enrg = K.eval(K.square(compute_graph_weights_Inp(aFrame[idx, :].astype('float32') - compute_graph_weights_enc(z[idx,:]))) /
+                        (K.exp(compute_graph_weights_Inp(aFrame[idx, :].astype('float32'))) - 1))
+        #g_diff  = K.eval( (K.square((compute_graph_weights_Inp(aFrame[idx, :].astype('float32')) - compute_graph_weights_enc(z[idx,:]))) /
+        #                   (K.exp(compute_graph_weights_Inp(aFrame[idx, :].astype('float32')))-1.0))
         #                  / K.sum(compute_graph_weights_Inp(aFrame[idx, :].astype('float32'))))
 
         def compute_kernel(x, y):
@@ -283,8 +292,8 @@ for epochs in epochs_list:
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean)
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
-                return coeffMSE * msew +   1 *  loss_mmd(y_true, y_pred) +  (
-                        1 * DCAE_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) +  (1-MMD_weight)* graph_diff(y_true, y_pred)
+                return coeffMSE * msew +  loss_mmd(y_true, y_pred) +  coeffCAE * (DCAE_loss(y_true, y_pred)) +\
+                       (1-MMD_weight+0.05)* graph_diff(y_true, y_pred)
                 # return  loss_mmd(x, x_decoded_mean)
 
             return loss
@@ -308,7 +317,7 @@ for epochs in epochs_list:
                                            batch_size=batch_size,
                                            epochs=epochs,
                                            shuffle=True,
-                                           callbacks=[AnnealingCallback(MMD_weight, MMD_weight_lst), AnnealingCallback(DCAE_weight, DCAE_weight_lst),
+                                           callbacks=[AnnealingCallback(MMD_weight, MMD_weight_lst),
                                                       plotCallback(aFrame=aFrame, Sigma=Sigma, lbls=lbls, encoder=encoder,
                                                                   ID=ID, bl=bl, epochs=epochs, output_dir=output_dir,
                                                         save_period=save_period,),
