@@ -39,7 +39,7 @@ def DELU_activation(x): # step RELU activation, see this post for references:
 
 k = 30
 epochs_list = [250]
-coeffCAE = 1
+coeffCAE = 0.1
 coeffMSE = 1
 batch_size = 128
 lam = 0.1
@@ -109,6 +109,10 @@ for epochs in epochs_list:
         MMD_weight = K.variable(value=0)
 
         MMD_weight_lst = K.variable(np.array(frange_anneal(int(epochs), ratio=0.2)))
+
+        DCAE_weight = K.variable(value=0)
+
+        DCAE_weight_lst = K.variable(np.array(frange_anneal(int(epochs), ratio=1)))
 
         latent_dim = 3
         original_dim = aFrame.shape[1]
@@ -280,7 +284,7 @@ for epochs in epochs_list:
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
                 return coeffMSE * msew +   1 *  loss_mmd(y_true, y_pred) +  (
-                        1 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) +  (1-MMD_weight)* graph_diff(y_true, y_pred)
+                        1 * DCAE_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) +  (1-MMD_weight)* graph_diff(y_true, y_pred)
                 # return  loss_mmd(x, x_decoded_mean)
 
             return loss
@@ -304,7 +308,7 @@ for epochs in epochs_list:
                                            batch_size=batch_size,
                                            epochs=epochs,
                                            shuffle=True,
-                                           callbacks=[AnnealingCallback(MMD_weight, MMD_weight_lst),
+                                           callbacks=[AnnealingCallback(MMD_weight, MMD_weight_lst), AnnealingCallback(DCAE_weight, DCAE_weight_lst),
                                                       plotCallback(aFrame=aFrame, Sigma=Sigma, lbls=lbls, encoder=encoder,
                                                                   ID=ID, bl=bl, epochs=epochs, output_dir=output_dir,
                                                         save_period=save_period,),
