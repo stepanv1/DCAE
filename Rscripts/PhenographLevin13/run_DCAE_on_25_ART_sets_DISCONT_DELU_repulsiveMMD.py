@@ -293,7 +293,7 @@ for epochs in epochs_list:
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
                 return coeffMSE * msew +  loss_mmd(y_true, y_pred) +  coeffCAE * (DCAE_loss(y_true, y_pred)) +\
-                       (1-MMD_weight+0.05)* graph_diff(y_true, y_pred)
+                       (1-MMD_weight)* graph_diff(y_true, y_pred)
                 # return  loss_mmd(x, x_decoded_mean)
 
             return loss
