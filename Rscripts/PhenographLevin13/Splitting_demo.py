@@ -1,5 +1,6 @@
 '''
 Demonstrates splitting effect of DR on uniformly distrubuted data in 10D to 2D
+line 1045 - paper plots
 '''
 import timeit
 import matplotlib.pyplot as plt
@@ -963,15 +964,15 @@ autoencoder.summary()
 save_period = 100
 batch_size = 250
 
-start = timeit.default_timer()
-history_multiple = autoencoder.fit(aFrame, aFrame,
-                                   batch_size=batch_size,
-                                   epochs=epochs,
-                                   shuffle=True,
-                                   callbacks=[saveEncoder(encoder=encoder, ID=ID8, epochs=epochs,
-                                                                  output_dir=output_dir, save_period=save_period)],
-                                   verbose=1)
-stop = timeit.default_timer()
+# start = timeit.default_timer()
+# history_multiple = autoencoder.fit(aFrame, aFrame,
+#                                    batch_size=batch_size,
+#                                    epochs=epochs,
+#                                    shuffle=True,
+#                                    callbacks=[saveEncoder(encoder=encoder, ID=ID8, epochs=epochs,
+#                                                                   output_dir=output_dir, save_period=save_period)],
+#                                    verbose=1)
+# stop = timeit.default_timer()
 z = encoder.predict([aFrame])
 print(stop - start)
 #
@@ -989,19 +990,12 @@ print(output_dir + '/autoencoder_' +ID8  + "_linear_"  + 'epochs' + str(epochs) 
 
 fig01 = plt.figure();
 plt.hist(z,200)
-from scipy.stats import spearmanr
-spearmanr(z, aFrame[:,1])
-spearmanr(z[z<0.378],aFrame[np.where(z<0.378)[0],1] )
-
+#from scipy.stats import spearmanr
+#spearmanr(z, aFrame[:,1])
+#spearmanr(z[z<0.378],aFrame[np.where(z<0.378)[0],1] )
 
 for w in autoencoder.trainable_weights:
     print(K.eval(w))
-
-fig01 = plt.figure();
-col = 0
-plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=z, c=aFrame[:,col], cmap='winter', s=0.1)
-plt.title('color ' + str(col))
-plt.colorbar()
 
 for col in range(original_dim):
     fig01 = plt.figure();
@@ -1044,12 +1038,14 @@ plt.title('DCAE_2l')
 
 fig01 = plt.figure();
 col=1
-plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
+plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=z,  cmap='winter', s=0.1)
 plt.title('color ' + str(col))
 plt.colorbar()
 
 ########################################################################################################
-#
+# PLOTS for papers
+# 1. Histogram in z,
+# 2. plot of splitting overlaying mappings of border and S-surface
 ID9 = 'Split_demo_2D_to_1D_by_latent_linear_small_decoder_nodes_4_16_tanh'
 epochs=100000
 
@@ -1118,17 +1114,17 @@ autoencoder.summary()
 save_period = 100
 batch_size = 250
 
-start = timeit.default_timer()
-history_multiple = autoencoder.fit(aFrame, aFrame,
-                                   batch_size=batch_size,
-                                   epochs=epochs,
-                                   shuffle=True,
-                                   callbacks=[saveEncoder(encoder=encoder, ID=ID9, epochs=epochs,
-                                                                  output_dir=output_dir, save_period=save_period)],
-                                   verbose=1)
-stop = timeit.default_timer()
-z = encoder.predict([aFrame])
-print(stop - start)
+# start = timeit.default_timer()
+# history_multiple = autoencoder.fit(aFrame, aFrame,
+#                                    batch_size=batch_size,
+#                                    epochs=epochs,
+#                                    shuffle=True,
+#                                    callbacks=[saveEncoder(encoder=encoder, ID=ID9, epochs=epochs,
+#                                                                   output_dir=output_dir, save_period=save_period)],
+#                                    verbose=1)
+# stop = timeit.default_timer()
+#z = encoder.predict([aFrame])
+#print(stop - start)
 #
 #encoder.save_weights(output_dir + '/' +ID9 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
 #autoencoder.save_weights(output_dir + '/autoencoder_' +ID9 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
@@ -1154,27 +1150,13 @@ weights_list = autoencoder.get_weights()[4:8]
 decoder.set_weights(weights_list)
 dec_map = decoder.predict(np.linspace(-1, 1, num=1000))
 
-
+#histogram of 1D representation, paper
 fig01 = plt.figure();
 plt.hist(z,500)
 
-fig01 = plt.figure();
-plt.hist(z[np.logical_and(z>0.14, z<0.19)],500)
+#for w in autoencoder.trainable_weights:
+#    print(K.eval(w))
 
-
-from scipy.stats import spearmanr
-spearmanr(z, aFrame[:,1])
-spearmanr(z[z<0.-0.085],aFrame[np.where(z<0.-0.085)[0],0] )
-
-
-for w in autoencoder.trainable_weights:
-    print(K.eval(w))
-
-fig01 = plt.figure();
-col = 0
-plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=z, c=aFrame[:,col], cmap='winter', s=0.1)
-plt.title('color ' + str(col))
-plt.colorbar()
 #np.arctanh(2* (z- np.min(z) / (np.max(z) - np.min(z)) ) -1 )
 for col in range(original_dim):
     fig01 = plt.figure();
@@ -1182,43 +1164,13 @@ for col in range(original_dim):
     plt.title('color ' + str(col))
     plt.colorbar()
 
-for dim in range(original_dim):
-    fig01 = plt.figure();
-    plt.scatter(aFrame[:,dim], y=z, s=0.1)
-    plt.title('dimension' + str(dim))
-    plt.colorbar()
 
-
-
-
-fig01 = plt.figure();
-col = 0
-plt.scatter(aFrame[:, col], y=z,  cmap='winter', s=0.1)
-plt.title('color ' + str(col))
-plt.colorbar()
-
-fig01 = plt.figure();
-col = 1
-plt.scatter(aFrame[:, col], y=z,  cmap='winter', s=0.1)
-plt.title('color ' + str(col))
-plt.colorbar()
-
-for w in encoder.trainable_weights:
-    print(K.eval(w))
-
-
-fig01 = plt.figure();
-col=0
-plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
-plt.title('color ' + str(col))
-plt.colorbar()
 
 fig01 = plt.figure();
 col=1
-plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
+plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=z,  cmap='winter', s=0.1)
 plt.title('color ' + str(col))
 plt.colorbar()
-
 
 history = pickle.load(open(output_dir + '/' +ID9 + "_linear"+'epochs' + str(epochs) + '_history',  "rb"))
 st = 4000;
@@ -1230,45 +1182,40 @@ fig = plt.figure();
 plt.plot((history['DCAE_2l'][st:stp]));
 plt.title('DCAE_2l')
 
-fig01 = plt.figure();
-col=1
-plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
-plt.title('color ' + str(col))
-plt.colorbar()
-
 #from mpl_toolkits import mplot3d
-fig01 = plt.figure();
-col=1
-ax = fig01.add_subplot(projection='3d')
+#fig01 = plt.figure();
+#col=1
+#ax = fig01.add_subplot(projection='3d')
 #ax.set_zlim3d(0.1,0.2)
 #zs =np.arctanh(2* (z- np.min(z) / (np.max(z) - np.min(z)) ) -1 )
-p = ax.scatter3D(aFrame[:,0], aFrame[:,1], z, c = z, s=0.1)
-fig01.colorbar(p)
-ax.scatter3D(A_rest[:,0], A_rest[:,1], -1, c=aFrame[:,col],  cmap='winter', s=1)
-#plt.title('color ' + str(col))
-#plt.colorbar()
-fig01 = plt.figure();
-col=1
-ax = fig01.add_subplot(projection='3d')
-#ax.set_zlim3d(0.1,0.2)
-#zs =np.arctanh(2* (z- np.min(z) / (np.max(z) - np.min(z)) ) -1 )
-p = ax.scatter3D(aFrame[:,0], aFrame[:,1], z, c = z, s=0.1)
-fig01.colorbar(p)
+#p = ax.scatter3D(aFrame[:,0], aFrame[:,1], z, c = z, s=0.1)
+#fig01.colorbar(p)
 #ax.scatter3D(A_rest[:,0], A_rest[:,1], -1, c=aFrame[:,col],  cmap='winter', s=1)
-ax.scatter3D(dec_map[:,0], dec_map[:,1], -1, c=np.linspace(-1, 1, num=1000), s=1)
+#plt.title('color ' + str(col))
+#
+#plt.colorbar()
+# fig01 = plt.figure();
+# col=1
+# ax = fig01.add_subplot(projection='3d')
+# #ax.set_zlim3d(0.1,0.2)
+# #zs =np.arctanh(2* (z- np.min(z) / (np.max(z) - np.min(z)) ) -1 )
+# p = ax.scatter3D(aFrame[:,0], aFrame[:,1], z, c = z, s=0.1)
+# fig01.colorbar(p)
+# #ax.scatter3D(A_rest[:,0], A_rest[:,1], -1, c=aFrame[:,col],  cmap='winter', s=1)
+# ax.scatter3D(dec_map[:,0], dec_map[:,1], -1, c=np.linspace(-1, 1, num=1000), s=1)
 
 z_gap = np.linspace(-0.97, 0.97, num=1000)
 z_gap = z_gap[(np.logical_or(z_gap<0.14, z_gap<0.14))]
 gap_map = decoder.predict(z_gap)
-fig01 = plt.figure();
-col=1
-ax = fig01.add_subplot(projection='3d')
-#ax.set_zlim3d(0.1,0.2)
-#zs =np.arctanh(2* (z- np.min(z) / (np.max(z) - np.min(z)) ) -1 )
-p = ax.scatter3D(aFrame[:,0], aFrame[:,1], z, c = z, s=0.1)
-fig01.colorbar(p)
-#ax.scatter3D(A_rest[:,0], A_rest[:,1], -1, c=aFrame[:,col],  cmap='winter', s=1)
-ax.scatter3D(gap_map[:,0], gap_map[:,1], -1, c='red',s=1)
+# fig01 = plt.figure();
+# col=1
+# ax = fig01.add_subplot(projection='3d')
+# #ax.set_zlim3d(0.1,0.2)
+# #zs =np.arctanh(2* (z- np.min(z) / (np.max(z) - np.min(z)) ) -1 )
+# p = ax.scatter3D(aFrame[:,0], aFrame[:,1], z, c = z, s=0.1)
+# fig01.colorbar(p)
+# #ax.scatter3D(A_rest[:,0], A_rest[:,1], -1, c=aFrame[:,col],  cmap='winter', s=1)
+# ax.scatter3D(gap_map[:,0], gap_map[:,1], -1, c='red',s=1)
 
 # plot a mapping portrait of autoencoder
 # create a mesh in a square in [-1,1] cube
@@ -1284,17 +1231,17 @@ mesh_map =  autoencoder.predict(mesh_array)
 mesh_z = encoder.predict(mesh_array)
 
 cmap = plt.get_cmap('jet_r')
-fig01 = plt.figure();
-colors = cmap(mesh_z[:, 0])
-p = plt.scatter(x=mesh_map[:,0], y=mesh_map[:,1], c=colors, s=1)
-fig01.colorbar(p)
-for i in range(nz):
-    color = cmap(mesh_z[i, 0])
-    plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , c=colors[i,:], linestyle="--", markersize=0.1 ,linewidth=0.1)
-#p = plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=z, s=0.1)
-#plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
-plt.title("Encoder mapping  vs input mesh autoencoder mapping (blue)")
-plt.show()
+# fig01 = plt.figure();
+# colors = cmap(mesh_z[:, 0])
+# p = plt.scatter(x=mesh_map[:,0], y=mesh_map[:,1], c=colors, s=1)
+# fig01.colorbar(p)
+# for i in range(nz):
+#     color = cmap(mesh_z[i, 0])
+#     plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , c=colors[i,:], linestyle="--", markersize=0.1 ,linewidth=0.1)
+# #p = plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=z, s=0.1)
+# #plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
+# plt.title("Encoder mapping  vs input mesh autoencoder mapping (blue)")
+# plt.show()
 
 fig01 = plt.figure();
 plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c='red',  cmap='winter', s=3)
@@ -1306,26 +1253,26 @@ plt.title("autoencoder random input mapping (red) vs input mesh autoencoder mapp
 plt.show()
 
 # plot a 'corner' are of mapping
-nx=100; ny=100
-x = np.linspace(0.6, 1, nx)
-y = np.linspace(0.0, 0.6, ny)
-xv, yv = np.meshgrid(x, y, sparse=False)
-nz = nx*ny
-a = np.reshape(xv, nz)
-b = np.reshape(yv, nz)
-mesh_array = np.c_[a,b ]
-mesh_map =  autoencoder.predict(mesh_array)
-
-fig01 = plt.figure();
-plt.xlim([0.6, 1])
-plt.ylim([0.0, 0.6])
-plt.scatter(x=dec_map[:,0], y=dec_map[:,1], c='red',  cmap='winter', s=3)
-for i in range(nz):
-    plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , 'bo', linestyle="--", markersize=0.1 ,linewidth=0.1)
-#plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
-plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
-plt.title("Decoder mapping (red) vs input mesh autoencoder mapping (blue)")
-plt.show()
+# nx=100; ny=100
+# x = np.linspace(0.6, 1, nx)
+# y = np.linspace(0.0, 0.6, ny)
+# xv, yv = np.meshgrid(x, y, sparse=False)
+# nz = nx*ny
+# a = np.reshape(xv, nz)
+# b = np.reshape(yv, nz)
+# mesh_array = np.c_[a,b ]
+# mesh_map =  autoencoder.predict(mesh_array)
+#
+# fig01 = plt.figure();
+# plt.xlim([0.6, 1])
+# plt.ylim([0.0, 0.6])
+# plt.scatter(x=dec_map[:,0], y=dec_map[:,1], c='red',  cmap='winter', s=3)
+# for i in range(nz):
+#     plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , 'bo', linestyle="--", markersize=0.1 ,linewidth=0.1)
+# #plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
+# plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
+# plt.title("Decoder mapping (red) vs input mesh autoencoder mapping (blue)")
+# plt.show()
 
 fig01 = plt.figure();
 plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c='red',  cmap='winter', s=3)
@@ -1339,7 +1286,8 @@ plt.show()
 # plot mapping of the lower bottom of the square
 # plot a mapping portrait of autoencoder
 # create a mesh in a square in [-1,1] cube
-nx=1000; ny=1
+# TO INLCLUDE in papeer
+nx=100; ny=1
 x = np.linspace(0, 1, nx)
 y = np.linspace(0, 0.01, ny)
 xv, yv = np.meshgrid(x, y, sparse=False)
@@ -1350,16 +1298,63 @@ mesh_array = np.c_[a,b ]
 mesh_map =  autoencoder.predict(mesh_array)
 mesh_z = encoder.predict(mesh_array)
 
-fig01 = plt.figure();
-plt.scatter(x=dec_map[:,0], y=dec_map[:,1], c='red',  cmap='winter', s=3)
+nx=100; ny=1
+x = np.linspace(0.425,0.432, nx)
+y = np.linspace(0, 0.01, ny)
+xv, yv = np.meshgrid(x, y, sparse=False)
+nz = nx*ny
+a = np.reshape(xv, nz)
+b = np.reshape(yv, nz)
+mesh_array2 = np.c_[a,b ]
+mesh_map2 =  autoencoder.predict(mesh_array2)
+mesh_z2 = encoder.predict(mesh_array2)
+
+
+
+
+
 cmap = plt.get_cmap('jet_r')
+from matplotlib import colors, cm
+cnorm = colors.Normalize(vmin=-1, vmax=1)
+smap = cm.ScalarMappable(norm=cnorm, cmap=cmap)
+#color = cmap(np.linspace(-1, 1, num=1000))
+enc_map = encoder.predict(aFrame)
+#plt.figure(figsize=(10, 10))
+fig, ax = plt.subplots(nrows=3, figsize=(8, 17), gridspec_kw={'height_ratios': [3, 3, 1]})
+p= ax[0].scatter(x=A_rest[:,0], y=A_rest[:,1], cmap='jet_r', c=enc_map[:,0], vmin=-1, vmax=1 ,   s=3)
 for i in range(nz):
-    color = cmap(mesh_z[i,0] )
-    plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , c= color,  linestyle="--", markersize=0.1 ,linewidth=0.1)
+    color = smap.to_rgba(mesh_z[i,0] )
+    im=ax[0].plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , c=color ,   linestyle="--", markersize=0.1 ,linewidth=0.5)
 #plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
-plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
-plt.title("Decoder mapping (red) vs input mesh autoencoder mapping (blue)")
+ax[0].scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
+ax[0].title.set_text('(a) Decoder mapping of latent variable overlayed with autoencoder mapping')
+
+# add subplot for the mapping on gap
+p= ax[1].scatter(x=A_rest[:,0], y=A_rest[:,1], cmap='jet_r', c=enc_map[:,0], vmin=-1, vmax=1 ,   s=3)
+for i in range(nz):
+    color = smap.to_rgba(mesh_z2[i,0] )
+    im=ax[1].plot( [mesh_array2[i,0], mesh_map2[i,0]],  [mesh_array2[i,1], mesh_map2[i,1]] , c=color ,   linestyle="--", markersize=0.1 ,linewidth=0.5)
+#plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
+ax[1].scatter( mesh_array2[:,0],   mesh_array2[:,1], c='green', s=1)
+ax[1].title.set_text('(b) Decoder mapping of points near D-set')
+
+Y,X = np.histogram(z, 200, normed=1)
+x_span = X.max()-X.min()
+cm = plt.cm.get_cmap('jet_r')
+C = [cm(((x-X.min())/x_span)) for x in X]
+ax[2].bar(X[:-1],Y,color=C,width=X[1]-X[0])
+ax[2].title.set_text('(c) Histogram of latent variable')
+
+cbar_ax = fig.add_axes([0.9, 0.15, 0.02, 0.7])
+fig.colorbar(p, cax=cbar_ax)
 plt.show()
+fig.savefig(PLOTS + '/'+"RELU_split_2D" + ".eps", format='eps', dpi=350)
+plt.close()
+
+
+
+
+
 
 fig01 = plt.figure();
 plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c='red',  cmap='winter', s=3)
@@ -1376,7 +1371,7 @@ plt.show()
 z_b = encoder.predict(mesh_array)
 for col in range(original_dim):
     fig01 = plt.figure();
-    plt.scatter(np.random.uniform(-0.2,0.2,1000), y=z_b , c=mesh_array[:,col], cmap='winter', s=0.1)
+    plt.scatter(np.random.uniform(-0.2,0.2,100), y=z_b , c=mesh_array[:,col], cmap='winter', s=0.1)
     plt.title('color ' + str(col))
     plt.colorbar()
 
@@ -1467,23 +1462,23 @@ autoencoder.summary()
 save_period = 100
 batch_size = 250
 
-start = timeit.default_timer()
-history_multiple = autoencoder.fit(aFrame, aFrame,
-                                   batch_size=batch_size,
-                                   epochs=epochs,
-                                   shuffle=True,
-                                   callbacks=[saveEncoder(encoder=encoder, ID=ID10, epochs=epochs,
-                                                                  output_dir=output_dir, save_period=save_period)],
-                                   verbose=1)
-stop = timeit.default_timer()
-z = encoder.predict([aFrame])
-print(stop - start)
+# start = timeit.default_timer()
+# history_multiple = autoencoder.fit(aFrame, aFrame,
+#                                    batch_size=batch_size,
+#                                    epochs=epochs,
+#                                    shuffle=True,
+#                                    callbacks=[saveEncoder(encoder=encoder, ID=ID10, epochs=epochs,
+#                                                                   output_dir=output_dir, save_period=save_period)],
+#                                    verbose=1)
+# stop = timeit.default_timer()
+# z = encoder.predict([aFrame])
+# print(stop - start)
 #
-encoder.save_weights(output_dir + '/' +ID10 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
-autoencoder.save_weights(output_dir + '/autoencoder_' +ID10 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
-np.savez(output_dir + '/' +ID10+ "_linear_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
-with open(output_dir + '/' +ID10 + "_linear"+'epochs' + str(epochs) + '_history', 'wb') as file_pi:
-    pickle.dump(history_multiple.history, file_pi)
+# encoder.save_weights(output_dir + '/' +ID10 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
+# autoencoder.save_weights(output_dir + '/autoencoder_' +ID10 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
+# np.savez(output_dir + '/' +ID10+ "_linear_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
+# with open(output_dir + '/' +ID10 + "_linear"+'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+#     pickle.dump(history_multiple.history, file_pi)
 
 encoder.load_weights(output_dir + '/' +ID10 +  "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
 autoencoder.load_weights(output_dir + '/autoencoder_' +ID10  + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')

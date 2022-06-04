@@ -38,8 +38,8 @@ def DELU_activation(x): # step RELU activation, see this post for references:
     return tf.where(cond, x + tf.constant(0.2), expx - 1), grad
 
 k = 30
-epochs_list = [250]
-coeffCAE = 1
+epochs_list = [500]
+coeffCAE = 0.5
 coeffMSE = 1
 batch_size = 128
 lam = 0.1
@@ -48,7 +48,7 @@ m = 10
 patience = 500
 min_delta = 1e-4
 g=10
-#epochs=100
+
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
@@ -67,7 +67,7 @@ tf.compat.v1.disable_eager_execution()
 # possibly final parameters: m=10 ; lam = 0.1; g=0.1
 # worst: lam = 0.01; # g=0.1; lam = 0.01; # g=0.01, seems like lam =0.001 is to small
 for epochs in epochs_list:
-    for bl in list_of_branches[11:12]:
+    for bl in list_of_branches[6:]:
         infile = source_dir + 'set_' + str(bl) + '.npz'
         # markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
         # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
@@ -191,7 +191,7 @@ for epochs in epochs_list:
             #apply monotone f to sqeeze  and normalize
             D = K.sqrt(D)
             #D = 2 * (D - min_dist)/(max_dist - min_dist)
-            D = 2 * D  / max_dist
+            D = 2 * (D - min_dist+0.01) / max_dist
             D = tf.linalg.set_diag(D, tf.zeros(x_size), name=None)
             return D
             #no log version
@@ -212,17 +212,17 @@ for epochs in epochs_list:
 
         #short range version
         def graph_diff(x, y):
-            x_size = tf.shape(x)[0]
+            x_size = tf.shape(z_mean)[0]
             D = compute_graph_weights_Inp(X)
             d = compute_graph_weights_enc(z_mean)
             denom = K.exp(D) - 1
             denom = tf.linalg.set_diag(denom, tf.ones(x_size), name=None)  # / tf.cast(dim, tf.float32))
             enrg = K.square(D - d)  / denom
-            enrg_no_nan = tf.linalg.set_diag(enrg, tf.zeros(x_size), name=None)
-            return g * K.sum(enrg_no_nan) / K.sum(D)
+            #enrg_no_nan = tf.linalg.set_diag(enrg, tf.zeros(x_size), name=None)
+            return g * K.sum(enrg) / K.sum(D)
 
 
-        #idx =np.random.choice(nrow, size=30,replace=False)
+        #idx =np.random.choice(nrow, size=100,replace=False)
         #LL = lbls[idx]
         #KL = K.eval(- K.sum(compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) * K.log(compute_graph_weights_enc(z[idx,:]))) + K.log(K.sum(compute_graph_weights_enc(z[idx,:]))))
         #SigmaTsq =Sigma[idx]
@@ -232,11 +232,16 @@ for epochs in epochs_list:
         #g_diff = K.eval(K.square(1 - K.exp ( compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) -  compute_graph_weights_enc(z[idx,:]))))
         #g_enc =  K.eval(compute_graph_weights_enc(z[idx,:]))
         #g_inp =  K.eval(compute_graph_weights_Inp(aFrame[idx,:].astype('float32')))
-        enrg = K.eval(K.square(compute_graph_weights_Inp(aFrame[idx, :].astype('float32') - compute_graph_weights_enc(z[idx,:]))) /
-                        (K.exp(compute_graph_weights_Inp(aFrame[idx, :].astype('float32'))) - 1))
+        #enrg = K.eval(K.square( compute_graph_weights_Inp(aFrame[idx, :].astype('float32') )- compute_graph_weights_enc(z[idx,:]) ) /
+        #                (K.exp(compute_graph_weights_Inp(aFrame[idx, :].astype('float32'))) - 1) )
+        #enrg = np.nan_to_num(enrg)
         #g_diff  = K.eval( (K.square((compute_graph_weights_Inp(aFrame[idx, :].astype('float32')) - compute_graph_weights_enc(z[idx,:]))) /
         #                   (K.exp(compute_graph_weights_Inp(aFrame[idx, :].astype('float32')))-1.0))
         #                  / K.sum(compute_graph_weights_Inp(aFrame[idx, :].astype('float32'))))
+
+
+
+
 
         def compute_kernel(x, y):
             x_size = tf.shape(x)[0]
@@ -292,8 +297,8 @@ for epochs in epochs_list:
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean)
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
-                return coeffMSE * msew +  loss_mmd(y_true, y_pred) +  coeffCAE * (DCAE_loss(y_true, y_pred)) +\
-                       (1-MMD_weight)* graph_diff(y_true, y_pred)
+                return coeffMSE * msew +  loss_mmd(y_true, y_pred) +  (1-MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) +\
+                       10*(1-MMD_weight)* graph_diff(y_true, y_pred)
                 # return  loss_mmd(x, x_decoded_mean)
 
             return loss

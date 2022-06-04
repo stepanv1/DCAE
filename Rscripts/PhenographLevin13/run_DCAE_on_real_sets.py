@@ -28,12 +28,12 @@ epochs_list = [250,500,1000]
 coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
-lam = 10
+lam = 0.1
 alp = 0.2
 m = 10
 patience = 1000
 min_delta = 1e-4
-g=0.1
+g=0
 
 patienceD = {'Levine32euclid_scaled_no_negative_removed.npz':25,
 'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz':50,  'Shenkareuclid_shifted.npz':100}
@@ -45,7 +45,7 @@ source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
 output_dir  = DATA_ROOT + 'Real_sets/DCAE_output/'
 list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
 'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
-ID = 'High_lam_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'Decreasing_MSE' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
@@ -75,12 +75,7 @@ for epochs in epochs_list:
         lbls = npzfile['lbls'];
         nrow = np.shape(aFrame)[0]
 
-        from numpy import  nanmax, argmax, unravel_index
-        from scipy.spatial.distance import pdist, squareform
-        IDX = np.random.randint(0, high=nrow, size=2000)
-        D = pdist(aFrame[IDX,:])
-        D = squareform(D);
-        max_dist, [I_row, I_col] = nanmax(D), unravel_index(argmax(D), D.shape)
+
         from numpy import nanmax, argmax, unravel_index
         from scipy.spatial.distance import pdist, squareform
 
@@ -88,7 +83,7 @@ for epochs in epochs_list:
         D = pdist(aFrame[IDX, :])
         D = squareform(D);
         max_dist, [I_row, I_col] = nanmax(D), unravel_index(argmax(D), D.shape)
-        np.fill_diagonal(D, 1000)
+        np.fill_diagonal(D, 10000)
         min_dist = np.min(D)
         np.fill_diagonal(D, 0)
         mean_dist = np.mean(D)
@@ -102,7 +97,11 @@ for epochs in epochs_list:
 
         MMD_weight = K.variable(value=0)
 
-        MMD_weight_lst = K.variable(np.array(frange_anneal(int(epochs), ratio=1)))
+        MMD_weight_lst = K.variable(np.array(frange_anneal(int(epochs), ratio=0.2)))
+
+        MSE_weight = K.variable(value=0)
+
+        MSE_weight_lst = K.variable(np.array(frange_anneal(int(epochs), ratio=1)))
 
         latent_dim = 3
         original_dim = aFrame.shape[1]
@@ -263,8 +262,8 @@ for epochs in epochs_list:
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean)
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
-                return coeffMSE * msew +   1 *  loss_mmd(y_true, y_pred) +  (
-                        5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) +  (MMD_weight +0.01)* graph_diff(y_true, y_pred)
+                return coeffMSE * (1-MSE_weight + 0.1 )*msew +   1 *  loss_mmd(y_true, y_pred) +  (
+                        1 * MSE_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) #+  (MMD_weight + 0.01)* graph_diff(y_true, y_pred)
                 # return  loss_mmd(x, x_decoded_mean)
 
             return loss
@@ -276,7 +275,7 @@ for epochs in epochs_list:
         )
 
         autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst),
-                            metrics=[DCAE_loss, graph_diff, loss_mmd, mean_square_error_NN])
+                            metrics=[DCAE_loss, loss_mmd, mean_square_error_NN])
 
         autoencoder.summary()
 
@@ -288,7 +287,7 @@ for epochs in epochs_list:
                                            batch_size=batch_size,
                                            epochs=epochs,
                                            shuffle=True,
-                                           callbacks=[AnnealingCallback(MMD_weight, MMD_weight_lst),
+                                           callbacks=[AnnealingCallback(MSE_weight, MSE_weight_lst),
                                                       plotCallback(aFrame=aFrame, Sigma=Sigma, lbls=lbls, encoder=encoder,
                                                                   ID=ID, bl=bl, epochs=epochs, output_dir=output_dir,
                                                         save_period=save_period,),
@@ -302,6 +301,8 @@ for epochs in epochs_list:
         stop = timeit.default_timer()
         z = encoder.predict([aFrame, Sigma])
         print(stop - start)
+
+
 
         encoder.save_weights(output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')
         autoencoder.save_weights(output_dir + '/autoencoder_' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_3D.h5')

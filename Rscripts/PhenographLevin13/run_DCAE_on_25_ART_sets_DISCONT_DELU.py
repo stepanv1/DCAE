@@ -38,7 +38,7 @@ def DELU_activation(x): # step RELU activation, see this post for references:
     return tf.where(cond, x + tf.constant(0.2), expx - 1), grad
 
 k = 30
-epochs_list = [500]
+epochs_list = [250, 500]
 coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
@@ -47,13 +47,13 @@ alp = 0.2
 m = 10
 patience = 500
 min_delta = 1e-4
-g=0.1
+g=0
 #epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'DICSCONT_DELU_0.2' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'DICSCONT_DELU_0.2_NO_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 #ID = 'ELU_' + '_DCAE_norm_0.5' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
 #output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output'
 #load earlier generated data
@@ -62,6 +62,7 @@ tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.compat.v1.disable_eager_execution()
 #bl = list_of_branches[0]
+# epochs =250
 # possibly final parameters: m=10 ; lam = 0.1; g=0.1
 # worst: lam = 0.01; # g=0.1; lam = 0.01; # g=0.01, seems like lam =0.001 is to small
 for epochs in epochs_list:
@@ -275,8 +276,7 @@ for epochs in epochs_list:
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean)
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
-                return coeffMSE * msew +   1 *  loss_mmd(y_true, y_pred) +  (
-                        1 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) +  (MMD_weight + 0.01)* graph_diff(y_true, y_pred)
+                return coeffMSE* msew +   1 *  loss_mmd(y_true, y_pred) +  (coeffCAE) * (1 - 0.9*MMD_weight)*(DCAE_loss(y_true, y_pred))# +  (MMD_weight + 0.01)* graph_diff(y_true, y_pred)
                 # return  loss_mmd(x, x_decoded_mean)
 
             return loss
@@ -288,7 +288,7 @@ for epochs in epochs_list:
         )
 
         autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst),
-                            metrics=[DCAE_loss, graph_diff, loss_mmd, mean_square_error_NN])
+                            metrics=[DCAE_loss, loss_mmd, mean_square_error_NN])
 
         autoencoder.summary()
 
