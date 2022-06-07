@@ -22,7 +22,8 @@ patience = 1000
 min_delta = 1e-4
 g=0.1
 
-ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'Decreasing_MSE_g_0_lam_1_batch_128_alp_0.2_m_10'
+#ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
 epoch_list =  [250, 500, 1000]
 #epoch_list =  [750]
@@ -37,7 +38,6 @@ output_dir =  DATA_ROOT + "Real_sets/DCAE_output/Performance/"
 
 for epochs in epoch_list:
     #bl = list_of_inputs[0]
-    '''
     for bl in list_of_inputs:
         #read data
         infile = DATA_DIR  + bl
@@ -56,7 +56,7 @@ for epochs in epoch_list:
 
         outfile = output_dir + '/'  + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
         np.savez(outfile, MSS0=MSS[0], LSSS0= LSSS[0], MSS1=MSS[1], LSSS1= LSSS[1])
-    
+    '''
     # Compute performance for UMAP
     z_dir  = DATA_ROOT + "Real_sets/UMAP_output/"
     output_dir =  DATA_ROOT + "Real_sets/UMAP_output/Performance"
