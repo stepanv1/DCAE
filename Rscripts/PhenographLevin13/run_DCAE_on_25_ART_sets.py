@@ -24,13 +24,13 @@ num_cores = multiprocessing.cpu_count()
 pool = multiprocessing.Pool(num_cores)
 
 k = 30
-epochs_list = [250,500]
+epochs_list = [1000]
 coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
 lam = 0.1
 alp = 0.2
-m = 100
+m = 10
 patience = 500
 min_delta = 1e-4
 g=0#0.1

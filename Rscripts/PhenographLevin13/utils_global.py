@@ -76,7 +76,7 @@ def global_structure_preservation_scores_mean():
 
 def global_structure_preservation_scores_emd():
     '''
-    same as above nut uses arth mover distance
+    same as above but uses earth mover distance
     '''
     pass
 #TODO: demonstrate this by putting 4 balls on one line and by

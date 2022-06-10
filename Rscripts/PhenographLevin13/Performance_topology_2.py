@@ -111,6 +111,24 @@ epochs = 250
 # Compute performance for DCAE
 z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"
+
+# check true topolgies
+t_list =[None] * 25
+for i in range(25):
+    print(i)
+    infile = source_dir + 'set_' + str(list_of_branches[i]) + '.npz'
+    npzfile = np.load(infile)
+    aFrame = npzfile['aFrame'];
+    lbls = npzfile['lbls'];
+    t_list[i] = generate_true_toplogy(aFrame, lbls)
+    print(t_list[i])
+
+outfile = output_dir + '/' 'True_closest_neighbours.npz'
+t_list_save  =np.array(t_list, dtype=object,)
+#np.savez(outfile, top_score= t_list_save)
+true_top = np.load(outfile, allow_pickle=True)
+true_top['top_score']
+
 #bl = list_of_branches[0]
 for bl in list_of_branches:
     infile = source_dir + 'set_' + str(bl) + '.npz'
@@ -198,13 +216,3 @@ print(df2)
 df2.to_csv(output_dir + '/' + ID + 'epochs' + str(epochs) +'_Summary_Performance_topology.csv', index=True)
 
 
-# check true topolgies
-t_list =[None] * 25
-for i in range(25):
-    print(i)
-    infile = source_dir + 'set_' + str(list_of_branches[i]) + '.npz'
-    npzfile = np.load(infile)
-    aFrame = npzfile['aFrame'];
-    lbls = npzfile['lbls'];
-    t_list[i] = generate_true_toplogy(aFrame, lbls)
-    print(t_list[i])
