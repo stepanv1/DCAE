@@ -12,7 +12,7 @@ from scipy.spatial import distance
 from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
     plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score, \
     get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d, plot3D_performance_colors, plot2D_performance_colors
-def get_topology_list(bl):
+def get_topology_list(bl, top_list):
     """ Gets a touple defining branches and creates a list of nearest neighbour clusters"""
     # basic topology shared by 5 clusters in pentagon, nearest neighbours in pentagon and its branches for clusters 0 to 6
     # for branches, 5 and 6 closest neighbour should bethe  clustr in pentagon to they are attached to
@@ -84,19 +84,20 @@ def get_representation_topology(z, lbls):
         #get top 4
         rank2 = np.array(rank)[np.array(l_list) != np.array(i)]
         l_list2 = np.array(l_list)[np.array(l_list) != np.array(i)]
-        nn_list =l_list2[rank2.argsort()][:4]
+        nn_list =l_list2[rank2.argsort()]#[:4]
         topolist_estimate[i] = nn_list
     return topolist_estimate
 
 def get_topology_match_score(topolist, topolist_estimate):
     """compare match computed and prescribed"""
     topolist = [np.array(x) for x in topolist]
-    # leave only closest neighbours
-    topolist_estimate = [topolist_estimate[i][:len(topolist[i])] if len(topolist[i].shape)!=0  else topolist_estimate[i][0] for i in range(len(topolist))]
-    #match_score = sum([ len(topolist[i]) - len(np.intersect1d(topolist_estimate[i], topolist[i])) for i in range(len(topolist))])
-    match_score = sum(
-        [len(topolist[i]) - len(np.intersect1d(topolist_estimate[i], topolist[i])) if len(topolist[i].shape)!=0
-         else  1- len(np.intersect1d(topolist_estimate[i], topolist[i]))  for i in range(len(topolist))])
+    # create dictionary from toplolist
+    topo_reord  =[]#    for i in range(len(topodict)):
+    for i in range(7):
+        pos = [0, 1, 2, 3, 4, 5, 6]
+        topodict = dict(zip(topolist[i], pos))
+        topo_reord.append([topodict[y] for y in topolist_estimate[i]])
+    match_score =  sum([np.sum(np.abs(np.asarray(y)-np.asarray(pos))) for y in topo_reord])
     return match_score
 
 
@@ -107,27 +108,36 @@ list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
 ID ='Decreasing_MSE_g_0_lam_0.1_batch_128_alp_0.2_m_10'
 #ID ='DICSCONT_DELU_0.2_repulsive_MMD_0.05_experiment_g_10_lam_0.1_batch_128_alp_0.2_m_10'
  #'clip_grad_exp_MDS_g_0.1_lam_0.1_batch_128_alp_0.2_m_10' #'DICSCONT_DELU_0.2_g_0.1_lam_0.1_batch_128_alp_0.2_m_10'        #'zero_MDS_g_0_lam_0.1_batch_128_alp_0.2_m_10' #'clip_grad_exp_MDS_g_0.1_lam_0.1_batch_128_alp_0.2_m_10'
-epochs = 250
+epochs = 1000
 # Compute performance for DCAE
 z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"
 
-# check true topolgies
-t_list =[None] * 25
-for i in range(25):
-    print(i)
-    infile = source_dir + 'set_' + str(list_of_branches[i]) + '.npz'
-    npzfile = np.load(infile)
-    aFrame = npzfile['aFrame'];
-    lbls = npzfile['lbls'];
-    t_list[i] = generate_true_toplogy(aFrame, lbls)
-    print(t_list[i])
+#compute true topolgies
+# t_list = [None] * 25
+# for i in range(25):
+#     print(i)
+#     infile = source_dir + 'set_' + str(list_of_branches[i]) + '.npz'
+#     npzfile = np.load(infile)
+#     aFrame = npzfile['aFrame'];
+#     lbls = npzfile['lbls'];
+#     t_list[i] = generate_true_toplogy(aFrame, lbls)
+#     print(t_list[i])
+#
+# top_list = [x[0] for x in t_list]
+# outfile = output_dir + '/' 'True_closest_neighbours.npy'
+# np.save(outfile, top_list, allow_pickle=True)
+# b = np.load(outfile, allow_pickle=True)
+#
+# top_list = [x[1] for x in t_list]
+# outfile = output_dir + '/' 'True_closest_distances.npy'
+# np.save(outfile, top_list, allow_pickle=True)
+# e = np.load(outfile, allow_pickle=True)
 
-outfile = output_dir + '/' 'True_closest_neighbours.npz'
-t_list_save  =np.array(t_list, dtype=object,)
-#np.savez(outfile, top_score= t_list_save)
-true_top = np.load(outfile, allow_pickle=True)
-true_top['top_score']
+outfile = output_dir + '/' 'True_closest_neighbours.npy'
+top_list = np.load(outfile, allow_pickle=True)
+top_list = dict(zip(list_of_branches, top_list))
+
 
 #bl = list_of_branches[0]
 for bl in list_of_branches:
@@ -137,11 +147,12 @@ for bl in list_of_branches:
     # read DCAE output
     npz_res=np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz')
     z= npz_res['z']
-    topolist = get_topology_list(bl)
-    topolist_estimate = get_representation_topology(z, lbls)
+    topolist = np.abs(top_list[bl])
+    topolist_estimate = (get_representation_topology(z, lbls))
+    topolist_estimate = [np.abs(x) for x in topolist_estimate]
     top_score = get_topology_match_score(topolist, topolist_estimate)
     print(top_score)
-    outfile = output_dir + '/' + ID +  str(bl) + 'epochs' + str(epochs) + '_Topological_PerformanceMeasures.npz'
+    outfile = output_dir + '/' + ID +  str(bl) + 'epochs' + str(epochs) + '_2_Topological_PerformanceMeasures.npz'
     np.savez(outfile, top_score= top_score)
 '''
 # Compute performance for UMAP
@@ -155,11 +166,12 @@ for bl in list_of_branches:
     # read DCAE output
     npz_res=np.load(z_dir + '/' + str(bl) + '_UMAP_rep_2D.npz')
     z= npz_res['z']
-    topolist = get_topology_list(bl)
-    topolist_estimate = get_representation_topology(z, lbls)
+    topolist = np.abs(top_list[bl])
+    topolist_estimate = (get_representation_topology(z, lbls))
+    topolist_estimate = [np.abs(x) for x in topolist_estimate]
     top_score = get_topology_match_score(topolist, topolist_estimate)
     print(top_score)
-    outfile = output_dir + '/' + str(bl) + '_Topological_PerformanceMeasures.npz'
+    outfile = output_dir + '/' + str(bl) + '_2_Topological_PerformanceMeasures.npz'
     np.savez(outfile, top_score= top_score)
 # Compute performance for SAUCIE
 z_dir = DATA_ROOT + "Artificial_sets/SAUCIE_output/"
@@ -172,11 +184,12 @@ for bl in list_of_branches:
     # read DCAE output
     npz_res=np.load(z_dir + '/' + str(bl) + '_SAUCIE_rep_2D.npz')
     z= npz_res['z']
-    topolist = get_topology_list(bl)
-    topolist_estimate = get_representation_topology(z, lbls)
+    topolist = np.abs(top_list[bl])
+    topolist_estimate = (get_representation_topology(z, lbls))
+    topolist_estimate = [np.abs(x) for x in topolist_estimate]
     top_score = get_topology_match_score(topolist, topolist_estimate)
     print(top_score)
-    outfile = output_dir + '/' + str(bl) + '_Topological_PerformanceMeasures.npz'
+    outfile = output_dir + '/' + str(bl) + '_2_Topological_PerformanceMeasures.npz'
     np.savez(outfile, top_score= top_score)
 '''
 #create  graphs
@@ -189,9 +202,9 @@ df = pd.DataFrame()
 for i in range(3):
     for bl in list_of_branches:
         if  bor_res_dirs[i]!=bor_res_dirs[0]:
-            outfile = bor_res_dirs[i] + '/' +  str(bl) + '_Topological_PerformanceMeasures.npz'
+            outfile = bor_res_dirs[i] + '/' +  str(bl) + '_2_Topological_PerformanceMeasures.npz'
         else:
-            outfile = bor_res_dirs[i] + '/'   + ID +   str(bl) + 'epochs' + str(epochs) + '_Topological_PerformanceMeasures.npz'
+            outfile = bor_res_dirs[i] + '/'   + ID +   str(bl) + 'epochs' + str(epochs) + '_2_Topological_PerformanceMeasures.npz'
         print(outfile)
         npz_res =  np.load(outfile)
         score = int(npz_res['top_score'])
@@ -208,11 +221,11 @@ matplotlib.use('PS')
 sns.set(rc={'figure.figsize':(14, 4)})
 g = sns.barplot(x='branch', y='score', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-plt.savefig(PLOTS + ID +"_" + 'epochs' + str(epochs) + "TopoScore.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + ID +"_" + 'epochs' + str(epochs) + "_2_TopoScore.eps", format='eps', dpi = 350)
 plt.close()
 
 df2 = df.groupby('method').sum()
 print(df2)
-df2.to_csv(output_dir + '/' + ID + 'epochs' + str(epochs) +'_Summary_Performance_topology.csv', index=True)
+df2.to_csv(output_dir + '/' + ID + 'epochs' + str(epochs) +'_2__Summary_Performance_topology.csv', index=True)
 
 
