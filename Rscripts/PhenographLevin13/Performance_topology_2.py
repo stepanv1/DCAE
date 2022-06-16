@@ -92,12 +92,14 @@ def get_topology_match_score(topolist, topolist_estimate):
     """compare match computed and prescribed"""
     topolist = [np.array(x) for x in topolist]
     # create dictionary from toplolist
-    topo_reord  =[]#    for i in range(len(topodict)):
-    for i in range(7):
-        pos = [0, 1, 2, 3, 4, 5, 6]
-        topodict = dict(zip(topolist[i], pos))
-        topo_reord.append([topodict[y] for y in topolist_estimate[i]])
-    match_score =  sum([np.sum(np.abs(np.asarray(y)-np.asarray(pos))) for y in topo_reord])
+    #topo_reord  =[]#    for i in range(len(topodict)):
+    #for i in range(7):
+        #pos = [0, 1, 2, 3, 4, 5, 6]
+        #topodict = dict(zip(topolist[i], pos))
+        #topo_reord.append([topodict[y] for y in topolist_estimate[i]])
+    #match_score =  sum([np.sum(np.abs(np.asarray(y)-np.asarray(pos))) for y in topo_reord])
+    topo_1cl = [(np.intersect1d(topolist_estimate[i][:2], topolist[i][:2]).shape[0]) for i in range(7)]
+    match_score =  sum(topo_1cl)
     return match_score
 
 
@@ -105,10 +107,10 @@ os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID ='Decreasing_MSE_g_0_lam_0.1_batch_128_alp_0.2_m_10'
+ID ='Decreasing_MMD_zero_g_0_lam_0.1_batch_128_alp_0.2_m_10'
 #ID ='DICSCONT_DELU_0.2_repulsive_MMD_0.05_experiment_g_10_lam_0.1_batch_128_alp_0.2_m_10'
  #'clip_grad_exp_MDS_g_0.1_lam_0.1_batch_128_alp_0.2_m_10' #'DICSCONT_DELU_0.2_g_0.1_lam_0.1_batch_128_alp_0.2_m_10'        #'zero_MDS_g_0_lam_0.1_batch_128_alp_0.2_m_10' #'clip_grad_exp_MDS_g_0.1_lam_0.1_batch_128_alp_0.2_m_10'
-epochs = 1000
+epochs = 250
 # Compute performance for DCAE
 z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"
@@ -226,6 +228,6 @@ plt.close()
 
 df2 = df.groupby('method').sum()
 print(df2)
-df2.to_csv(output_dir + '/' + ID + 'epochs' + str(epochs) +'_2__Summary_Performance_topology.csv', index=True)
+df2.to_csv(output_dir + '/' + ID + 'epochs' + str(epochs) +'_2_Summary_Performance_topology.csv', index=True)
 
 
