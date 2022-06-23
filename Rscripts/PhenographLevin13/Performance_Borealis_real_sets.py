@@ -8,7 +8,7 @@ import os
 from utils_evaluation import  get_wsd_scores_normalized
 
 k = 30
-epoch_list = [250,500,1000]
+epoch_list = [1000]
 coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
@@ -18,8 +18,8 @@ m = 10
 patience = 1000
 min_delta = 1e-4
 g=0
-
-ID = 'Decreasing_MSE_g_0_lam_1_batch_128_alp_0.2_m_10'
+ID = '_DCAE_no_sqrt_Decreasing_MSE_g_0_lam_1_batch_128_alp_0.5_m_10'
+#ID = 'Decreasing_MSE_g_0_lam_1_batch_128_alp_0.2_m_10'
 #ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
 #epoch_list =  [750]

@@ -9,21 +9,23 @@ import numpy as np
 import os
 import seaborn as sns
 
-
 k = 30
-epoch_list = [250, 500, 1000]
+epochs_list = [1000]
 coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
 lam = 1
-alp = 0.2
+alp = 0.5
 m = 10
 patience = 1000
 min_delta = 1e-4
-g = 0.1
+g=0
 
-ID = 'clip_grad_exp_MDS' + '_g_' + str(g) + '_lam_' + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(
-    alp) + '_m_' + str(m)
+ID = '_DCAE_no_sqrt_Decreasing_MSE' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+
+
+#ID = 'clip_grad_exp_MDS' + '_g_' + str(g) + '_lam_' + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(
+#    alp) + '_m_' + str(m)
 
 # epoch_list =  [750]
 os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
@@ -138,6 +140,8 @@ for idx in bl_index:
     #fig.set_rasterized(True)
     plt.savefig( PLOTS + list_of_inputs[idx] +  '_paper_DCAE.eps', dpi= dpi, format='eps')
     plt.show()
+
+
 
 ##################################################################################################
 #2D plots of UMAP and SAUCIE

@@ -38,12 +38,12 @@ def DELU_activation(x): # step RELU activation, see this post for references:
     return tf.where(cond, x + tf.constant(0.2), expx - 1), grad
 
 k = 30
-epochs_list = [250, 500]
+epochs_list = [500]
 coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
 lam = 0.1
-alp = 0.2
+alp = 0.5
 m = 10
 patience = 500
 min_delta = 1e-4
@@ -51,9 +51,9 @@ g=0
 #epochs=100
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
-output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
+output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/temp'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'DICSCONT_DELU_0.2_NO_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'DICSCONT_ELU_0.2_DCAE0.5_to1' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 #ID = 'ELU_' + '_DCAE_norm_0.5' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
 #output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output'
 #load earlier generated data
@@ -120,8 +120,8 @@ for epochs in epochs_list:
 
         SigmaTsq = Input(shape=(1,))
         X = Input(shape=(original_dim,))
-        h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(X)
-        h1 = Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
+        h = Dense(intermediate_dim, activation=DELU_activation, name='intermediate', kernel_initializer=initializer)(X)
+        h1 = Dense(intermediate_dim2, activation=DELU_activation, name='intermediate2', kernel_initializer=initializer)(h)
         z_mean = Dense(latent_dim, activation=None, name='z_mean', kernel_initializer=initializer)(h1)
 
         encoder = Model([X, SigmaTsq], z_mean, name='encoder')
@@ -166,8 +166,8 @@ for epochs in epochs_list:
             diff_tens = tf.einsum('ajl,lk->ajk', diff_tens, W)
             u_U = tf.einsum('al,lj->alj', du, U)
             diff_tens = tf.einsum('ajl,alk->ajk', diff_tens, u_U)
-            return lam * SigmaTsq[:, 0] * K.sqrt(K.sum(diff_tens ** 2, axis=[1, 2]))
-            # return lam * K.sum(diff_tens ** 2, axis=[1, 2])
+            #return lam * SigmaTsq[:, 0] * K.sqrt(K.sum(diff_tens ** 2, axis=[1, 2]))
+            return lam * K.sum(diff_tens ** 2, axis=[1, 2])
 
         meanS = np.mean(Sigma)
         neib_dist = np.mean(Dist[:,30])
@@ -255,7 +255,7 @@ for epochs in epochs_list:
             batch_sz = K.shape(z_mean)[0]
             # latent_dim = K.int_shape(z_mean)[1]
             # true_samples = K.random_normal(shape=(batch_size, latent_dim), mean=0.0, stddev=1.)
-            true_samples = sample_shell(batch_sz, 0.9, 1.1)
+            true_samples = sample_shell(batch_sz, 0.99, 1.01)
             # true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=-1, maxval=1)
             # true_samples = K.random_uniform(shape=(batch_size, latent_dim), minval=0.0, maxval=1.0)
             return m * compute_mmd(true_samples, z_mean)
@@ -276,7 +276,7 @@ for epochs in epochs_list:
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean)
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
-                return coeffMSE* msew +   1 *  loss_mmd(y_true, y_pred) +  (coeffCAE) * (1 - 0.9*MMD_weight)*(DCAE_loss(y_true, y_pred))# +  (MMD_weight + 0.01)* graph_diff(y_true, y_pred)
+                return coeffMSE * (1 - MMD_weight + 0.1) * msew +   1 *  loss_mmd(y_true, y_pred) +  (coeffCAE) * (MMD_weight/2 + 0.5)*(DCAE_loss(y_true, y_pred))# +  (MMD_weight + 0.01)* graph_diff(y_true, y_pred)
                 # return  loss_mmd(x, x_decoded_mean)
 
             return loss

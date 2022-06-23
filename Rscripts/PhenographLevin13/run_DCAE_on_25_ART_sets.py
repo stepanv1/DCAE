@@ -24,12 +24,12 @@ num_cores = multiprocessing.cpu_count()
 pool = multiprocessing.Pool(num_cores)
 
 k = 30
-epochs_list = [250]
+epochs_list = [500]
 coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
 lam = 0.1
-alp = 0.2
+alp = 0.5
 m = 10
 patience = 500
 min_delta = 1e-4
@@ -40,7 +40,7 @@ source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
 
-ID = 'Decreasing_sqrt_DCAE' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'Decreasing_MSE_strongerMMD' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 #ID = 'zero_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 #ID = 'ELU_' + '_DCAE_norm_0.5' + 'lam_'  + str(lam) + 'batch_' + str(batch_size) + 'alp_' + str(alp) + 'm_' + str(m)
 #output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output'
@@ -157,8 +157,8 @@ for epochs in epochs_list:
             diff_tens = tf.einsum('ajl,lk->ajk', diff_tens, W)
             u_U = tf.einsum('al,lj->alj', du, U)
             diff_tens = tf.einsum('ajl,alk->ajk', diff_tens, u_U)
-            return lam * SigmaTsq[:, 0] * K.sqrt(K.sum(diff_tens ** 2, axis=[1, 2]))
-            #return lam * SigmaTsq[:, 0] * K.sum(diff_tens ** 2, axis=[1, 2])
+            #return lam * SigmaTsq[:, 0] * K.sqrt(K.sum(diff_tens ** 2, axis=[1, 2]))
+            return lam * SigmaTsq[:, 0] * K.sum(diff_tens ** 2, axis=[1, 2])
             #return lam * K.sum(diff_tens ** 2, axis=[1, 2])
 
         meanS = np.mean(Sigma)
@@ -260,8 +260,10 @@ for epochs in epochs_list:
                 msew = mean_square_error_NN(y_true, y_pred)
                 # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
                 # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
-                return coeffMSE * (1 - MSE_weight + 0.1 )*msew +   (MSE_weight + 0.05)*  loss_mmd(y_true, y_pred) +  (
-                    MSE_weight * coeffCAE + 0.1) * (DCAE_loss(y_true, y_pred)) #+  (MMD_weight + 0.01)* graph_diff(y_true, y_pred)
+                #return coeffMSE * (1 - MSE_weight + 0.1 )*msew +   0.5*(MSE_weight + 1)*  loss_mmd(y_true, y_pred) +  (
+                #    2*MSE_weight  + 0.1) * (DCAE_loss(y_true, y_pred)) #+  (MMD_weight + 0.01)* graph_diff(y_true, y_pred)
+                return coeffMSE * (1 - MSE_weight + 0.1) * msew + 0.5 * (MSE_weight + 1) * loss_mmd(y_true, y_pred) + (
+                        2 * MSE_weight + 0.1) * (DCAE_loss(y_true, y_pred))
             return loss
             # return K.switch(tf.equal(Epoch_count, 10),  loss1(x, x_decoded_mean), loss1(x, x_decoded_mean))
         opt = tf.keras.optimizers.Adam(
