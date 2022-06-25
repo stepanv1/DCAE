@@ -37,10 +37,12 @@ list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
 PLOTS = DATA_ROOT + "Real_sets/PLOTS/"
 z_dir = DATA_ROOT + 'Real_sets/DCAE_output/'
 output_dir = DATA_ROOT + "Real_sets/DCAE_output/Performance/"
+temp_dir  = output_dir = DATA_ROOT + "Real_sets/DCAE_output/Performance/temp/"
 
 bl_index  = [0,1,2]
 #azymuth, elevaation , position
-camera_positions = [[[65,1,0], [174,79,0], [-122,9,0]], [[101,-42,0], [3,-7,0], [-51,30,0]], [[-145,-57,0], [-160,15,0], [7,5,0]]]
+#camera_positions = [[[65,1,0], [174,79,0], [-122,9,0]], [[101,-42,0], [3,-7,0], [-51,30,0]], [[-145,-57,0], [-160,15,0], [7,5,0]]]
+camera_positions = [[[38,10,0], [174,79,0], [-122,9,0]], [[101,-42,0], [3,-7,0], [-51,30,0]], [[-145,-57,0], [-160,15,0], [7,5,0]]]
 epochs = 1000
 
 idx = bl_index[0]
@@ -60,11 +62,22 @@ for idx in bl_index:
     lb = lbls[lbls!=unassigned_lbls[idx]]
     z = z[lbls!=unassigned_lbls[idx],:]
     cl = np.unique(lb)
-
+    n_samples = 50000
     if idx!=2:
-        smpl = np.random.choice(range(z.shape[0]), size=50000, replace=False)
+        smpl = np.random.choice(range(z.shape[0]), size=n_samples, replace=False)
         lb = lb[smpl]
         z = z[smpl,:]
+
+    #use this to find a good angle
+    from mpl_toolkits.mplot3d import Axes3D
+
+    # fig = plt.figure()
+    # ax = Axes3D(fig)
+    # ax.scatter(z[:, 0], z[:, 1], z[:, 2], marker='o', s=1, c="goldenrod", alpha=0.01)
+    # for ii in range(38, 90, 1):
+    #     ax.view_init(elev=10., azim=ii)
+    #     plt.savefig(temp_dir + "movie%d.png" % ii)
+    #
 
     #from utils_evaluation import plot3D_cluster_colors
     #plot3D_cluster_colors(z, lb, camera=None, legend=True, msize=1).show()
@@ -73,7 +86,7 @@ for idx in bl_index:
     #lb= lb[:10000]
     dpi = 350
     rcParams['savefig.dpi'] = dpi
-    sz=0.01
+    sz=1
     fig = plt.figure(dpi = dpi, figsize=(18,5))
     # First subplot
     ax = fig.add_subplot(1, 3, 1, projection='3d')
@@ -89,10 +102,11 @@ for idx in bl_index:
     colors = sns.color_palette("husl", n_colors=len(cl))
     groups = []
     for i in range(len(cl)):
-        groups.append(ax.scatter(xs=z[:,0][lb==cl[i]], ys=z[:,1][lb==cl[i]], zs=z[:,2][lb==cl[i]], c = colors[i],  s=sz))
+        groups.append(ax.scatter(xs=z[:,0][lb==cl[i]], ys=z[:,1][lb==cl[i]], zs=z[:,2][lb==cl[i]], c = colors[i],  s=sz, alpha=0.03))
         #ax.legend()
     ax.view_init(azim=camera_positions[idx][0][0],  elev=camera_positions[idx][0][1])
-    # Second subplot
+    ax.set_rasterized(True)
+    # Second subplot###############################################################
     ax = fig.add_subplot(1, 3, 2, projection='3d')
     ax.xaxis.set_major_locator(loc)
     ax.yaxis.set_major_locator(loc)
@@ -107,10 +121,11 @@ for idx in bl_index:
     groups = []
     for i in range(len(cl)):
         groups.append(
-            ax.scatter(xs=z[:, 0][lb == cl[i]], ys=z[:, 1][lb == cl[i]], zs=z[:, 2][lb == cl[i]], c=colors[i], s=sz))
+            ax.scatter(xs=z[:, 0][lb == cl[i]], ys=z[:, 1][lb == cl[i]], zs=z[:, 2][lb == cl[i]], c=colors[i], s=sz, alpha=0.03))
         # ax.legend()
     ax.view_init(azim=camera_positions[idx][1][0],  elev=camera_positions[idx][1][1])
-    # Third subplot
+    ax.set_rasterized(True)
+    # Third subplot####################################################
     ax = fig.add_subplot(1, 3, 3, projection='3d')
     ax.xaxis.set_major_locator(loc)
     ax.yaxis.set_major_locator(loc)
@@ -125,7 +140,7 @@ for idx in bl_index:
     groups = []
     for i in range(len(cl)):
         groups.append(
-            ax.scatter(xs=z[:, 0][lb == cl[i]], ys=z[:, 1][lb == cl[i]], zs=z[:, 2][lb == cl[i]], c=colors[i], s=sz))
+            ax.scatter(xs=z[:, 0][lb == cl[i]], ys=z[:, 1][lb == cl[i]], zs=z[:, 2][lb == cl[i]], c=colors[i], s=sz, alpha=0.03))
         # ax.legend()
     ax.view_init(azim=camera_positions[idx][2][0],  elev=camera_positions[idx][2][1])
     # ax.legend(groups, cl, loc=4)
@@ -138,7 +153,9 @@ for idx in bl_index:
         handle.set_sizes([30.0])
     fig.tight_layout()
     #fig.set_rasterized(True)
+    ax.set_rasterized(True)
     plt.savefig( PLOTS + list_of_inputs[idx] +  '_paper_DCAE.eps', dpi= dpi, format='eps')
+    #plt.savefig(PLOTS + list_of_inputs[idx] + '_paper_DCAE.pdf', dpi=dpi, format='pdf')
     plt.show()
 
 

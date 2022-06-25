@@ -1,6 +1,6 @@
 '''
 Runs DCAE
-experiment with KL differen
+experiment with discontunuous ELU, trainable activations (degree of disconntinuity is learned)
 '''
 import timeit
 import matplotlib.pyplot as plt
@@ -9,7 +9,7 @@ import plotly.io as pio
 import tensorflow as tf
 from plotly.io import to_html
 from tensorflow.keras import backend as K
-from tensorflow.keras.layers import Input, Dense, LeakyReLU
+from tensorflow.keras.layers import Input, Dense, PReLU
 from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import Callback, EarlyStopping
 import pickle
@@ -37,8 +37,146 @@ def DELU_activation(x): # step RELU activation, see this post for references:
 
     return tf.where(cond, x + tf.constant(0.2), expx - 1), grad
 
+@tf.custom_gradient
+def DELU_activation_train(x, alpha=0.1): # step RELU activation, see this post for references:
+    # https://ai.stackexchange.com/questions/17609/in-deep-learning-is-it-possible-to-use-discontinuous-activation-functions
+    #ones = tf.ones(tf.shape(x), dtype=x.dtype.base_dtype)
+    #zeros = tf.zeros(tf.shape(x), dtype=x.dtype.base_dtype)
+    cond = tf.math.greater_equal(x, tf.constant(0.0))
+    expx = tf.math.exp(x)
+    def grad(dy): # see https://localcoder.org/how-to-apply-guided-backprop-in-tensorflow-2-0#credit_1 for the details
+        return tf.where(cond, tf.constant(1.0), expx) * dy  # TODO check gradient
+
+    return tf.where(cond, x + tf.constant(alpha), expx - 1), grad
+
+
+
+
+#https://datascience.stackexchange.com/questions/58884/how-to-create-custom-activation-functions-in-keras-tensorflow
+
+from tensorflow.python.keras.utils import tf_utils
+from tensorflow.python.keras import constraints
+from tensorflow.python.keras import initializers
+from tensorflow.python.keras import regularizers
+from tensorflow.python.keras.engine.input_spec import InputSpec
+from tensorflow.keras.initializers import Constant
+
+class DELU(tf.keras.layers.Layer):
+  """Parametric Rectified Linear Unit.
+
+  It follows:
+
+  ```
+    f(x) = alpha * x for x < 0
+    f(x) = x for x >= 0
+  ```
+
+  where `alpha` is a learned array with the same shape as x.
+
+  Input shape:
+    Arbitrary. Use the keyword argument `input_shape`
+    (tuple of integers, does not include the samples axis)
+    when using this layer as the first layer in a model.
+
+  Output shape:
+    Same shape as the input.
+
+  Arguments:
+    alpha_initializer: Initializer function for the weights.
+    alpha_regularizer: Regularizer for the weights.
+    alpha_constraint: Constraint for the weights.
+    shared_axes: The axes along which to share learnable
+      parameters for the activation function.
+      For example, if the incoming feature maps
+      are from a 2D convolution
+      with output shape `(batch, height, width, channels)`,
+      and you wish to share parameters across space
+      so that each filter only has one set of parameters,
+      set `shared_axes=[1, 2]`.
+  """
+
+
+  def __init__(self,
+               alpha_initializer='zeros',
+               alpha_regularizer=None,
+               alpha_constraint=None,
+               shared_axes=None,
+               **kwargs):
+    super(DELU, self).__init__(**kwargs)
+    self.supports_masking = True
+    self.alpha_initializer = initializers.get(alpha_initializer)
+    self.alpha_regularizer = regularizers.get(alpha_regularizer)
+    self.alpha_constraint = constraints.get(alpha_constraint)
+    if shared_axes is None:
+      self.shared_axes = None
+    elif not isinstance(shared_axes, (list, tuple)):
+      self.shared_axes = [shared_axes]
+    else:
+      self.shared_axes = list(shared_axes)
+
+
+  @tf_utils.shape_type_conversion
+  def build(self, input_shape):
+    param_shape = list(input_shape[1:])
+    if self.shared_axes is not None:
+      for i in self.shared_axes:
+        param_shape[i - 1] = 1
+    self.alpha = self.add_weight(
+        shape=param_shape,
+        name='alpha',
+        initializer=self.alpha_initializer,
+        regularizer=self.alpha_regularizer,
+        constraint=self.alpha_constraint)
+    # Set input spec
+    axes = {}
+    if self.shared_axes:
+      for i in range(1, len(input_shape)):
+        if i not in self.shared_axes:
+          axes[i] = input_shape[i]
+    self.input_spec = InputSpec(ndim=len(input_shape), axes=axes)
+    self.built = True
+
+  @tf.custom_gradient
+  def DELU_activation_train(x, alpha):  # step RELU activation, see this post for references:
+      # https://ai.stackexchange.com/questions/17609/in-deep-learning-is-it-possible-to-use-discontinuous-activation-functions
+      # ones = tf.ones(tf.shape(x), dtype=x.dtype.base_dtype)
+      # zeros = tf.zeros(tf.shape(x), dtype=x.dtype.base_dtype)
+      cond = tf.math.greater_equal(x, tf.constant(0.0))
+      expx = tf.math.exp(x)
+
+      def grad(dy):  # see https://localcoder.org/how-to-apply-guided-backprop-in-tensorflow-2-0#credit_1 for the details
+          return tf.where(cond, tf.constant(1.0), expx) * dy  # TODO check gradient
+
+      return tf.where(cond, x + tf.constant(alpha), expx - 1), grad
+
+  def call(self, inputs):
+      #pos = K.relu(inputs) + self.alpha
+      #neg = K.relu(-inputs)
+
+      return DELU_activation_train(inputs, self.alpha)
+
+
+  def get_config(self):
+    config = {
+        'alpha_initializer': initializers.serialize(self.alpha_initializer),
+        'alpha_regularizer': regularizers.serialize(self.alpha_regularizer),
+        'alpha_constraint': constraints.serialize(self.alpha_constraint),
+        'shared_axes': self.shared_axes
+    }
+    base_config = super(DELU, self).get_config()
+    return dict(list(base_config.items()) + list(config.items()))
+
+
+  @tf_utils.shape_type_conversion
+  def compute_output_shape(self, input_shape):
+    return input_shape
+
+
+
+
+
 k = 30
-epochs_list = [500]
+epochs_list = [50]
 coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
@@ -61,8 +199,10 @@ ID = 'DICSCONT_ELU_0.2_DCAE0.5_to1' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.compat.v1.disable_eager_execution()
-#bl = list_of_branches[0]
-# epochs =250
+
+bl = list_of_branches[0]
+epochs =50
+
 # possibly final parameters: m=10 ; lam = 0.1; g=0.1
 # worst: lam = 0.01; # g=0.1; lam = 0.01; # g=0.01, seems like lam =0.001 is to small
 for epochs in epochs_list:
@@ -120,18 +260,24 @@ for epochs in epochs_list:
 
         SigmaTsq = Input(shape=(1,))
         X = Input(shape=(original_dim,))
-        h = Dense(intermediate_dim, activation=DELU_activation, name='intermediate', kernel_initializer=initializer)(X)
-        h1 = Dense(intermediate_dim2, activation=DELU_activation, name='intermediate2', kernel_initializer=initializer)(h)
+        h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(X)
+        h1 = Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
         z_mean = Dense(latent_dim, activation=None, name='z_mean', kernel_initializer=initializer)(h1)
 
         encoder = Model([X, SigmaTsq], z_mean, name='encoder')
 
-        decoder_h = Dense(intermediate_dim2, activation= DELU_activation, name='intermediate3', kernel_initializer=initializer)
-        decoder_h1 = Dense(intermediate_dim, activation= DELU_activation, name='intermediate4', kernel_initializer=initializer)
-        decoder_mean = Dense(original_dim, activation= DELU_activation, name='output', kernel_initializer=initializer)
+
+        decoder_h = Dense(intermediate_dim2, activation= None, name='intermediate3')#, kernel_initializer=initializer)
+        decoder_h1 = Dense(intermediate_dim, activation= None, name='intermediate4')#, kernel_initializer=initializer)
+        decoder_mean = Dense(original_dim, activation= None, name='output')#, kernel_initializer=initializer)
+
+        from tensorflow.keras.initializers import Constant
         h_decoded = decoder_h(z_mean)
+        h_decoded = DELU()(h_decoded)
         h_decoded2 = decoder_h1(h_decoded)
+        h_decoded2 = DELU()(h_decoded2)
         x_decoded_mean = decoder_mean(h_decoded2)
+        x_decoded_mean = DELU()( x_decoded_mean)
         autoencoder = Model(inputs=[X, SigmaTsq], outputs=x_decoded_mean)
 
         normSigma = 1
