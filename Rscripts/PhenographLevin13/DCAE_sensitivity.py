@@ -35,17 +35,16 @@ PLOTS = DATA_ROOT + "Artificial_sets/PLOTS/"
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
 #load earlier generated data
 k = 30
-#pochs_list = [500]
 coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
 lam = 0.1
-alp = 0.2
+alp = 0.5
 m = 10
 patience = 500
 min_delta = 1e-4
-g=0.1
-ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+g=0#0.1
+ID = 'Decreasing_MSE_strongerMMD' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)#ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
 epochs = 250
 
@@ -84,12 +83,6 @@ for bl in list_of_branches:
     np.fill_diagonal(D, 0)
     mean_dist = np.mean(D)
 
-    # max_dist
-    # sns.distplot(D)
-    # convex hull
-    # import numpy as np
-    from scipy.spatial import ConvexHull
-    from scipy.spatial.distance import cdist
 
     MMD_weight = K.variable(value=0)
 
@@ -196,17 +189,6 @@ for bl in list_of_branches:
             K.sum(K.square(1 - K.exp(compute_graph_weights_Inp(X) - compute_graph_weights_enc(z_mean)))) / tf.cast(
                 batch_size ** 2, tf.float32))
 
-
-    # idx =np.random.choice(nrow, size=30,replace=False)
-    # LL = lbls[idx]
-    # KL = K.eval(- K.sum(compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) * K.log(compute_graph_weights_enc(z[idx,:]))) + K.log(K.sum(compute_graph_weights_enc(z[idx,:]))))
-    # SigmaTsq =Sigma[idx]
-    # K.eval(- K.sum(compute_graph_weights_Inp(aFrame[idx, :].astype('float32')) * K.log(compute_graph_weights_enc(z[idx, :]))))
-    # g_diff = K.eval(-1 *  (compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) * K.log(compute_graph_weights_enc(z[idx,:]))))
-    # g_diff = K.eval(g * K.sqrt(((compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) - compute_graph_weights_enc(z[idx,:])) ** 2)))
-    # g_diff = K.eval(K.square(1 - K.exp ( compute_graph_weights_Inp(aFrame[idx,:].astype('float32')) -  compute_graph_weights_enc(z[idx,:]))))
-    # g_enc =  K.eval(compute_graph_weights_enc(z[idx,:]))
-    # g_inp =  K.eval(compute_graph_weights_Inp(aFrame[idx,:].astype('float32')))
 
     def compute_kernel(x, y):
         x_size = tf.shape(x)[0]
