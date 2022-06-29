@@ -2551,7 +2551,7 @@ mesh_map =  autoencoder.predict(mesh_array)
 mesh_z = encoder.predict(mesh_array)
 
 nx=100; ny=1
-x = np.linspace(0.5240,0.5250, nx)
+x = np.linspace(0.5320,0.5400, nx)
 y = np.linspace(0, 0.01, ny)
 xv, yv = np.meshgrid(x, y, sparse=False)
 nz = nx*ny
@@ -2568,9 +2568,9 @@ smap = cm.ScalarMappable(norm=cnorm, cmap=cmap)
 #color = cmap(np.linspace(-1, 1, num=1000))
 enc_map = encoder.predict(aFrame)
 #plt.figure(figsize=(10, 10))
-fig, ax = plt.subplots(nrows=3, figsize=(8, 17), gridspec_kw={'height_ratios': [3, 3, 1]})
+fig, ax = plt.subplots(nrows=4, figsize=(8, 19), gridspec_kw={'height_ratios': [3, 3, 1, 1]})
 p= ax[0].scatter(x=A_rest[:,0], y=A_rest[:,1], cmap='jet_r', c=enc_map[:,0], vmin=-1, vmax=1 ,   s=3)
-for i in range(nz):
+for i in range(nx):
     color = smap.to_rgba(mesh_z[i,0] )
     im=ax[0].plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , c=color ,   linestyle="--", markersize=0.1 ,linewidth=0.5)
 #plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
@@ -2586,19 +2586,31 @@ for i in range(nz):
 ax[1].scatter( mesh_array2[:,0],   mesh_array2[:,1], c='green', s=1)
 ax[1].title.set_text('(b) Decoder mapping of points near D-set')
 
-Y,X = np.histogram(z, 200, normed=1)
+z_bottom = z[aFrame[:,1] < 0.1]
+Y,X = np.histogram(z_bottom, 200, normed=1)
 x_span = X.max()-X.min()
 cm = plt.cm.get_cmap('jet_r')
 C = [cm(((x-X.min())/x_span)) for x in X]
 ax[2].bar(X[:-1],Y,color=C,width=X[1]-X[0])
-ax[2].title.set_text('(c) Histogram of latent variable')
+ax[2].title.set_text('(c) Histogram of latent variable for y<0.1')
+
+Y,X = np.histogram(z, 200, normed=1)
+x_span = X.max()-X.min()
+cm = plt.cm.get_cmap('jet_r')
+C = [cm(((x-X.min())/x_span)) for x in X]
+ax[3].bar(X[:-1],Y,color=C,width=X[1]-X[0])
+ax[3].title.set_text('(d) Histogram of latent variable')
+
+
+
 
 cbar_ax = fig.add_axes([0.9, 0.15, 0.02, 0.7])
 fig.colorbar(p, cax=cbar_ax)
 plt.show()
 fig.savefig(PLOTS + '/'+"ELU_split_2D" + ".eps", format='eps', dpi=350)
 plt.close()
-
+##############################################################################################
+#plot gradient loss
 from  tensorflow.python.ops.numpy_ops import np_config
 np_config.enable_numpy_behavior()
 x_tensor = tf.convert_to_tensor(aFrame, dtype=tf.float32)
@@ -2627,6 +2639,7 @@ fig, ax = plt.subplots(nrows=1, figsize=(8, 9))
 plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c='g',   s=3)
 p = plt.scatter(x=aFrame[:,0], y=aFrame[:,1], cmap='jet_r', c=norm_out, vmin=norm_out.min(), vmax=norm_out.max(), s=np.sqrt(norm_out+1) )
 fig.colorbar(p)
+fig.savefig(PLOTS + '/'+"ELU_D_set_by_gradient_loss_2D" + ".eps", format='eps', dpi=350)
 plt.show()
 
 
@@ -2650,10 +2663,6 @@ for i in range(nz):
 plt.scatter( d_set_inp[:,0],   d_set_inp[:,1], c='black', s=3)
 #plt.title.set_text('(b) Decoder mapping of points near D-set')
 plt.show()
-
-
-
-
 
 
 

@@ -46,7 +46,7 @@ min_delta = 1e-4
 g=0#0.1
 ID = 'Decreasing_MSE_strongerMMD' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)#ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
-epochs = 250
+epochs = 500
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
@@ -314,7 +314,7 @@ for bl in list_of_branches:
     SC_mean_norm =SC_mean
     plt.figure(figsize=(14, 10))
     g =  sns.heatmap(SC_mean_norm, center=0.1, linewidths=.2, cmap="GnBu",  annot=True, fmt='1.2f',  annot_kws={"fontsize":8})
-    plt.savefig(PLOTS+'Sensitivity/' + ID +'_'+str(bl)+ 'epochs' + str(epochs) + "Sensitivity_heatmap"+".eps", format='eps', dpi=350)
+    plt.savefig(PLOTS+'Sensitivity/' + ID +'_'+str(bl)+ 'epochs' + str(epochs) + "Sensitivity_heatmap"+".tif", format='tif', dpi=350)
     plt.close()
     #elasticity score per point
     #SC = np.concatenate([SC[lbls == i, :] * aFrame[lbls == i, :] * np.expand_dims(1/lmbd[lbls == i], -1) for i in l_list], axis=0)
@@ -328,7 +328,9 @@ for bl in list_of_branches:
         sns.violinplot(data=SC[lbls == i, :], ax=axs[int(i)])
         axs[int(i)].set_ylim(yl, yu)
         axs[int(i)].set_title(str(int(i)), rotation=-90, x=1.05, y =0.5)
-    fig.savefig(PLOTS+'Sensitivity/' + ID +'_'+ str(bl)+ 'epochs' + str(epochs) + "Sensitivity_violinplot"+".eps", format='eps', dpi=700)
+    fig.savefig(PLOTS+'Sensitivity/' + ID +'_'+ str(bl)+ 'epochs' + str(epochs) + "Sensitivity_violinplot"+".eps", format='eps', dpi=350)
+    fig.savefig(
+        PLOTS + 'Sensitivity/' + ID + '_' + str(bl) + 'epochs' + str(epochs) + "Sensitivity_violinplot" + ".tif",  format='tif', dpi=350)
     plt.close()
 
     fig, axs = plt.subplots(nrows=8)
@@ -339,6 +341,7 @@ for bl in list_of_branches:
         axs[int(i)].set_ylim(yl, yu)
         axs[int(i)].set_title(str(int(i)), rotation=-90, x=1.05, y =0.5)
     fig.savefig(PLOTS + 'Sensitivity/' + ID +'_'+ str(bl) + "Signal_violinplot" + ".eps", format='eps', dpi=350)
+    fig.savefig(PLOTS + 'Sensitivity/' + ID + '_' + str(bl) + "Signal_violinplot" + ".tif", format='tif', dpi=350)
     plt.close()
     '''#plot the autoencoder output
     fig, axs = plt.subplots(nrows=8)
