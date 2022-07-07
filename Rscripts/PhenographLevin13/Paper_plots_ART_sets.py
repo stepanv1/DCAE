@@ -7,6 +7,7 @@ import matplotlib.ticker as plticker
 import numpy as np
 import os
 import seaborn as sns
+from mpl_toolkits.mplot3d import Axes3D
 
 os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
 DATA_ROOT = '/media/grinek/Seagate/'
@@ -22,17 +23,18 @@ coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
 lam = 0.1
-alp = 0.2
+alp = 0.5
 m = 10
 patience = 500
 min_delta = 1e-4
-g=0.1
+g=0#0.1
 epochs=500
-ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'Decreasing_MSE_strongerMMD' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+
 
 bl_index  = [0,1,2]
-#azymuth, elevaation , position
-camera_positions = [[-88.0,-1.0,0], [-163.0,155.0,0]]
+#azymuth, elevation , position
+camera_positions = [167,19,0]
 
 bl = '(3, 1)'
 print(bl)
@@ -45,62 +47,47 @@ lbls =np.abs(lbls)
 npz_res = np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz')
 z = npz_res['z']
 lb = lbls
-cl = np.unique(lb)
-smpl = np.random.choice(range(z.shape[0]), size=10000, replace=False)
+cl = np.array([str(np.int(x)) for x in np.unique(lb)])
+smpl = np.random.choice(range(z.shape[0]), size=50000, replace=False)
 lb = lb[smpl]
 z = z[smpl,:]
-
+lb= np.array([str(np.int(x)) for x in lb])
 #z = z[:10000,:]
 #lb= lb[:10000]
 from matplotlib import rcParams
 dpi = 350
 rcParams['savefig.dpi'] = dpi
-sz=0.0001
-fig = plt.figure(dpi = dpi, figsize=(10,6))
-# First subplot
-ax = fig.add_subplot(1, 2, 1, projection='3d')
+sz=1
+dpi = 350
+rcParams['savefig.dpi'] = dpi
+sz = 1
+fig = plt.figure(dpi=dpi, figsize=(10, 10))
+ax = Axes3D(fig)
 loc = plticker.MultipleLocator(base=0.5)  # this locator puts ticks at regular intervals
 ax.xaxis.set_major_locator(loc)
 ax.yaxis.set_major_locator(loc)
 ax.zaxis.set_major_locator(loc)
-fig.suptitle('DCAE')
 # make the panes transparent
 ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
 ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
 ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
-sns.reset_orig()
-colors = sns.color_palette("husl", n_colors=len(cl))
-groups = []
-for i in range(len(cl)):
-    groups.append(ax.scatter(xs=z[:,0][lb==cl[i]], ys=z[:,1][lb==cl[i]], zs=z[:,2][lb==cl[i]], c = colors[i],  s=sz))
-    #ax.legend()
-ax.view_init(azim=camera_positions[0][0],  elev=camera_positions[0][1])
-# Second subplot
-ax = fig.add_subplot(1, 2, 2, projection='3d')
-ax.xaxis.set_major_locator(loc)
-ax.yaxis.set_major_locator(loc)
-ax.zaxis.set_major_locator(loc)
-# make the panes transparent
-ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
-ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
-ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
-
 sns.reset_orig()
 colors = sns.color_palette("husl", n_colors=len(cl))
 groups = []
 for i in range(len(cl)):
     groups.append(
-        ax.scatter(xs=z[:, 0][lb == cl[i]], ys=z[:, 1][lb == cl[i]], zs=z[:, 2][lb == cl[i]], c=colors[i], s=sz))
+        ax.scatter(xs=z[:, 0][lb == cl[i]], ys=z[:, 1][lb == cl[i]], zs=z[:, 2][lb == cl[i]], c=colors[i], s=sz,
+                   alpha=0.2))
     # ax.legend()
-ax.view_init(azim=camera_positions[1][0],  elev=camera_positions[1][1])
-# ax.legend(groups, cl, loc=4)
-fig.subplots_adjust(right=0.8)
-lgnd = ax.legend(groups, cl.astype(int), loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=14, markerscale=30)
+ax.view_init(azim=camera_positions[0], elev=camera_positions[1])
+ax.set_rasterized(True)
+# fig.subplots_adjust(right=0.8)
+lgnd = ax.legend(groups, cl, loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=20, markerscale=35)
 for handle in lgnd.legendHandles:
     handle.set_sizes([30.0])
-fig.tight_layout()
-#fig.set_rasterized(True)
-plt.savefig( PLOTS + bl +  '_paper_DCAE.eps', dpi= dpi, format='eps')
+# fig.tight_layout()
+plt.savefig(PLOTS + bl +  '_paper_DCAE.eps', dpi=dpi, format='eps', bbox_inches='tight')
+plt.savefig(PLOTS + bl +  '_paper_DCAE.eps.tif', dpi=dpi, format='tif', bbox_inches='tight')
 plt.show()
 
 ##################################################################################################

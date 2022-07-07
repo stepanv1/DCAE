@@ -2601,13 +2601,11 @@ C = [cm(((x-X.min())/x_span)) for x in X]
 ax[3].bar(X[:-1],Y,color=C,width=X[1]-X[0])
 ax[3].title.set_text('(d) Histogram of latent variable')
 
-
-
-
 cbar_ax = fig.add_axes([0.9, 0.15, 0.02, 0.7])
 fig.colorbar(p, cax=cbar_ax)
 plt.show()
 fig.savefig(PLOTS + '/'+"ELU_split_2D" + ".eps", format='eps', dpi=350)
+fig.savefig(PLOTS + '/'+"ELU_split_2D" + ".tif", format='tif', dpi=350)
 plt.close()
 ##############################################################################################
 #plot gradient loss

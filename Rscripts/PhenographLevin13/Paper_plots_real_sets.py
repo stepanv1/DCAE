@@ -87,9 +87,8 @@ for idx in bl_index:
     dpi = 350
     rcParams['savefig.dpi'] = dpi
     sz=1
-    fig = plt.figure(dpi = dpi, figsize=(18,5))
-    # First subplot
-    ax = fig.add_subplot(1, 3, 1, projection='3d')
+    fig = plt.figure(dpi=dpi, figsize=(10, 10))
+    ax = Axes3D(fig)
     loc = plticker.MultipleLocator(base=0.5)  # this locator puts ticks at regular intervals
     ax.xaxis.set_major_locator(loc)
     ax.yaxis.set_major_locator(loc)

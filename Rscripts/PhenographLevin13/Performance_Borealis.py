@@ -16,17 +16,19 @@ list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
 
 #parameters of run
 k = 30
-epochs_list = [250]
+epochs_list = [500]
 coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
 lam = 0.1
-alp = 0.2
+alp = 0.5
 m = 10
 patience = 500
 min_delta = 1e-4
-g=0.1
-ID = 'Decreasing_MSE_strongerMMD_g_0_lam_0.1_batch_128_alp_0.5_m_10'
+g=0#0.1
+epochs=500
+ID = 'Decreasing_MSE_strongerMMD' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+
 #ID ='Decreasing_MSE_g_0_lam_0.1_batch_128_alp_0.2_m_10'
 #ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 #ID ='DICSCONT_DELU_0.2_repulsive_MMD_0.05_experiment_g_10_lam_0.1_batch_128_alp_0.2_m_10'
@@ -138,12 +140,14 @@ sns.set(rc={'figure.figsize':(14, 4)})
 g = sns.barplot(x='branch', y='discontinuity', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
 plt.savefig(PLOTS +   ID + "_" +  'epochs' + str(epochs)+ "Discontinuity.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS +   ID + "_" + 'epochs' + str(epochs)+  "Discontinuity.tif", format='tif', dpi = 350)
 plt.close()
 
 g = sns.barplot(x='branch', y='manytoone', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
 g.set(ylim=(0.34, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
 plt.savefig(PLOTS +   ID + "_" + 'epochs' + str(epochs)+  "Manytoone.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS +   ID + "_" + 'epochs' + str(epochs)+  "Manytoone.tif", format='tif', dpi = 350)
 plt.close()
 
 

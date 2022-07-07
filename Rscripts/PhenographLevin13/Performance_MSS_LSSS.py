@@ -138,6 +138,7 @@ g = sns.barplot(x='branch', y='MSS', hue='method', data=df.reset_index(), estima
 g.set(ylim=(0, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
 plt.savefig(PLOTS + ID + '_''k_'+str(k)+'_'+ 'epochs' + str(epochs) +"MSS_normalized.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + ID + '_''k_'+str(k)+'_'+ 'epochs' + str(epochs) +"MSS_normalized.tif", format='tif', dpi = 350)
 plt.close()
 
 
@@ -145,6 +146,7 @@ g = sns.barplot(x='branch', y='LSSS', hue='method', data=df.reset_index(), palet
 g.set(ylim=(0, None))
 g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
 plt.savefig(PLOTS + ID + '_''k_'+str(k)+'_'+ 'epochs' + str(epochs) +"LSSS_normalized.eps", format='eps', dpi = 350)
+plt.savefig(PLOTS + ID + '_''k_'+str(k)+'_'+ 'epochs' + str(epochs) +"LSSS_normalized.tif", format='tif', dpi = 350)
 plt.close()
 
 

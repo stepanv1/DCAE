@@ -211,7 +211,7 @@ for epochs in epoch_list:
     df_BORAI.round(3).to_csv(PLOTS + 'Pregnancy_' +ID + '_' + 'epochs' + str(
                     epochs)+ 'Borealis_measures.csv', index=False)
     #
-    df_BORAI  =df[df['Set']=='Shekhar'][['method','manytoone','discontinuity']]
+    df_BORAI  =df[df['Set']=='Shenkar'][['method','manytoone','discontinuity']]
     df_BORAI.round(3).to_csv(PLOTS + 'Shekhar_' +ID + '_' + 'epochs' + str(
                     epochs)+ 'Borealis_measures.csv', index=False)
 
