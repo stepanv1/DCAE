@@ -2297,7 +2297,7 @@ fig01.colorbar(p)
 ########################################################################################################
 # PLOTS for papers
 # 1. Histogram in z,
-# 2. plot of splitting overlaying mappings of border and S-surface
+# 2. plot of splitting overlaying mappings of border and D-set
 ID13 = 'Split_demo_2D_to_1D_ELU_8_16_tanh'
 epochs=500000
 
@@ -2307,9 +2307,9 @@ inp_d = 2
 #TODO: uncomment later
 aFrame = np.random.uniform(low=np.zeros(inp_d), high=np.ones(inp_d), size=(nrow,inp_d))
 
-np.savez(output_dir + '/' + ID13 + "_" +  'epochs' + str(epochs) + '_aFrame.npz', aFrame=aFrame)
-npzfile = np.load(output_dir + '/' +ID13 + "_" +  'epochs' + str(epochs) + '_aFrame.npz')
-aFrame = npzfile['aFrame']
+#np.savez(output_dir + '/' + ID13 + "_" +  'epochs' + str(epochs) + '_aFrame.npz', aFrame=aFrame)
+#npzfile = np.load(output_dir + '/' +ID13 + "_" +  'epochs' + str(epochs) + '_aFrame.npz')
+#aFrame = npzfile['aFrame']
 
 lam = 0.1
 latent_dim = 1
@@ -2497,6 +2497,7 @@ cmap = plt.get_cmap('jet_r')
 
 fig01 = plt.figure();
 plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c='red',  cmap='winter', s=3)
+plt.ylim((0.1,0.2));plt.xlim((0.20,0.24));
 for i in range(nz):
     plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , 'bo', linestyle="--", markersize=0.1 ,linewidth=0.1)
 #plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
@@ -2629,15 +2630,17 @@ ce = K.mean(tf.keras.losses.mean_squared_error(x_true, autoencoder.output))
 grad_ce = K.gradients(ce, autoencoder.inputs)
 # create a function to be able to run this computation graph
 func = K.function(autoencoder.inputs + [x_true], grad_ce)
-output = func([aFrame, aFrame])[0]*100000
+output = func([aFrame, aFrame])[0]
 
 norm_out  = np.sqrt(output[:, 0]**2 + output[:, 1]**2 )
 
-fig, ax = plt.subplots(nrows=1, figsize=(8, 9))
+fig, ax = plt.subplots(nrows=1, figsize=(8, 6))
 plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c='g',   s=3)
-p = plt.scatter(x=aFrame[:,0], y=aFrame[:,1], cmap='jet_r', c=norm_out, vmin=norm_out.min(), vmax=norm_out.max(), s=np.sqrt(norm_out+1) )
+p = plt.scatter(x=aFrame[:,0], y=aFrame[:,1], cmap='jet_r', c=norm_out, vmin=norm_out.min(), vmax=norm_out.max(), s=1000*(norm_out) )
+ax.set_rasterized(True)
 fig.colorbar(p)
 fig.savefig(PLOTS + '/'+"ELU_D_set_by_gradient_loss_2D" + ".eps", format='eps', dpi=350)
+fig.savefig(PLOTS + '/'+"ELU_D_set_by_gradient_loss_2D" + ".tif", format='tif', dpi=350)
 plt.show()
 
 
