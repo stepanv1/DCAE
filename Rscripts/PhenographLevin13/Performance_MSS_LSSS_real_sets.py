@@ -5,6 +5,8 @@ using normalized measures
 import math
 import pandas as pd
 import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 import os
 from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbours, compute_cluster_performance, projZ,\
     plot3D_marker_colors, plot3D_cluster_colors, plot2D_cluster_colors, neighbour_marker_similarity_score, neighbour_onetomany_score_normalized, \
@@ -37,26 +39,27 @@ list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
 z_dir  = DATA_ROOT + "Real_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Real_sets/DCAE_output/Performance/"
 
+#epochs = 1000
 for epochs in epoch_list:
     #bl = list_of_inputs[0]
-    for bl in list_of_inputs:
-        #read data
-        infile = DATA_DIR  + bl
-        npzfile = np.load(infile,  allow_pickle=True)
-        aFrame = npzfile['aFrame'];
-        Idx = npzfile['Idx']
-        lbls = npzfile['lbls']
-
-        # read DCAE output
-        npz_res = np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz',
-                          allow_pickle=True)
-        z= npz_res['z']
-
-        MSS = neighbour_marker_similarity_score_per_cell(z, aFrame, kmax=90, num_cores=16)
-        LSSS = neighbour_onetomany_score_normalized(z, Idx, kmax=90, num_cores=16)
-
-        outfile = output_dir + '/'  + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
-        np.savez(outfile, MSS0=MSS[0], LSSS0= LSSS[0], MSS1=MSS[1], LSSS1= LSSS[1])
+    # for bl in list_of_inputs:
+    #     #read data
+    #     infile = DATA_DIR  + bl
+    #     npzfile = np.load(infile,  allow_pickle=True)
+    #     aFrame = npzfile['aFrame'];
+    #     Idx = npzfile['Idx']
+    #     lbls = npzfile['lbls']
+    #
+    #     # read DCAE output
+    #     npz_res = np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz',
+    #                       allow_pickle=True)
+    #     z= npz_res['z']
+    #
+    #     MSS = neighbour_marker_similarity_score_per_cell(z, aFrame, kmax=90, num_cores=16)
+    #     LSSS = neighbour_onetomany_score_normalized(z, Idx, kmax=90, num_cores=16)
+    #
+    #     outfile = output_dir + '/'  + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
+    #     np.savez(outfile, MSS0=MSS[0], LSSS0= LSSS[0], MSS1=MSS[1], LSSS1= LSSS[1])
     '''
     # Compute performance for UMAP
     z_dir  = DATA_ROOT + "Real_sets/UMAP_output/"
@@ -112,6 +115,7 @@ for epochs in epoch_list:
     #    bl  =list_of_inputs[0]
     k=30
     df = pd.DataFrame()
+    #i=0
     for i in range(3):
         for bl in list_of_inputs:
             if i == 0:
@@ -125,15 +129,20 @@ for epochs in epoch_list:
             MSS0 = np.median(MSS1[k,:])
             LSSS1 = npz_res['LSSS1']
             LSSS0 = np.median(LSSS1[k, :])
-
+            fig01 = plt.figure();
+            plt.hist(MSS1[30, :], 50)
+            plt.title('MSS1' + "_"+bor_res_dirs[i] + '/' + "\n"+ str(bl))
+            plt.show()
+            #fig01 = plt.figure();
+            #plt.hist(LSSS1[30, :], 50)
+            #plt.title('LSSS1' + "_"+bor_res_dirs[i] + '/' + "\n"+ str(bl))
+            #plt.show()
             line = pd.DataFrame([[methods[i], str(bl), MSS0, LSSS0]],   columns =['method','Set','MSS','LSSS'])
             df =  df.append(line)
 
 
 
 
-    import seaborn as sns
-    import matplotlib.pyplot as plt
     #rename sets for plot
     di = {'Levine32euclid_scaled_no_negative_removed.npz':'Levine32',
     'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz':'Pregnancy',  'Shenkareuclid_shifted.npz':'Shenkar'}
@@ -154,6 +163,8 @@ for epochs in epoch_list:
     g2.set(ylim=(0, None))
     g2.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
     g2.figure.savefig(PLOTS + ID + "_" + 'k_'+str(k)+'_epochs' +str(epochs)+'_'+ "LSSS_normalized.eps", format='eps', dpi = 350,
+                      bbox_inches="tight")
+    g2.figure.savefig(PLOTS + ID + "_" + 'k_'+str(k)+'_epochs' +str(epochs)+'_'+ "LSSS_normalized.tif", format='tif', dpi = 350,
                       bbox_inches="tight")
     plt.close()
 
@@ -184,26 +195,37 @@ for epochs in epoch_list:
             LSSS1 = npz_res['LSSS1']
             LSSS0 = np.median(LSSS1, axis=1)
             measures[methods[i]] = [MSS0, LSSS0]
+            # fig01 = plt.figure();
+            # plt.hist(LSSS1[30, :], 50)
+            # plt.title('LSSS1' + "_"+bor_res_dirs[i] + '/' + "\n"+ str(bl))
+            # plt.show()
+            # fig01 = plt.figure();
+            # plt.hist(MSS1[30, :], 50)
+            # plt.title('MSS1' + "_" + bor_res_dirs[i] + '/' + "\n" + str(bl))
+            # plt.show()
 
         df_simMSS = pd.DataFrame({'k': range(k_start  , 90)[:], 'DCAE': measures['DCAE'][0][k_start :],
-                               'SAUCIE':  measures['SAUCIE'][0][k_start :],
-                               'UMAP':  measures['UMAP'][0][k_start :]})
+                                   'SAUCIE':  measures['SAUCIE'][0][k_start :],
+                               'UMAP':  measures['UMAP'][0][k_start :],
+                                  })
         plt.plot('k', 'DCAE', data=df_simMSS, marker='o', markersize=5, color='skyblue', linewidth=3)
         plt.plot('k', 'SAUCIE', data=df_simMSS, marker='v', color='orange', linewidth=2)
         plt.plot('k', 'UMAP', data=df_simMSS, marker='x', color='olive', linewidth=2)
         plt.legend()
         plt.savefig(PLOTS + ID + "_" + names[n_set ] +'_epochs' +str(epochs) + '_' + 'MSS.eps', format='eps', dpi = 350)
+        plt.savefig(PLOTS + ID + "_" + names[n_set] + '_epochs' + str(epochs) + '_' + 'MSS.tif', format='tif', dpi=350)
         plt.show()
         plt.clf()
 
-        df_simMSS = pd.DataFrame({'k': range(k_start, 90)[:], 'DCAE': measures['DCAE'][1][k_start:],
+        df_simLSSS = pd.DataFrame({'k': range(k_start, 90)[:], 'DCAE': measures['DCAE'][1][k_start:],
                                   'SAUCIE': measures['SAUCIE'][1][k_start:],
                                   'UMAP': measures['UMAP'][1][k_start:]})
-        plt.plot('k', 'DCAE', data=df_simMSS, marker='o', markersize=5, color='skyblue', linewidth=3)
-        plt.plot('k', 'SAUCIE', data=df_simMSS, marker='v', color='orange', linewidth=2)
-        plt.plot('k', 'UMAP', data=df_simMSS, marker='x', color='olive', linewidth=2)
+        plt.plot('k', 'DCAE', data=df_simLSSS, marker='o', markersize=5, color='skyblue', linewidth=3)
+        plt.plot('k', 'SAUCIE', data=df_simLSSS, marker='v', color='orange', linewidth=2)
+        plt.plot('k', 'UMAP', data=df_simLSSS, marker='x', color='olive', linewidth=2)
         plt.legend()
         plt.savefig(PLOTS + ID + "_" + names[n_set ] + '_epochs' +str(epochs) + '_' + 'LSSS.eps', format='eps', dpi = 350)
+        plt.savefig(PLOTS + ID + "_" + names[n_set] + '_epochs' + str(epochs) + '_' + 'LSSS.tif', format='tif', dpi=350)
         plt.show()
         plt.clf()
 

@@ -528,27 +528,6 @@ fig = plt.figure();
 plt.plot((history['DCAE_2l'][st:stp]));
 plt.title('DCAE_2l')
 
-#from mpl_toolkits import mplot3d
-#fig01 = plt.figure();
-#col=1
-#ax = fig01.add_subplot(projection='3d')
-#ax.set_zlim3d(0.1,0.2)
-#zs =np.arctanh(2* (z- np.min(z) / (np.max(z) - np.min(z)) ) -1 )
-#p = ax.scatter3D(aFrame[:,0], aFrame[:,1], z, c = z, s=0.1)
-#fig01.colorbar(p)
-#ax.scatter3D(A_rest[:,0], A_rest[:,1], -1, c=aFrame[:,col],  cmap='winter', s=1)
-#plt.title('color ' + str(col))
-#
-#plt.colorbar()
-# fig01 = plt.figure();
-# col=1
-# ax = fig01.add_subplot(projection='3d')
-# #ax.set_zlim3d(0.1,0.2)
-# #zs =np.arctanh(2* (z- np.min(z) / (np.max(z) - np.min(z)) ) -1 )
-# p = ax.scatter3D(aFrame[:,0], aFrame[:,1], z, c = z, s=0.1)
-# fig01.colorbar(p)
-# #ax.scatter3D(A_rest[:,0], A_rest[:,1], -1, c=aFrame[:,col],  cmap='winter', s=1)
-# ax.scatter3D(dec_map[:,0], dec_map[:,1], -1, c=np.linspace(-1, 1, num=1000), s=1)
 
 z_gap = np.linspace(-0.97, 0.97, num=1000)
 z_gap = z_gap[(np.logical_or(z_gap<0.14, z_gap<0.14))]
