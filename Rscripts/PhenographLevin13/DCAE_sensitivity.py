@@ -291,12 +291,15 @@ for bl in list_of_branches:
         gradients2 = t.gradient(output[:, 2], x_tensor).numpy()
 
     import seaborn as sns
-
+    from sklearn.preprocessing import normalize
 
     #Mean square elasticity
     l_list = np.unique(lbls)
-    SCgrad = np.sqrt(gradients0 ** 2 + gradients1 ** 2 + gradients2 ** 2)
-
+    n_z = normalize(z)
+    #SCgrad = np.sqrt(gradients0 ** 2 + gradients1 ** 2 + gradients2 ** 2)
+    SCgrad = np.sqrt( np.abs(gradients0 ** 2 + gradients1 ** 2 + gradients2 ** 2
+                      - np.transpose((n_z[:,0]* np.transpose(gradients0) + n_z[:,1]* np.transpose(gradients1) +
+                                       n_z[:,2]* np.transpose(gradients2)))**2  ))
 
     from scipy.stats import iqr
     SC = np.vstack(
@@ -424,16 +427,17 @@ df7_all = pd.concat(df7_all)
 df_all = pd.concat(df_all)
 
 #total summ of pairs where p<1e-10 in pentagone clusters
-df7_num = df7_all.iloc[:, 2:127].astype('float64').to_numpy()
+df7_num = df7_all.iloc[:, 2:].astype('float64').to_numpy()
 np.sum(df7_num>1e-10)
 np.sum(df7_num>1e-10)/df7_num.shape[0]/df7_num.shape[1]
-# 0.0416
-df_num = df_all.iloc[:, 2:127].astype('float64').to_numpy()
+#  0.1424
+df_num = df_all.iloc[:, 2:].astype('float64').to_numpy()
 np.sum(df_num>1e-10)
 np.sum(df_num>1e-10)/df_num.shape[0]/df_num.shape[1]
-# 0.02592
+# 0.0800
+
 #exclude from the above calculation dimensions taking part in defining pentagone, namely dim 4
-# dim 4 is not used
+# dim 4 is not used, since its mode is the same across all clusters
 inform_dim_list = np.arange(0, 4)
 noisy_dim_list = np.arange(5, 30)
 col_names = ['bl', 'cluster']
@@ -446,5 +450,11 @@ df_all_no4 = df_all[col_names]
 df_num = df_all[dim_comb].astype('float64').to_numpy()
 np.sum(df_num>1e-10)
 np.sum(df_num>1e-10)/df_num.shape[0]/df_num.shape[1]
-# 0.017
+# 0.0718
 
+# remove 4th dim as informative from the 7th cluster
+df7_no4 = df7_all.loc[:, ~df7_all.columns.str.contains('4 ')]
+df7_num = df7_no4.iloc[:, 2:].astype('float64').to_numpy()
+np.sum(df7_num>1e-10)
+np.sum(df7_num>1e-10)/df7_num.shape[0]/df7_num.shape[1]
+#  0.1628
