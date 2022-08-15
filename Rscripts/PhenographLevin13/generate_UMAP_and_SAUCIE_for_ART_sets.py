@@ -6,9 +6,7 @@ python -m pip install --upgrade ~/Downloads/tensorflow-1.12.0-cp36-cp36m-linux_x
 '''
 
 import numpy as np
-
 import os
-
 import umap.umap_ as umap
 import pandas as pd
 import timeit
@@ -28,7 +26,7 @@ source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 
 
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-#bl = list_of_branches[1]
+#bl = list_of_branches[0]
 for bl in list_of_branches:
     infile = source_dir + 'set_' + str(bl) + '.npz'
     # markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
@@ -62,7 +60,7 @@ sys.path.append("/home/grinek/PycharmProjects/BIOIBFO25L")
 import SAUCIE
 from importlib import reload
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-#bl = list_of_branches[1]
+#bl = list_of_branches[0]
 #tf.compat.v1.disable_eager_execution()
 import tensorflow as tf
 #from keras import backend.clear_session
@@ -87,6 +85,7 @@ for bl in list_of_branches:
     # np.savez('LEVINE32_' + 'embedSAUCIE_100000.npz', embedding=embedding)
 
     fig = plot2D_cluster_colors(ySAUCIE, lbls=lbls)
+    #fig.show()
     html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                        include_mathjax=False, post_script=None, full_html=True,
                        animation_opts=None, default_width='100%', default_height='100%', validate=True)

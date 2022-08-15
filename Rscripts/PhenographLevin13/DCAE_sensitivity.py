@@ -295,11 +295,11 @@ for bl in list_of_branches:
 
     #Mean square elasticity
     l_list = np.unique(lbls)
-    n_z = normalize(z)
-    #SCgrad = np.sqrt(gradients0 ** 2 + gradients1 ** 2 + gradients2 ** 2)
-    SCgrad = np.sqrt( np.abs(gradients0 ** 2 + gradients1 ** 2 + gradients2 ** 2
-                      - np.transpose((n_z[:,0]* np.transpose(gradients0) + n_z[:,1]* np.transpose(gradients1) +
-                                       n_z[:,2]* np.transpose(gradients2)))**2  ))
+    #n_z = normalize(z)
+    SCgrad = np.sqrt(gradients0 ** 2 + gradients1 ** 2 + gradients2 ** 2)
+    #SCgrad = np.sqrt( np.abs(gradients0 ** 2 + gradients1 ** 2 + gradients2 ** 2
+    #                  - np.transpose((n_z[:,0]* np.transpose(gradients0) + n_z[:,1]* np.transpose(gradients1) +
+    #                                   n_z[:,2]* np.transpose(gradients2)))**2  ))
 
     from scipy.stats import iqr
     SC = np.vstack(
@@ -308,6 +308,12 @@ for bl in list_of_branches:
     SC_mean = np.stack(
         [np.median(SCgrad[lbls == i, :] /iqr(aFrame[lbls == i, :], axis=0),
                    axis=0) for i in l_list], axis=0)
+
+
+
+
+
+
 
     # plot a heatmap of this and peform  statistical tests, showing that data is interpreted correctly,
     # removing influence of non-informative dimensions

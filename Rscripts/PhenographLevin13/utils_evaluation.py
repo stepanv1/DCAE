@@ -8,16 +8,17 @@ import numpy as np
 from rpy2.robjects.packages import SignatureTranslatedAnonymousPackage
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
+from skhubness.neighbors import FalconnLSH #comment out then running SAUCIE and UMAP scripts
 from sklearn import metrics, datasets
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.preprocessing import normalize
+#from sklearn.preprocessing import MinMaxScaler
+#from sklearn.preprocessing import normalize
 from plotly.graph_objs import Scatter3d, Figure, Layout, Scatter
 import plotly.graph_objects as go
 from matplotlib.colors import rgb2hex
 import seaborn as sns
 from joblib import Parallel, delayed
-from pathos import multiprocessing
-from mlpack import approx_kfn, kfn
+#from pathos import multiprocessing
+#from mlpack import approx_kfn, kfn
 import ot
 import faiss
 import math
@@ -254,9 +255,15 @@ def compute_cluster_performance(lblsT, lblsP):
     F1_score = compute_f1(lblsTint, lblsPint)
     return {'Adjusted_Rand_Score': Adjusted_Rand_Score, 'adjusted_MI_Score': adjusted_MI_Score, 'F1_score': F1_score}
 
+# comment out then running SAUCIE and UMAP scripts
+def find_neighborsLSH(data, k_, cores=16):
+    lshf = FalconnLSH(n_candidates = k_+1, radius= 1.0, metric = 'euclidean', num_probes = 50, n_jobs = cores, verbose = 0)
+    lshf.fit(data)
+    dist, ind = lshf.kneighbors(data, n_candidates=k_+1, return_distance =True)
+    return {'dist': np.array(dist[:, 1:]), 'idx': np.array(ind[:, 1: ])}
 
-def find_neighbors(data, k_, metric='manhattan', cores=12):
-    tree = NearestNeighbors(n_neighbors=k_, algorithm="ball_tree", leaf_size=30, metric=metric, metric_params=None,
+def find_neighbors(data, k_, metric='euclidean', cores=16, algorithm = "ball_tree"):
+    tree = NearestNeighbors(n_neighbors=k_, algorithm=algorithm, leaf_size=30, metric=metric, metric_params=None,
                             n_jobs=cores)
     tree.fit(data)
     dist, ind = tree.kneighbors(return_distance=True)
@@ -1170,31 +1177,18 @@ plt.show()
 # function to generate artificial clusters with branches and different
 # number of noisy dimensions
 
-def preprocess_artificial_clusters(noisy_clus, lbls, k=30, num_cores=12, outfile='test'):
+def preprocess_artificial_clusters(aFrame, lbls, k=30, num_cores=12, outfile='test'):
     """ function to generate
-    :param noisy_clus, lbls:np.array with clusters and thir lbls
+    :param aFrame, lbls:np.array with clusters and thir lbls
     :return: NULL
     """
     k3 = k * 3
 
-    aFrame = noisy_clus
     original_dim=aFrame.shape[1]
-    # set negative values to zero
-    #aFrame[aFrame < 0] = 0
-    #randomize order
-    #IDX = np.random.choice(aFrame.shape[0], aFrame.shape[0], replace=False)
-    #patient_table = patient_table[IDX,:]
-    #aFrame= aFrame[IDX,:]
-    #lbls = lbls[IDX]
-    len(lbls)
-    #scaler = MinMaxScaler(copy=False, feature_range=(0, 1))
-    #scaler.fit_transform(aFrame)
-    nb=find_neighbors(aFrame, k3, metric='euclidean', cores=12)
+
+    nb=find_neighbors(aFrame, k3, metric='euclidean', cores=num_cores)
     Idx = nb['idx']; Dist = nb['dist']
 
-    def singleInput(i):
-        nei = noisy_clus[Idx[i, :], :]
-        return [nei, i]
     # find nearest neighbours
     nn=k
     rk=range(k3)
@@ -1219,16 +1213,56 @@ def preprocess_artificial_clusters(noisy_clus, lbls, k=30, num_cores=12, outfile
     nn=30
     perp((Distances[:,0:k3]),       nrow,     original_dim,   neib_weight,          nn,          k3,   Sigma,    12)
           #(     double* dist,      int N,    int D,       double* P,     double perplexity,    int K, int num_threads)
-    np.shape(neib_weight)
-    plt.plot(neib_weight[1,])
-    #sort and normalise weights
+
     topk = np.argsort(neib_weight, axis=1)[:,-nn:]
     topk= np.apply_along_axis(np.flip, 1, topk,0)
-    neib_weight=np.array([ neib_weight[i, topk[i]] for i in range(len(topk))])
-    neib_weight=normalize(neib_weight, axis=1, norm='l1')
     neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
-    #plt.plot(neib_weight[1,:]);plt.show()
+
     np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
              neibALL=neibALL,  Sigma=Sigma)
     return aFrame, Idx, Dist, Sigma, lbls, neibALL
+#comment out then running SAUCIE and UMAP scripts
+def preprocess_artificial_clusters_LSH(aFrame, lbls, k=30, num_cores=16, outfile='test'):
+    """ function to generate
+    :param aFrame, lbls:np.array with clusters and thir lbls
+    :return: NULL
+    """
+    k3 = k * 3
 
+    original_dim=aFrame.shape[1]
+
+    nb=find_neighborsLSH(aFrame, k3, cores=num_cores)
+    Idx = nb['idx']; Dist = nb['dist']
+
+    # find nearest neighbours
+    nn=k
+    rk=range(k3)
+    def singleInput(i):
+         nei =  aFrame[Idx[i,:],:]
+         di = [np.sqrt(sum(np.square(aFrame[i] - nei[k_i,]))) for k_i in rk]
+         return [nei, di, i]
+    nrow = len(lbls)
+    inputs = range(nrow)
+
+    results = Parallel(n_jobs=num_cores, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
+
+    neibALL = np.zeros((nrow, k3, original_dim))
+    Distances = np.zeros((nrow, k3))
+    neib_weight = np.zeros((nrow, k3))
+    Sigma = np.zeros(nrow, dtype=float)
+    for i in range(nrow):
+        neibALL[i,] = results[i][0]
+    for i in range(nrow):
+        Distances[i,] = results[i][1]
+    #Compute perpelexities
+    nn=30
+    perp((Distances[:,0:k3]),       nrow,     original_dim,   neib_weight,          nn,          k3,   Sigma,    12)
+          #(     double* dist,      int N,    int D,       double* P,     double perplexity,    int K, int num_threads)
+
+    topk = np.argsort(neib_weight, axis=1)[:,-nn:]
+    topk= np.apply_along_axis(np.flip, 1, topk,0)
+    neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
+
+    np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
+             neibALL=neibALL,  Sigma=Sigma)
+    return aFrame, Idx, Dist, Sigma, lbls, neibALL
