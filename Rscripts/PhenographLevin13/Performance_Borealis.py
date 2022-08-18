@@ -27,7 +27,7 @@ patience = 500
 min_delta = 1e-4
 g=0#0.1
 epochs=500
-ID = 'Decreasing_MSE_strongerMMD' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'DCAE' +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
 #ID ='Decreasing_MSE_g_0_lam_0.1_batch_128_alp_0.2_m_10'
 #ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)

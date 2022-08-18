@@ -107,7 +107,7 @@ os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-ID = 'Decreasing_MSE_strongerMMD_g_0_lam_0.1_batch_128_alp_0.5_m_10'
+ID = 'DCAE_lam_0.1_batch_128_alp_0.5_m_10'
 #ID ='Decreasing_MMD_zero_g_0_lam_0.1_batch_128_alp_0.2_m_10'
 #ID ='DICSCONT_DELU_0.2_repulsive_MMD_0.05_experiment_g_10_lam_0.1_batch_128_alp_0.2_m_10'
  #'clip_grad_exp_MDS_g_0.1_lam_0.1_batch_128_alp_0.2_m_10' #'DICSCONT_DELU_0.2_g_0.1_lam_0.1_batch_128_alp_0.2_m_10'        #'zero_MDS_g_0_lam_0.1_batch_128_alp_0.2_m_10' #'clip_grad_exp_MDS_g_0.1_lam_0.1_batch_128_alp_0.2_m_10'

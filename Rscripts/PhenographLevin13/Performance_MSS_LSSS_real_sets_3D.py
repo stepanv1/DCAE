@@ -22,7 +22,7 @@ patience = 1000
 min_delta = 1e-4
 g=0.1
 
-ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'DCAE' + '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
 epoch_list =  [250, 500, 1000]
 #epoch_list =  [750]
