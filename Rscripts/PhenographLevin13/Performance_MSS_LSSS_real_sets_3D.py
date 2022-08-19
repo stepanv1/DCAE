@@ -11,20 +11,18 @@ from utils_evaluation import compute_f1, table, find_neighbors, compare_neighbou
     get_wsd_scores, neighbour_marker_similarity_score_per_cell, show3d, plot3D_performance_colors, plot2D_performance_colors
 
 k = 30
-epochs_list = [250,500,1000]
+epochs_list = [1000]
 coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
 lam = 1
-alp = 0.2
+alp = 0.5
 m = 10
 patience = 1000
 min_delta = 1e-4
-g=0.1
 
 ID = 'DCAE' + '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
-epoch_list =  [250, 500, 1000]
 #epoch_list =  [750]
 os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
 DATA_ROOT = '/media/grinek/Seagate/'
@@ -35,9 +33,9 @@ list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
 z_dir  = DATA_ROOT + "Real_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Real_sets/DCAE_output/Performance/"
 
-for epochs in epoch_list:
+for epochs in epochs_list:
     #bl = list_of_inputs[0]
-    '''
+
     for bl in list_of_inputs:
         #read data
         
@@ -103,7 +101,7 @@ for epochs in epoch_list:
 
         outfile = output_dir + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized_3D.npz'
         np.savez(outfile, MSS0=MSS[0], LSSS0=LSSS[0], MSS1=MSS[1], LSSS1=LSSS[1])
-    '''
+
     #created MSS_LSSS graphs######
     PLOTS = DATA_ROOT + "Real_sets/PLOTS/"
     bor_res_dirs = [DATA_ROOT + "Real_sets/DCAE_output/Performance/", DATA_ROOT + "Real_sets/UMAP_output/Performance/",DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"]

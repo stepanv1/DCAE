@@ -8,7 +8,7 @@ import os
 from utils_evaluation import  get_wsd_scores_normalized
 
 k = 30
-epoch_list = [250,500,1000]
+epoch_list = [1000]
 coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
@@ -18,7 +18,7 @@ m = 10
 patience = 1000
 min_delta = 1e-4
 
-'DCAE_lam_1_batch_128_alp_0.5_m_10'
+ID = 'DCAE_lam_1_batch_128_alp_0.5_m_10'
 
 #epoch_list =  [750]
 os.chdir('/home/grinek/PycharmProjects/BIOIBFO25L/')
@@ -32,7 +32,6 @@ output_dir = DATA_ROOT + "Real_sets/DCAE_output/Performance/"
 
 for epochs in epoch_list:
     #bl = list_of_branches[1]
-    '''
     for bl in list_of_inputs:
         print(output_dir)
         print(bl)
@@ -49,9 +48,9 @@ for epochs in epoch_list:
 
         discontinuity, manytoone = get_wsd_scores_normalized(aFrame, z, 30, num_meandist=10000, compute_knn_x=False, x_knn=Idx, nc=16)
 
-        outfile = output_dir + '/'  + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_BOREALIS_PerformanceMeasures_wider.npz'
+        outfile = output_dir + '/'  + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_BOREALIS_PerformanceMeasures.npz'
         np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
-    '''
+
 
     # Compute performance for UMAP
     z_dir  = DATA_ROOT + "Real_sets/UMAP_output/"
@@ -111,7 +110,7 @@ for epochs in epoch_list:
     for i in range(3):
         for bl in list_of_inputs:
             if i == 0:
-                outfile = bor_res_dirs[i] + '/'  + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_BOREALIS_PerformanceMeasures_wider.npz'
+                outfile = bor_res_dirs[i] + '/'  + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_BOREALIS_PerformanceMeasures.npz'
             else:
                 outfile = bor_res_dirs[i] + '/' + str(bl) + '_BOREALIS_PerformanceMeasures_3D.npz'
             npz_res =  np.load(outfile,  allow_pickle=True)
@@ -137,26 +136,26 @@ for epochs in epoch_list:
     sns.set(rc={'figure.figsize':(14, 4)})
     g = sns.barplot(x='Set', y='discontinuity', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
     g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-    plt.savefig(PLOTS + "Discontinuity" +  ID + '_epochs' +str(epochs)+ "_wider_3D.eps", format='eps', dpi = 350)
+    plt.savefig(PLOTS + "Discontinuity" +  ID + '_epochs' +str(epochs)+ "_3D.eps", format='eps', dpi = 350)
     plt.close()
 
     g2 = sns.barplot(x='Set', y='manytoone', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
     g2.set(ylim=(0.05, None))
     g2.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-    plt.savefig(PLOTS + "Manytoone" + ID + '_epochs' +str(epochs)+ "_wider_3D.eps", format='eps', dpi = 350)
+    plt.savefig(PLOTS + "Manytoone" + ID + '_epochs' +str(epochs)+ "_3D.eps", format='eps', dpi = 350)
     plt.close()
 
 # as tables
 
 # tables move to Borealis measures file
 # df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.118989,  0.158191, 0.132919], 'discontinuity': [2.288722, 5.971887, 5.429483]})
-# df_BORAI.to_csv(PLOTS  + 'Levine32_'  +ID + '_' + 'Borealis_measures_wider.csv', index=False)
+# df_BORAI.to_csv(PLOTS  + 'Levine32_'  +ID + '_' + 'Borealis_measures.csv', index=False)
 #
 # df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.184362, 0.209887, 0.201161], 'discontinuity': [12.233907, 16.489910, 17.582431 ]})
-# df_BORAI.to_csv(PLOTS + 'Pregnancy_' +ID + '_' + 'Borealis_measures_wider.csv', index=False)
+# df_BORAI.to_csv(PLOTS + 'Pregnancy_' +ID + '_' + 'Borealis_measures.csv', index=False)
 #
 # df_BORAI = pd.DataFrame({'Method':['DCAE', 'SAUCIE', 'UMAP'],  'manytoone': [0.338864, 0.348597, 0.337997], 'discontinuity': [3.267888, 3.548169, 5.955621]})
-# df_BORAI.to_csv(PLOTS  + 'Shenkar_' +ID + '_' + 'Borealis_measures_wider.csv', index=False)
+# df_BORAI.to_csv(PLOTS  + 'Shenkar_' +ID + '_' + 'Borealis_measures.csv', index=False)
 
 
 

@@ -21,12 +21,12 @@ coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
 lam = 0.1
-alp = 0.2
+alp = 0.5
 m = 10
 patience = 500
 min_delta = 1e-4
 
-ID = 'DCAE' +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'DCAE_lam_0.1_batch_128_alp_0.5_m_10'
 
 epochs = 500
 # Compute performance for DCAE
