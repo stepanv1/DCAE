@@ -33,13 +33,16 @@ Real data, 3 sets
   a. Compute 'Borealis' performance measures (discontinuity, manytoone) (Performance_Borealis_real_sets_3D.py)
   b. Compute 'MSS' and 'LSSS' performance measures  (Performance_MSS_LSSS_real_sets_3D.py)
 
-Splitting demonstration
+Demonstrations
 1. Dimension reduction on samples from continuous distributions leads to splitting (Splitting_demo.py)
-2. CAE reduces splitting, paper figures (Splitting_demo.py)
+2. CAE prevents splitting, paper figures (Splitting_demo.py)
+3. Illustration of performance measures (Performance_measure_demo_plots_sim_data_normalized.py)
 
 Utilities
 1. utils_evaluation.py
 2. utils_model.py
+
+Performance_measure_demo_plots_sim_data.py
 
 
 

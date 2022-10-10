@@ -1,6 +1,7 @@
 '''
-Compute MSS and LSS performance measures on DCAE, UMAP and SAUCIE
+Compute MSS and LSSS performance measures on DCAE, UMAP and SAUCIE
 using normalized measures
+Real sets
 '''
 import pandas as pd
 import numpy as np
@@ -32,11 +33,8 @@ z_dir  = DATA_ROOT + "Real_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Real_sets/DCAE_output/Performance/"
 
 for epochs in epochs_list:
-    #bl = list_of_inputs[0]
-
     for bl in list_of_inputs:
         #read data
-        
         infile = DATA_DIR  + bl
         npzfile = np.load(infile,  allow_pickle=True)
         aFrame = npzfile['aFrame'];
@@ -57,7 +55,6 @@ for epochs in epochs_list:
     # Compute performance for UMAP
     z_dir  = DATA_ROOT + "Real_sets/UMAP_output/"
     output_dir =  DATA_ROOT + "Real_sets/UMAP_output/Performance"
-    #bl = list_of_branches[1]
     for bl in list_of_inputs:
         #read data
         infile = DATA_DIR  + bl
@@ -79,7 +76,6 @@ for epochs in epochs_list:
     # Compute performance for SAUCIE
     z_dir = DATA_ROOT + "Real_sets/SAUCIE_output/"
     output_dir =  DATA_ROOT + "Real_sets/SAUCIE_output/Performance"
-    #bl = list_of_branches[1]
     for bl in list_of_inputs:
         #read data
         infile = DATA_DIR  + bl
@@ -104,8 +100,6 @@ for epochs in epochs_list:
     PLOTS = DATA_ROOT + "Real_sets/PLOTS/"
     bor_res_dirs = [DATA_ROOT + "Real_sets/DCAE_output/Performance/", DATA_ROOT + "Real_sets/UMAP_output/Performance/",DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"]
     methods = ['DCAE', 'UMAP', 'SAUCIE']
-#    i= 0
-#    bl  =list_of_inputs[0]
     k=30
     df = pd.DataFrame()
     for i in range(3):
@@ -115,9 +109,7 @@ for epochs in epochs_list:
             else:
                 outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized_3D.npz'
             npz_res =  np.load(outfile,  allow_pickle=True)
-            #MSS0 = npz_res['MSS0'][k]
             MSS1 = npz_res['MSS1']
-            #LSSS0 = npz_res['LSSS0'][k]
             MSS0 = np.median(MSS1[k,:])
             LSSS1 = npz_res['LSSS1']
             LSSS0 = np.median(LSSS1[k, :])
@@ -125,14 +117,10 @@ for epochs in epochs_list:
             line = pd.DataFrame([[methods[i], str(bl), MSS0, LSSS0]],   columns =['method','Set','MSS','LSSS'])
             df =  df.append(line)
 
-
-
-
     import seaborn as sns
     import matplotlib.pyplot as plt
 
     #rename sets for plot
-
     di = {'Levine32euclid_scaled_no_negative_removed.npz':'Levine32',
     'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz':'Pregnancy',  'Shenkareuclid_shifted.npz':'Shenkar'}
     df =  df.replace({"Set": di})
@@ -146,7 +134,6 @@ for epochs in epochs_list:
     g.figure.savefig(PLOTS + ID + "_" + 'k_'+str(k)+ '_epochs' +str(epochs) +'_'+ "MSS_normalized_3D.eps", format='eps', dpi = 350,
                       bbox_inches="tight")
     plt.close()
-    # the bug is herew
 
     g2 = sns.barplot(x='Set', y='LSSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
     g2.set(ylim=(0, None))
@@ -176,9 +163,7 @@ for epochs in epochs_list:
             else:
                 outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized_3D.npz'
             npz_res = np.load(outfile, allow_pickle=True)
-            # MSS0 = npz_res['MSS0'][k]
             MSS1 = npz_res['MSS1']
-            # LSSS0 = npz_res['LSSS0'][k]
             MSS0 = np.median(MSS1, axis=1)
             LSSS1 = npz_res['LSSS1']
             LSSS0 = np.median(LSSS1, axis=1)
@@ -205,5 +190,3 @@ for epochs in epochs_list:
         plt.savefig(PLOTS + ID + "_" + names[n_set ] + '_epochs' +str(epochs) + '_' + 'LSSS_3D.eps', format='eps', dpi = 350)
         plt.show()
         plt.clf()
-
-

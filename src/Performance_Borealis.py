@@ -1,5 +1,7 @@
 '''
-Compute emd-based paerformance scores performance measures on DCAE, UMAP and SAUCIE
+Compute emd-based paerformance performance measures for DCAE, UMAP and SAUCIE
+Dimensionality Reduction has Quantifiable Imperfections: Two Geometric Bounds,
+https://arxiv.org/abs/1811.00115
 '''
 import pandas as pd
 import numpy as np
@@ -22,18 +24,13 @@ alp = 0.5
 m = 10
 patience = 500
 min_delta = 1e-4
-g=0#0.1
 epochs=500
 ID = 'DCAE' +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
-#ID ='Decreasing_MSE_g_0_lam_0.1_batch_128_alp_0.2_m_10'
-#ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
-#ID ='DICSCONT_DELU_0.2_repulsive_MMD_0.05_experiment_g_10_lam_0.1_batch_128_alp_0.2_m_10'
 epochs = 500
 # Compute performance for DCAE
 z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"
-#bl = list_of_branches[1]
 for bl in list_of_branches:
     print('bl =', bl)
     # read data
@@ -54,11 +51,9 @@ for bl in list_of_branches:
     outfile = output_dir + '/'  + ID + "_"  + str(bl) +  'epochs' + str(epochs) +'_BOREALIS_PerformanceMeasures_normalized.npz'
     np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
 
-'''
 # Compute performance for UMAP
 z_dir  = DATA_ROOT + "Artificial_sets/UMAP_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/UMAP_output/Performance/"
-#bl = list_of_branches[1]
 for bl in list_of_branches:
     # read data
     print(output_dir)
@@ -82,7 +77,6 @@ for bl in list_of_branches:
 # Compute performance for SAUCIE
 z_dir = DATA_ROOT + "Artificial_sets/SAUCIE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/SAUCIE_output/Performance/"
-#bl = list_of_branches[1]
 for bl in list_of_branches:
     # read data
     print(output_dir)
@@ -98,20 +92,18 @@ for bl in list_of_branches:
     # read DCAE output
     npz_res = np.load(z_dir + '/' + str(bl) + '_SAUCIE_rep_2D.npz')
     z = npz_res['z']
-    # divide by max_r and multiply by 4 pi to level field with DCAE
 
     discontinuity, manytoone = get_wsd_scores_normalized(aFrame, z, 30, num_meandist=10000, compute_knn_x=False, x_knn=Idx, nc=16)
 
     outfile = output_dir + '/' + str(bl) + '_BOREALIS_PerformanceMeasures_normalized.npz'
     np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
-'''
+
 #create Borealis graphs
 PLOTS = DATA_ROOT + "Artificial_sets/PLOTS/"
 bor_res_dirs = [DATA_ROOT + "Artificial_sets/DCAE_output/Performance/", DATA_ROOT + "Artificial_sets/UMAP_output/Performance/",DATA_ROOT + "Artificial_sets/SAUCIE_output/Performance/"]
 methods = ['DCAE', 'UMAP', 'SAUCIE']
-#dir = bor_res_dirs[0]
-#bl  = list_of_branches[0]
 df = pd.DataFrame()
+
 for i in range(3):
     for bl in list_of_branches:
         if bor_res_dirs[i] != bor_res_dirs[0]:

@@ -1,6 +1,6 @@
 '''
 Generates UMAP and SAUCIE
-mappings for artificial clusters
+mappings for artificial clusters in 3D
 run with tensorflow v 1.12, python 3.6.0 (to satisfy SAUCIE requirements)
 python -m pip install --upgrade ~/Downloads/tensorflow-1.12.0-cp36-cp36m-linux_x86_64.whl
 '''
@@ -9,8 +9,6 @@ import numpy as np
 import os
 
 import umap.umap_ as umap
-import pandas as pd
-import timeit
 from plotly.io import to_html
 from plotly.graph_objs import Scatter3d
 import plotly.io as pio
@@ -18,7 +16,6 @@ import plotly.graph_objects as go
 pio.renderers.default = "browser"
 import seaborn as sns
 from matplotlib.colors import rgb2hex
-#from  utils_evaluation import  plot3D_cluster_colors
 
 def plot3D_cluster_colors(z, lbls, camera=None, legend=True, msize=1):
     x = z[:, 0]
@@ -34,9 +31,9 @@ def plot3D_cluster_colors(z, lbls, camera=None, legend=True, msize=1):
     fig = go.Figure()
     for m in range(nM):
         IDX = [x == lbls_list[m] for x in lbls]
-        xs = x[IDX];
-        ys = y[IDX];
-        zs = z1[IDX];
+        xs = x[IDX]
+        ys = y[IDX]
+        zs = z1[IDX]
         fig.add_trace(Scatter3d(x=xs, y=ys, z=zs,
                                 name=lbls_list[m],
                                 mode='markers',
@@ -81,14 +78,10 @@ source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 
 
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-#bl = list_of_branches[1]
 for bl in list_of_branches:
     infile = source_dir + 'set_' + str(bl) + '.npz'
-    # markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
-    # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
     npzfile = np.load(infile)
-    # = weight_distALL[IDX,:]
-    aFrame = npzfile['aFrame'];
+    aFrame = npzfile['aFrame']
     lbls= npzfile['lbls']
     mapper = umap.UMAP(n_neighbors=15, n_components=3, metric='euclidean', random_state=42, min_dist=0, low_memory=True).fit(aFrame)
     yUMAP =  mapper.transform(aFrame)
@@ -113,20 +106,12 @@ import sys
 sys.path.append("/media/grinek/Seagate/DCAE/SAUCIE")
 sys.path.append("/media/grinek/Seagate/DCAE")
 import SAUCIE
-from importlib import reload
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-#bl = list_of_branches[1]
-#tf.compat.v1.disable_eager_execution()
 import tensorflow as tf
-#from keras import backend.clear_session
-#saucie = SAUCIE.SAUCIE(30)
 for bl in list_of_branches:
     infile = source_dir + 'set_' + str(bl) + '.npz'
-    # markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
-    # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
     npzfile = np.load(infile)
-    # = weight_distALL[IDX,:]
-    aFrame = npzfile['aFrame'];
+    aFrame = npzfile['aFrame']
     lbls= npzfile['lbls']
 
 
@@ -137,7 +122,6 @@ for bl in list_of_branches:
 
     loadeval = SAUCIE.Loader(aFrame, shuffle=False)
     ySAUCIE = saucie.get_embedding(loadeval)
-    # np.savez('LEVINE32_' + 'embedSAUCIE_100000.npz', embedding=embedding)
 
     fig = plot3D_cluster_colors(ySAUCIE, lbls=lbls)
     html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,

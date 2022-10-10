@@ -25,10 +25,7 @@ source_dir = DATA_ROOT + 'Artificial_sets/Art_set25/'
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
 for bl in list_of_branches:
     infile = source_dir + 'set_' + str(bl) + '.npz'
-    # markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
-    # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
     npzfile = np.load(infile)
-    # = weight_distALL[IDX,:]
     aFrame = npzfile['aFrame'];
     lbls= npzfile['lbls']
     mapper = umap.UMAP(n_neighbors=15, n_components=2, metric='euclidean', random_state=42, min_dist=0, low_memory=True).fit(aFrame)
@@ -56,17 +53,13 @@ sys.path.append("/media/grinek/Seagate/DCAE")
 import SAUCIE
 
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-#bl = list_of_branches[0]
-#tf.compat.v1.disable_eager_execution()
+
 import tensorflow as tf
 #from keras import backend.clear_session
 #saucie = SAUCIE.SAUCIE(30)
 for bl in list_of_branches:
     infile = source_dir + 'set_' + str(bl) + '.npz'
-    # markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
-    # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
     npzfile = np.load(infile)
-    # = weight_distALL[IDX,:]
     aFrame = npzfile['aFrame'];
     lbls= npzfile['lbls']
 
@@ -78,10 +71,8 @@ for bl in list_of_branches:
 
     loadeval = SAUCIE.Loader(aFrame, shuffle=False)
     ySAUCIE = saucie.get_embedding(loadeval)
-    # np.savez('LEVINE32_' + 'embedSAUCIE_100000.npz', embedding=embedding)
 
     fig = plot2D_cluster_colors(ySAUCIE, lbls=lbls)
-    #fig.show()
     html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
                        include_mathjax=False, post_script=None, full_html=True,
                        animation_opts=None, default_width='100%', default_height='100%', validate=True)

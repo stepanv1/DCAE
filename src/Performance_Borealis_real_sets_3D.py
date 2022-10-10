@@ -1,5 +1,8 @@
 '''
-Compute emd-based paerformance scores performance measures on DCAE, UMAP and SAUCIE
+Compute emd-based paerformance scores performance measures for DCAE, UMAP and SAUCIE
+Dimensionality Reduction has Quantifiable Imperfections: Two Geometric Bounds,
+https://arxiv.org/abs/1811.00115
+
 '''
 import pandas as pd
 import numpy as np
@@ -19,7 +22,6 @@ min_delta = 1e-4
 
 ID = 'DCAE_lam_1_batch_128_alp_0.5_m_10'
 
-#epoch_list =  [750]
 os.chdir('/media/grinek/Seagate/DCAE/')
 DATA_ROOT = '/media/grinek/Seagate/'
 DATA_DIR = DATA_ROOT + 'CyTOFdataPreprocess/'
@@ -103,9 +105,8 @@ for epochs in epoch_list:
     PLOTS = DATA_ROOT + "Real_sets/PLOTS/"
     bor_res_dirs = [DATA_ROOT + "Real_sets/DCAE_output/Performance/", DATA_ROOT + "Real_sets/UMAP_output/Performance/",DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"]
     methods = ['DCAE', 'UMAP', 'SAUCIE']
-    #dir = bor_res_dirs[0]
-    #bl  = list_of_inputs[0]
     df = pd.DataFrame()
+
     for i in range(3):
         for bl in list_of_inputs:
             if i == 0:

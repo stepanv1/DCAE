@@ -1,6 +1,6 @@
 '''
 create 2D projections of DCAE, UMAP and SAUCIE outputs for the manuscript
-artificial sets
+Artificial sets
 '''
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
@@ -27,7 +27,6 @@ alp = 0.5
 m = 10
 patience = 500
 min_delta = 1e-4
-g=0#0.1
 epochs=500
 ID = 'DCAE' +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
@@ -52,8 +51,7 @@ smpl = np.random.choice(range(z.shape[0]), size=50000, replace=False)
 lb = lb[smpl]
 z = z[smpl,:]
 lb= np.array([str(np.int(x)) for x in lb])
-#z = z[:10000,:]
-#lb= lb[:10000]
+
 from matplotlib import rcParams
 dpi = 350
 rcParams['savefig.dpi'] = dpi
@@ -78,14 +76,12 @@ for i in range(len(cl)):
     groups.append(
         ax.scatter(xs=z[:, 0][lb == cl[i]], ys=z[:, 1][lb == cl[i]], zs=z[:, 2][lb == cl[i]], c=colors[i], s=sz,
                    alpha=0.2))
-    # ax.legend()
 ax.view_init(azim=camera_positions[0], elev=camera_positions[1])
 ax.set_rasterized(True)
-# fig.subplots_adjust(right=0.8)
 lgnd = ax.legend(groups, cl, loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=20, markerscale=35)
 for handle in lgnd.legendHandles:
     handle.set_sizes([30.0])
-# fig.tight_layout()
+
 plt.savefig(PLOTS + bl +  '_paper_DCAE.eps', dpi=dpi, format='eps', bbox_inches='tight')
 plt.savefig(PLOTS + bl +  '_paper_DCAE.eps.tif', dpi=dpi, format='tif', bbox_inches='tight')
 plt.show()
@@ -123,8 +119,7 @@ groups = []
 for i in range(len(cl)):
     groups.append(
         ax.scatter(x=z[:, 0][lb == cl[i]], y=z[:, 1][lb == cl[i]], c=colors[i], s=sz))
-    # ax.legend()
-# plot SAUCIE
+
 infile = source_dir + 'set_' + str(bl) + '.npz'
 npzfile = np.load(infile)
 lbls = np.abs(npzfile['lbls'])
@@ -147,6 +142,6 @@ for i in range(len(cl)):
     groups.append(
         ax.scatter(x=z[:, 0][lb == cl[i]], y=z[:, 1][lb == cl[i]], c=colors[i], s=sz))
 plt.savefig(PLOTS + bl + 'UMAP_SAUCIE_paper_DCAE.eps', dpi=dpi, format='eps')
-        # ax.legend()
+
 
 

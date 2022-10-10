@@ -1,18 +1,11 @@
 '''
-Generates UMAP and SAUCIE
-mappings as well as performance metrics
-for real data sets in 3D
+Generates UMAP and SAUCIE for real data sets in 3D
 run with tensorflow v 1.12, python 3.6.0 (to satisfy SAUCIE requirements)
 python -m pip install --upgrade ~/Downloads/tensorflow-1.12.0-cp36-cp36m-linux_x86_64.whl
 '''
 
 import numpy as np
-
-import os
-
 import umap.umap_ as umap
-import pandas as pd
-import timeit
 from plotly.io import to_html
 from plotly.graph_objs import Scatter3d
 import plotly.io as pio
@@ -20,7 +13,7 @@ import plotly.graph_objects as go
 pio.renderers.default = "browser"
 import seaborn as sns
 from matplotlib.colors import rgb2hex
-#from  utils_evaluation import  plot3D_cluster_colors
+
 
 def plot3D_cluster_colors(z, lbls, camera=None, legend=True, msize=1):
     x = z[:, 0]
@@ -44,11 +37,10 @@ def plot3D_cluster_colors(z, lbls, camera=None, legend=True, msize=1):
                                 mode='markers',
                                 marker=dict(
                                     size=msize,
-                                    color=colors[m],  # set color to an array/list of desired values
+                                    color=colors[m],
                                     opacity=0.5,
                                 ),
                                 text=lbls[IDX],
-                                # hoverinfo='text')], filename='tmp.html')
                                 hoverinfo='text'))
         fig.update_layout(yaxis=dict(range=[-3, 3]),
                           margin=dict(l=0, r=0, b=0, t=10))
@@ -80,13 +72,10 @@ output_dir  = DATA_ROOT + 'Real_sets/UMAP_output/'
 
 list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
 'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
-#bl = list_of_inputs[0]
+
 for bl in list_of_inputs:
     infile = source_dir + bl
-    # markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
-    # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
     npzfile = np.load(infile,  allow_pickle=True)
-    # = weight_distALL[IDX,:]
     aFrame = npzfile['aFrame'];
     lbls= npzfile['lbls']
     mapper = umap.UMAP(n_neighbors=30, n_components=3, metric='euclidean', random_state=42, min_dist=0, low_memory=True).fit(aFrame)
@@ -105,25 +94,20 @@ for bl in list_of_inputs:
 
 
 #SAUCIE
-# one need to install tf.12 and swithc python env to run  this part of code
+# one need to install tf.12 and swithch python env to run this part of code
 output_dir  = DATA_ROOT + 'Real_sets/SAUCIE_output/'
 import sys
 sys.path.append("/media/grinek/Seagate/DCAE/SAUCIE")
 sys.path.append("/media/grinek/Seagate/DCAE")
 import SAUCIE
-#from importlib import reload
-#bl = list_of_branches[1]
-#tf.compat.v1.disable_eager_execution()
 import tensorflow as tf
-#from keras import backend.clear_session
+
 for bl in list_of_inputs:
-    infile =  source_dir + bl    # markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
-    # np.savez(outfile, weight_distALL=weight_distALL, cut_neibF=cut_neibF,neibALL=neibALL)
+    infile =  source_dir + bl
     npzfile = np.load(infile,  allow_pickle=True)
-    # = weight_distALL[IDX,:]
+
     aFrame = npzfile['aFrame'];
     lbls= npzfile['lbls']
-
 
     tf.reset_default_graph()
     saucie = SAUCIE.SAUCIE(aFrame.shape[1], layers=[512,256,128,3])
@@ -132,7 +116,6 @@ for bl in list_of_inputs:
 
     loadeval = SAUCIE.Loader(aFrame, shuffle=False)
     ySAUCIE = saucie.get_embedding(loadeval)
-    # np.savez('LEVINE32_' + 'embedSAUCIE_100000.npz', embedding=embedding)
 
     fig = plot3D_cluster_colors(ySAUCIE, lbls=lbls)
     html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,

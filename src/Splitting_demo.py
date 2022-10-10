@@ -2,6 +2,7 @@
 Demonstrates splitting effect of DR on uniformly distrubuted data in 10D to 2D
 line 1045 - paper plots
 '''
+import timeit
 import matplotlib.pyplot as plt
 import numpy as np
 import plotly.io as pio
@@ -50,7 +51,6 @@ PLOTS = DATA_ROOT + 'Artificial_sets/Split_demo/PLOTS/'
 ID1 = 'Split_demo_tanh'
 
 epochs=30000
-
 ############################################################################################################
 # 10 dimensional example
 # generate data
@@ -121,28 +121,24 @@ autoencoder.summary()
 save_period = 100
 batch_size = 32
 
-# start = timeit.default_timer()
-# history_multiple = autoencoder.fit(aFrame, aFrame,
-#                                    batch_size=batch_size,
-#                                    epochs=epochs,
-#                                    shuffle=True,
-#                                    callbacks=[saveEncoder(encoder=encoder, ID=ID1, epochs=epochs,
-#                                                                   output_dir=output_dir, save_period=save_period)],
-#                                    verbose=1)
-# stop = timeit.default_timer()
-# z = encoder.predict([aFrame])
-# print(stop - start)
+start = timeit.default_timer()
+history_multiple = autoencoder.fit(aFrame, aFrame,
+                                   batch_size=batch_size,
+                                   epochs=epochs,
+                                   shuffle=True,
+                                   callbacks=[saveEncoder(encoder=encoder, ID=ID1, epochs=epochs,
+                                                                  output_dir=output_dir, save_period=save_period)],
+                                   verbose=1)
+stop = timeit.default_timer()
+z = encoder.predict([aFrame])
+print(stop - start)
 
-# Comment this after the first run
-#encoder.save_weights(output_dir + '/' + ID1 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
-#autoencoder.save_weights(output_dir + '/autoencoder_' + ID1 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
-#np.savez(output_dir + '/' + ID1 + "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
-#with open(output_dir + '/' + ID1 + 'epochs' + str(epochs) + '_history', 'wb') as file_pi:
-#    pickle.dump(history_multiple.history, file_pi)
+encoder.save_weights(output_dir + '/' + ID1 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+autoencoder.save_weights(output_dir + '/autoencoder_' + ID1 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+np.savez(output_dir + '/' + ID1 + "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
+with open(output_dir + '/' + ID1 + 'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+   pickle.dump(history_multiple.history, file_pi)
 
-
-
-#
 encoder.load_weights(output_dir + '/' + ID1 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
 autoencoder.load_weights(output_dir + '/autoencoder_' + ID1 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
 A_rest = autoencoder.predict(aFrame)
@@ -156,7 +152,6 @@ plt.title('loss')
 fig02 = plt.figure();
 plt.plot(history['DCAE_loss'][st:stp]);
 plt.title('DCAE_loss')
-
 
 for i in range(original_dim):
     fig01 = plt.figure();
@@ -185,14 +180,6 @@ def DCAE_loss(y_true, y_pred):
     s = encoder.get_layer('z_mean').output
     ds = tanh_derivative(s)
 
-    #r = tf.linalg.einsum('aj->a', s ** 2)  # R^2 in reality. to think this trough
-
-    # pot = 500 * tf.math.square(alp - r) * tf.dtypes.cast(tf.less(r, alp), tf.float32) + \
-    #      500 * (r - 1) * tf.dtypes.cast(tf.greater_equal(r, 1), tf.float32) + 1
-    # pot=1
-    #pot = tf.math.square(r - 1) + 1
-
-    #ds = tf.einsum('ak,a->ak', ds, pot)
     diff_tens = tf.einsum('al,lj->alj', ds, Z)
     diff_tens = tf.einsum('al,ajl->ajl', dm, diff_tens)
     diff_tens = tf.einsum('ajl,lk->ajk', diff_tens, W)
@@ -213,8 +200,6 @@ decoder_h2 = Dense(intermediate_dim, activation='elu', name='intermediate4', ker
 decoder_mean = Dense(original_dim, activation='elu', name='output', kernel_initializer=initializer)(decoder_h2)
 autoencoder = Model(inputs=X, outputs=decoder_mean)
 
-# optimize matrix multiplication
-
 
 def MSE(y_true, y_pred):
     return tf.keras.losses.mean_squared_error(y_true, y_pred)
@@ -234,23 +219,23 @@ autoencoder.summary()
 save_period = 100
 batch_size = 32
 
-# start = timeit.default_timer()
-# history_multiple = autoencoder.fit(aFrame, aFrame,
-#                                    batch_size=batch_size,
-#                                    epochs=epochs,
-#                                    shuffle=True,
-#                                    callbacks=[saveEncoder(encoder=encoder, ID=ID2, epochs=epochs,
-#                                                                   output_dir=output_dir, save_period=save_period)],
-#                                    verbose=1)
-# stop = timeit.default_timer()
-# z = encoder.predict([aFrame])
-# print(stop - start)
+start = timeit.default_timer()
+history_multiple = autoencoder.fit(aFrame, aFrame,
+                                   batch_size=batch_size,
+                                   epochs=epochs,
+                                   shuffle=True,
+                                   callbacks=[saveEncoder(encoder=encoder, ID=ID2, epochs=epochs,
+                                                                  output_dir=output_dir, save_period=save_period)],
+                                   verbose=1)
+stop = timeit.default_timer()
+z = encoder.predict([aFrame])
+print(stop - start)
 
-#encoder.save_weights(output_dir + '/' + ID2 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
-#autoencoder.save_weights(output_dir + '/autoencoder_' + ID2 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
-#np.savez(output_dir + '/' + ID2 + "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
-#with open(output_dir + '/' + ID2 + "_tanh"+'epochs' + str(epochs) + '_history', 'wb') as file_pi:
-#    pickle.dump(history_multiple.history, file_pi)
+encoder.save_weights(output_dir + '/' + ID2 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+autoencoder.save_weights(output_dir + '/autoencoder_' + ID2 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
+np.savez(output_dir + '/' + ID2 + "_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
+with open(output_dir + '/' + ID2 + "_tanh"+'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+   pickle.dump(history_multiple.history, file_pi)
 encoder.load_weights(output_dir + '/' + ID2 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
 autoencoder.load_weights(output_dir + '/autoencoder_' + ID2 + "_"  + 'epochs' + str(epochs) + '_3D.h5')
 A_rest = autoencoder.predict(aFrame)
@@ -347,21 +332,6 @@ boxplot=sns.boxplot(data=pd.DataFrame(A_rest_MSE))
 boxplot.axes.set_title("MSE", fontsize=16)
 plt.show()
 
-# #create a 3d mesh
-# nm=25
-# nx=nm; ny=nm; nz = nm
-# x = np.linspace(0, 1, nx)
-# y = np.linspace(0, 1, ny)
-# zs = np.linspace(0, 1, nz)
-# xv, yv, zv = np.meshgrid(x, y, zs, sparse=False)
-# nz = nx*ny*nm
-# a = np.reshape(xv, nz)
-# b = np.reshape(yv, nz)
-# c = np.reshape(zv, nz)
-# mesh_array = np.c_[a,b,c ]
-# mesh_map =  autoencoder.predict(mesh_array)
-# mesh_z = encoder.predict(mesh_array)
-
 A_rest_DCAE_3D  =A_rest_DCAE[:, [0,4,9]]
 dpi =300
 fig = plt.figure(dpi=dpi, figsize=(10, 10))
@@ -397,9 +367,9 @@ inp_d = 2
 #TODO: uncomment later
 aFrame = np.random.uniform(low=np.zeros(inp_d), high=np.ones(inp_d), size=(nrow,inp_d))
 
-#np.savez(output_dir + '/' + ID13 + "_" +  'epochs' + str(epochs) + '_aFrame.npz', aFrame=aFrame)
-#npzfile = np.load(output_dir + '/' +ID13 + "_" +  'epochs' + str(epochs) + '_aFrame.npz')
-#aFrame = npzfile['aFrame']
+np.savez(output_dir + '/' + ID13 + "_" +  'epochs' + str(epochs) + '_aFrame.npz', aFrame=aFrame)
+npzfile = np.load(output_dir + '/' +ID13 + "_" +  'epochs' + str(epochs) + '_aFrame.npz')
+aFrame = npzfile['aFrame']
 
 lam = 0.1
 latent_dim = 1
@@ -412,13 +382,11 @@ intermediate_dim2= original_dim * 8
 initializer = tf.keras.initializers.he_normal(12345)
 X = Input(shape=(original_dim,))
 h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(X)
-#h2= Dense(intermediate_dim2, activation='elu', name='intermediate2', kernel_initializer=initializer)(h)
 z_mean = Dense(latent_dim, activation='tanh', name='z_mean', kernel_initializer=initializer)(h)
 
 encoder = Model(X, z_mean, name='encoder')
 
 decoder_h = Dense(intermediate_dim2, activation='elu', name='intermediate3', kernel_initializer=initializer)(z_mean)
-#decoder_h2 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)(decoder_h)
 decoder_mean = Dense(original_dim, activation='elu', name='output', kernel_initializer=initializer)(decoder_h)
 autoencoder = Model(inputs=X, outputs=decoder_mean)
 
@@ -439,8 +407,6 @@ def DCAE_2l(y_true, y_pred):
     diff_tens = tf.einsum('ajl,alk->ajk', diff_tens, u_U)
     return lam * K.sqrt(K.sum(diff_tens ** 2, axis=[1, 2]))
 
-
-
 def loss(y_true, y_pred):
     return tf.keras.losses.mean_squared_error(y_true, y_pred)
 
@@ -455,25 +421,25 @@ autoencoder.summary()
 
 save_period = 100
 batch_size = 250
-#
-# start = timeit.default_timer()
-# history_multiple = autoencoder.fit(aFrame, aFrame,
-#                                    batch_size=batch_size,
-#                                    epochs=epochs,
-#                                    shuffle=True,
-#                                    callbacks=[saveEncoder(encoder=encoder, ID=ID13, epochs=epochs,
-#                                                                   output_dir=output_dir, save_period=save_period)],
-#                                    verbose=1)
-# stop = timeit.default_timer()
-# z = encoder.predict([aFrame])
-# print(stop - start)
-#
-# encoder.save_weights(output_dir + '/' +ID13 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
-# autoencoder.save_weights(output_dir + '/autoencoder_' +ID13 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
-#
-# np.savez(output_dir + '/' +ID13+ "_linear_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
-# with open(output_dir + '/' +ID13 + "_linear"+'epochs' + str(epochs) + '_history', 'wb') as file_pi:
-#    pickle.dump(history_multiple.history, file_pi)
+
+start = timeit.default_timer()
+history_multiple = autoencoder.fit(aFrame, aFrame,
+                                   batch_size=batch_size,
+                                   epochs=epochs,
+                                   shuffle=True,
+                                   callbacks=[saveEncoder(encoder=encoder, ID=ID13, epochs=epochs,
+                                                                  output_dir=output_dir, save_period=save_period)],
+                                   verbose=1)
+stop = timeit.default_timer()
+z = encoder.predict([aFrame])
+print(stop - start)
+
+encoder.save_weights(output_dir + '/' +ID13 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
+autoencoder.save_weights(output_dir + '/autoencoder_' +ID13 + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
+
+np.savez(output_dir + '/' +ID13+ "_linear_" +  'epochs' + str(epochs) + '_latent_rep_3D.npz', z=z)
+with open(output_dir + '/' +ID13 + "_linear"+'epochs' + str(epochs) + '_history', 'wb') as file_pi:
+   pickle.dump(history_multiple.history, file_pi)
 
 encoder.load_weights(output_dir + '/' +ID13 +  "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
 autoencoder.load_weights(output_dir + '/autoencoder_' +ID13  + "_linear_"  + 'epochs' + str(epochs) + '_3D.h5')
@@ -484,7 +450,7 @@ print(output_dir + '/autoencoder_' +ID13  + "_linear_"  + 'epochs' + str(epochs)
 # extract decoder
 decoder_input = Input(shape=(latent_dim,))
 x= Dense(intermediate_dim2, activation='relu', name='intermediate3', kernel_initializer=initializer)(decoder_input )
-#decoder_h2 = Dense(intermediate_dim, activation='elu', name='intermediate4', kernel_initializer=initializer)(decoder_h)
+
 decoded= Dense(original_dim, activation='relu', name='output', kernel_initializer=initializer)(x)
 decoder = Model(inputs=decoder_input, outputs=decoded)
 decoder.summary()
@@ -496,16 +462,11 @@ dec_map = decoder.predict(np.linspace(-1, 1, num=1000))
 fig01 = plt.figure();
 plt.hist(z,500)
 
-#for w in autoencoder.trainable_weights:
-#    print(K.eval(w))
-
-#np.arctanh(2* (z- np.min(z) / (np.max(z) - np.min(z)) ) -1 )
 for col in range(original_dim):
     fig01 = plt.figure();
     plt.scatter(np.random.uniform(-0.2,0.2,nrow), y=z , c=aFrame[:,col], cmap='winter', s=0.1)
     plt.title('color ' + str(col))
     plt.colorbar()
-
 
 
 fig01 = plt.figure();
@@ -528,15 +489,6 @@ plt.title('DCAE_2l')
 z_gap = np.linspace(-0.97, 0.97, num=1000)
 z_gap = z_gap[(np.logical_or(z_gap<0.14, z_gap<0.14))]
 gap_map = decoder.predict(z_gap)
-# fig01 = plt.figure();
-# col=1
-# ax = fig01.add_subplot(projection='3d')
-# #ax.set_zlim3d(0.1,0.2)
-# #zs =np.arctanh(2* (z- np.min(z) / (np.max(z) - np.min(z)) ) -1 )
-# p = ax.scatter3D(aFrame[:,0], aFrame[:,1], z, c = z, s=0.1)
-# fig01.colorbar(p)
-# #ax.scatter3D(A_rest[:,0], A_rest[:,1], -1, c=aFrame[:,col],  cmap='winter', s=1)
-# ax.scatter3D(gap_map[:,0], gap_map[:,1], -1, c='red',s=1)
 
 # plot a mapping portrait of autoencoder
 # create a mesh in a square in [-1,1] cube
@@ -552,17 +504,7 @@ mesh_map =  autoencoder.predict(mesh_array)
 mesh_z = encoder.predict(mesh_array)
 
 cmap = plt.get_cmap('jet_r')
-# fig01 = plt.figure();
-# colors = cmap(mesh_z[:, 0])
-# p = plt.scatter(x=mesh_map[:,0], y=mesh_map[:,1], c=colors, s=1)
-# fig01.colorbar(p)
-# for i in range(nz):
-#     color = cmap(mesh_z[i, 0])
-#     plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , c=colors[i,:], linestyle="--", markersize=0.1 ,linewidth=0.1)
-# #p = plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=z, s=0.1)
-# #plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
-# plt.title("Encoder mapping  vs input mesh autoencoder mapping (blue)")
-# plt.show()
+
 
 fig01 = plt.figure();
 plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c='red',  cmap='winter', s=3)
@@ -573,28 +515,6 @@ for i in range(nz):
 plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
 plt.title("autoencoder random input mapping (red) vs input mesh autoencoder mapping (blue)")
 plt.show()
-
-# plot a 'corner' are of mapping
-# nx=100; ny=100
-# x = np.linspace(0.6, 1, nx)
-# y = np.linspace(0.0, 0.6, ny)
-# xv, yv = np.meshgrid(x, y, sparse=False)
-# nz = nx*ny
-# a = np.reshape(xv, nz)
-# b = np.reshape(yv, nz)
-# mesh_array = np.c_[a,b ]
-# mesh_map =  autoencoder.predict(mesh_array)
-#
-# fig01 = plt.figure();
-# plt.xlim([0.6, 1])
-# plt.ylim([0.0, 0.6])
-# plt.scatter(x=dec_map[:,0], y=dec_map[:,1], c='red',  cmap='winter', s=3)
-# for i in range(nz):
-#     plt.plot( [mesh_array[i,0], mesh_map[i,0]],  [mesh_array[i,1], mesh_map[i,1]] , 'bo', linestyle="--", markersize=0.1 ,linewidth=0.1)
-# #plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c=aFrame[:,col],  cmap='winter', s=0.1)
-# plt.scatter( mesh_array[:,0],   mesh_array[:,1], c='green', s=1)
-# plt.title("Decoder mapping (red) vs input mesh autoencoder mapping (blue)")
-# plt.show()
 
 fig01 = plt.figure();
 plt.scatter(x=A_rest[:,0], y=A_rest[:,1], c='red',  cmap='winter', s=3)

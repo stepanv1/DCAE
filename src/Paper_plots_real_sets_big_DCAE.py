@@ -19,15 +19,9 @@ alp = 0.5
 m = 10
 patience = 1000
 min_delta = 1e-4
-g=0
 
 ID = 'DCAE'+  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
-
-#ID = 'clip_grad_exp_MDS' + '_g_' + str(g) + '_lam_' + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(
-#    alp) + '_m_' + str(m)
-
-# epoch_list =  [750]
 os.chdir('/media/grinek/Seagate/DCAE/')
 DATA_ROOT = '/media/grinek/Seagate/'
 DATA_DIR = DATA_ROOT + 'CyTOFdataPreprocess/'
@@ -41,7 +35,6 @@ temp_dir  = output_dir = DATA_ROOT + "Real_sets/DCAE_output/Performance/temp/"
 
 bl_index  = [0,1,2]
 #azymuth, elevaation , position
-#camera_positions = [[[65,1,0], [174,79,0], [-122,9,0]], [[101,-42,0], [3,-7,0], [-51,30,0]], [[-145,-57,0], [-160,15,0], [7,5,0]]]
 camera_positions = [[[46,10,0], [0,0,0], [0,0,0]], [[-98,-6,0], [0,0,0], [0,0,0]], [[-157,-54,0], [0,0,0], [0,0,0]]]
 epochs = 1000
 
@@ -75,16 +68,6 @@ for idx in bl_index:
         lb = lb[smpl]
         z = z[smpl, :]
 
-
-    #use this to find a good angle
-    # dpi = 350
-    # fig = plt.figure(dpi = dpi, figsize=(7,1))
-    # ax = Axes3D(fig)
-    # ax.scatter(z[:, 0], z[:, 1], z[:, 2], marker='o', s=1, c="goldenrod", alpha=0.01)
-    # for ii in range(38, 90, 1):
-    #     ax.view_init(elev=10., azim=ii)
-    #     plt.savefig(temp_dir + "movie%d.png" % ii)
-
     dpi = 350
     rcParams['savefig.dpi'] = dpi
     sz=1
@@ -106,13 +89,11 @@ for idx in bl_index:
         #ax.legend()
     ax.view_init(azim=camera_positions[idx][0][0],  elev=camera_positions[idx][0][1])
     ax.set_rasterized(True)
-    #fig.subplots_adjust(right=0.8)
     if idx==2:
        lgnd = ax.legend(groups, cl, loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=16, markerscale=30, ncol=2)
     else:
         lgnd = ax.legend(groups, cl, loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=16, markerscale=30)
     for handle in lgnd.legendHandles:
         handle.set_sizes([30.0])
-    #fig.tight_layout()
     plt.savefig( PLOTS + list_of_inputs[idx] +  '_paper__single_DCAE.eps', dpi= dpi, format='eps', bbox_inches='tight')
     plt.savefig( PLOTS + list_of_inputs[idx] +  '_paper__single_DCAE.tif', dpi= dpi, format='tif', bbox_inches='tight')

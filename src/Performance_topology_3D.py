@@ -1,5 +1,5 @@
 '''
-Compute tolpological perormance measures in artificiial sets on DCAE, UMAP and SAUCIE
+Compute topological performance measures in artificial sets on DCAE, UMAP and SAUCIE
 '''
 import pandas as pd
 import numpy as np
@@ -48,7 +48,6 @@ def generate_true_toplogy(aFrame, lbls):
     true_topology_list = [[], [], [], [], [], [], []]
     for i in range(7):
         dist = [np.mean(distance.cdist(z_s[lbls_s == i, :], z_s[lbls_s == label, :])) for label in l_list]
-        # dist = [np.sqrt(np.sum((z_s[lbls_s == i, :].mean(0) - z_s[lbls_s == label, :].mean(0))**2)) for label in l_list]
         # get indexes of  closest clusters, and exclude itself, exclude i th cluster
         seq = sorted(dist)
         rank = [seq.index(v) for v in dist]
@@ -72,8 +71,6 @@ def get_representation_topology(z, lbls):
     topolist_estimate = [[], [], [], [], [], [], []]
     for i in range(7):
         dist = [np.mean(distance.cdist(z_s[lbls_s==i,:], z_s[lbls_s==label,:])) for label in l_list]
-        #dist = [np.sqrt(np.sum((z_s[lbls_s == i, :].mean(0) - z_s[lbls_s == label, :].mean(0))**2)) for label in l_list]
-        #get indexes of  closest clusters, and exclude itself, exclude i th cluster
         seq = sorted(dist)
         rank = [seq.index(v) for v in dist]
         #get top 4
@@ -88,7 +85,6 @@ def get_topology_match_score(topolist, topolist_estimate):
     topolist = [np.array(x) for x in topolist]
     # leave only closest neighbours
     topolist_estimate = [topolist_estimate[i][:len(topolist[i])] if len(topolist[i].shape)!=0  else topolist_estimate[i][0] for i in range(len(topolist))]
-    #match_score = sum([ len(topolist[i]) - len(np.intersect1d(topolist_estimate[i], topolist[i])) for i in range(len(topolist))])
     match_score = sum(
         [len(topolist[i]) - len(np.intersect1d(topolist_estimate[i], topolist[i])) if len(topolist[i].shape)!=0
          else  1- len(np.intersect1d(topolist_estimate[i], topolist[i]))  for i in range(len(topolist))])
@@ -104,12 +100,12 @@ epochs = 500
 # Compute performance for DCAE
 z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"
-#bl = list_of_branches[1]
+
 for bl in list_of_branches:
     infile = source_dir + 'set_' + str(bl) + '.npz'
     npzfile = np.load(infile)
     lbls = npzfile['lbls']
-    # read DCAE output
+    # read output
     npz_res=np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz')
     z= npz_res['z']
     topolist = get_topology_list(bl)
@@ -122,12 +118,12 @@ for bl in list_of_branches:
 # Compute performance for UMAP
 z_dir  = DATA_ROOT + "Artificial_sets/UMAP_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/UMAP_output/Performance/"
-#bl = list_of_branches[1]
+
 for bl in list_of_branches:
     infile = source_dir + 'set_' + str(bl) + '.npz'
     npzfile = np.load(infile)
     lbls = npzfile['lbls']
-    # read DCAE output
+    # read output
     npz_res=np.load(z_dir + '/' + str(bl) + '_UMAP_rep_3D.npz')
     z= npz_res['z']
     topolist = get_topology_list(bl)
@@ -139,12 +135,12 @@ for bl in list_of_branches:
 # Compute performance for SAUCIE
 z_dir = DATA_ROOT + "Artificial_sets/SAUCIE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/SAUCIE_output/Performance/"
-#bl = list_of_branches[1]
+
 for bl in list_of_branches:
     infile = source_dir + 'set_' + str(bl) + '.npz'
     npzfile = np.load(infile)
     lbls = npzfile['lbls']
-    # read DCAE output
+    # read output
     npz_res=np.load(z_dir + '/' + str(bl) + '_SAUCIE_rep_3D.npz')
     z= npz_res['z']
     topolist = get_topology_list(bl)

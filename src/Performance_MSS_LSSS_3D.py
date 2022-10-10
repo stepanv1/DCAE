@@ -1,5 +1,7 @@
 '''
-Compute MSS and LSS performance measures on DCAE, UMAP and SAUCIE
+Compute MSS and LSSS performance measures on DCAE, UMAP and SAUCIE
+using normalized measures
+Artificial sets
 '''
 
 import pandas as pd
@@ -30,7 +32,6 @@ epochs = 500
 # Compute performance for DCAE
 z_dir  = DATA_ROOT + "Artificial_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/DCAE_output/Performance/"
-#bl = list_of_branches[0]
 for bl in list_of_branches:
     #read data
     infile = source_dir + 'set_' + str(bl) + '.npz'
@@ -39,7 +40,7 @@ for bl in list_of_branches:
     Idx = npzfile['Idx']
     lbls = npzfile['lbls']
 
-    # read DCAE output
+    # read output
     npz_res = np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz')
     z= npz_res['z']
 
@@ -52,7 +53,6 @@ for bl in list_of_branches:
 # Compute performance for UMAP
 z_dir  = DATA_ROOT + "Artificial_sets/UMAP_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/UMAP_output/Performance"
-#bl = list_of_branches[1]
 for bl in list_of_branches:
     # read data
     infile = source_dir + 'set_' + str(bl) + '.npz'
@@ -61,7 +61,7 @@ for bl in list_of_branches:
     Idx = npzfile['Idx']
     lbls = npzfile['lbls']
 
-    # read DCAE output
+    # read  output
     npz_res = np.load(z_dir + str(bl) + '_UMAP_rep_3D.npz')
     z = npz_res['z']
 
@@ -74,7 +74,6 @@ for bl in list_of_branches:
 # Compute performance for SAUCIE
 z_dir = DATA_ROOT + "Artificial_sets/SAUCIE_output/"
 output_dir =  DATA_ROOT + "Artificial_sets/SAUCIE_output/Performance"
-#bl = list_of_branches[1]
 for bl in list_of_branches:
     # read data
     infile = source_dir + 'set_' + str(bl) + '.npz'
@@ -85,7 +84,7 @@ for bl in list_of_branches:
     neibALL = npzfile['neibALL']
     lbls = npzfile['lbls']
 
-    # read DCAE output
+    # read output
     npz_res = np.load(z_dir + '/' + str(bl) + '_SAUCIE_rep_3D.npz')
     z = npz_res['z']
 
@@ -111,14 +110,10 @@ for i in range(3):
         else:
             outfile = bor_res_dirs[i] + ID + '_' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
         npz_res =  np.load(outfile)
-        #MSS0 = npz_res['MSS0'][k]
         MSS1 = npz_res['MSS1']
-        #LSSS0 = npz_res['LSSS0'][k]
         MSS0 = np.median(MSS1[k,:])
         LSSS1 = npz_res['LSSS1']
         LSSS0 = np.median(LSSS1[k, :])
-        #discontinuity =np.median(discontinuity)
-        #manytoone= np.median(manytoone)
         line = pd.DataFrame([[methods[i], str(bl), MSS0, LSSS0]],   columns =['method','branch','MSS','LSSS'])
         df=  df.append(line)
 
@@ -154,16 +149,12 @@ for i in range(3):
         else:
             outfile = bor_res_dirs[i] + ID + '_' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
         npz_res =  np.load(outfile)
-        #MSS0 = npz_res['MSS0'][k]
         MSS1 = npz_res['MSS1']
-        #LSSS0 = npz_res['LSSS0'][k]
         MSS0 = np.median(MSS1[k,:])
         LSSS1 = npz_res['LSSS1']
         LSSS0 = np.median(LSSS1[k, :])
-        #discontinuity =np.median(discontinuity)
-        #manytoone= np.median(manytoone)
         line = pd.DataFrame([[methods[i], str(bl), MSS0, LSSS0]],   columns =['method','branch','MSS','LSSS'])
-        df=  df.append(line)
+        df =  df.append(line)
 
 sns.set(rc={'figure.figsize':(14, 4)})
 g = sns.barplot(x='branch', y='MSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
@@ -189,14 +180,10 @@ for i in range(3):
         else:
             outfile = bor_res_dirs[i] + ID + '_' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
         npz_res =  np.load(outfile)
-        #MSS0 = npz_res['MSS0'][k]
         MSS1 = npz_res['MSS1']
-        #LSSS0 = npz_res['LSSS0'][k]
         MSS0 = np.median(MSS1[k,:])
         LSSS1 = npz_res['LSSS1']
         LSSS0 = np.median(LSSS1[k, :])
-        #discontinuity =np.median(discontinuity)
-        #manytoone= np.median(manytoone)
         line = pd.DataFrame([[methods[i], str(bl), MSS0, LSSS0]],   columns =['method','branch','MSS','LSSS'])
         df=  df.append(line)
 

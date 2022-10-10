@@ -79,7 +79,6 @@ for epochs in epochs_list:
 
         initializer = tf.keras.initializers.he_normal(12345)
 
-
         SigmaTsq = Input(shape=(1,))
         X = Input(shape=(original_dim,))
         h = Dense(intermediate_dim, activation='elu', name='intermediate', kernel_initializer=initializer)(X)
@@ -169,7 +168,6 @@ for epochs in epochs_list:
         opt = tf.keras.optimizers.Adam(
             learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False, clipvalue=1.0
         )
-
 
         autoencoder.compile(optimizer=opt, loss=ae_loss(MSE_weight, MSE_weight_lst),
                             metrics=[loss_mmd, DCAE_loss, mean_square_error_NN])

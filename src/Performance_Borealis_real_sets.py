@@ -1,5 +1,7 @@
 '''
-Compute emd-based paerformance scores performance measures on DCAE, UMAP and SAUCIE
+Compute emd-based paerformance scores performance measures for DCAE, UMAP and SAUCIE
+Dimensionality Reduction has Quantifiable Imperfections: Two Geometric Bounds,
+https://arxiv.org/abs/1811.00115
 '''
 import pandas as pd
 import numpy as np
@@ -18,10 +20,7 @@ patience = 1000
 min_delta = 1e-4
 g=0
 ID = 'DCAE_lam_1_batch_128_alp_0.5_m_10'
-#ID = 'Decreasing_MSE_g_0_lam_1_batch_128_alp_0.2_m_10'
-#ID = 'clip_grad_exp_MDS' + '_g_'  + str(g) +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
-#epoch_list =  [750]
 os.chdir('/media/grinek/Seagate/DCAE/')
 DATA_ROOT = '/media/grinek/Seagate/'
 DATA_DIR = DATA_ROOT + 'CyTOFdataPreprocess/'
@@ -32,7 +31,6 @@ z_dir = DATA_ROOT + "Real_sets/DCAE_output/"
 output_dir = DATA_ROOT + "Real_sets/DCAE_output/Performance/"
 
 for epochs in epoch_list:
-    #bl = list_of_branches[1]
     for bl in list_of_inputs:
         print(output_dir)
         print(bl)
@@ -51,7 +49,7 @@ for epochs in epoch_list:
 
         outfile = output_dir + '/'  + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_BOREALIS_PerformanceMeasures.npz'
         np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
-    '''
+
     # Compute performance for UMAP
     z_dir  = DATA_ROOT + "Real_sets/UMAP_output/"
     output_dir =  DATA_ROOT + "Real_sets/UMAP_output/Performance"
@@ -78,7 +76,6 @@ for epochs in epoch_list:
     # Compute performance for SAUCIE
     z_dir = DATA_ROOT + "Real_sets/SAUCIE_output/"
     output_dir =  DATA_ROOT + "Real_sets/SAUCIE_output/Performance"
-    #bl = list_of_branches[1]
     for bl in list_of_inputs:
         print(output_dir)
         print(bl)
@@ -99,13 +96,11 @@ for epochs in epoch_list:
     
         outfile = output_dir + '/' + str(bl) + '_BOREALIS_PerformanceMeasures.npz'
         np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
-    '''
+
     #create Borealis graphs
     PLOTS = DATA_ROOT + "Real_sets/PLOTS/"
     bor_res_dirs = [DATA_ROOT + "Real_sets/DCAE_output/Performance/", DATA_ROOT + "Real_sets/UMAP_output/Performance/",DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"]
     methods = ['DCAE', 'UMAP', 'SAUCIE']
-    #dir = bor_res_dirs[0]
-    #bl  = list_of_inputs[0]
     df = pd.DataFrame()
     for i in range(3):
         for bl in list_of_inputs:
@@ -152,8 +147,6 @@ for epochs in epoch_list:
     bor_res_dirs = [DATA_ROOT + "Real_sets/DCAE_output/Performance/", DATA_ROOT + "Real_sets/UMAP_output/Performance/",
                     DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"]
     methods = ['DCAE', 'UMAP', 'SAUCIE']
-    # dir = bor_res_dirs[0]
-    # bl  = list_of_inputs[0]
     df = pd.DataFrame()
     for i in range(3):
         for bl in list_of_inputs:
@@ -173,8 +166,6 @@ for epochs in epoch_list:
 
     import seaborn as sns
     import matplotlib.pyplot as plt
-
-    #correct error with data set name
 
     df = df.replace('Shenkar', 'Shekhar')
     # rename sets for plot
