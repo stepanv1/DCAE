@@ -30,7 +30,7 @@ output_dir  = DATA_ROOT + 'Artificial_sets/DCAE_output/'
 sensitivity_dir = DATA_ROOT + 'Artificial_sets/Sensitivity/'
 PLOTS = DATA_ROOT + "Artificial_sets/PLOTS/"
 list_of_branches = sum([[(x,y) for x in range(5)] for y in range(5) ], [])
-#load earlier generated data
+#load  generated data
 k = 30
 coeffCAE = 1
 coeffMSE = 1
@@ -64,8 +64,6 @@ for bl in list_of_branches:
 
 
     # Model-------------------------------------------------------------------------
-    ######################################################
-    # targetTr = np.repeat(aFrame, r, axis=0)
     nrow = np.shape(aFrame)[0]
 
     from numpy import nanmax, argmax, unravel_index
@@ -80,10 +78,8 @@ for bl in list_of_branches:
     np.fill_diagonal(D, 0)
     mean_dist = np.mean(D)
 
-
-    MMD_weight = K.variable(value=0)
-
-    MMD_weight_lst = K.variable(np.array(frange_anneal(int(epochs), ratio=1)))
+    MSE_weight = K.variable(value=0)
+    MSE_weight_lst = K.variable(np.array(frange_anneal(int(epochs), ratio=1)))
 
     latent_dim = 3
     original_dim = aFrame.shape[1]
@@ -143,17 +139,9 @@ for bl in list_of_branches:
         return lam * SigmaTsq[:, 0] * K.sqrt(K.sum(diff_tens ** 2, axis=[1, 2]))
         # return lam * K.sum(diff_tens ** 2, axis=[1, 2])
 
-
-    meanS = np.mean(Sigma)
-    neib_dist = np.mean(Dist[:, 30])
-
-
-    # plt.hist(Dist[:,30],50)
-
     def compute_graph_weights_Inp(x):
         x_size = tf.shape(x)[0]
         dim = tf.shape(x)[1]
-        # TODO: x = x/meanS we nead update this function in the fashion that weights are computed
         # from w_ij = kernel((x_i-x_j)/sigma_i) and then symmetrized
         # x=x/max_dist
         tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, x_size, 1]))
@@ -246,9 +234,8 @@ for bl in list_of_branches:
             # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean)
             # return coeffMSE * msew + (1 - MMD_weight) * loss_mmd(x, x_decoded_mean) + (MMD_weight + coeffCAE) * DCAE_loss(x, x_decoded_mean)
             # return coeffMSE * msew + 0.5 * (2 - MMD_weight) * loss_mmd(x, x_decoded_mean)
-            return coeffMSE * msew + 1 * loss_mmd(y_true, y_pred) + (
-                    5 * MMD_weight + coeffCAE) * (DCAE_loss(y_true, y_pred)) + (MMD_weight + 0.01) * graph_diff(y_true,
-                                                                                                                y_pred)
+            return coeffMSE * (1 - MSE_weight + 0.1) * msew + 0.5 * (MSE_weight + 1) * loss_mmd(y_true, y_pred) + (
+                    2 * MSE_weight + 0.1) * (DCAE_loss(y_true, y_pred))
             # return  loss_mmd(x, x_decoded_mean)
 
         return loss
@@ -259,8 +246,8 @@ for bl in list_of_branches:
         learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False, clipvalue=1.0
     )
 
-    autoencoder.compile(optimizer=opt, loss=ae_loss(MMD_weight, MMD_weight_lst),
-                        metrics=[DCAE_loss, graph_diff, loss_mmd, mean_square_error_NN])
+    autoencoder.compile(optimizer=opt, loss=ae_loss(MSE_weight, MSE_weight_lst),
+                        metrics=[DCAE_loss,  loss_mmd, mean_square_error_NN])
 
     autoencoder.summary()
 
@@ -270,8 +257,6 @@ for bl in list_of_branches:
     encoder.summary()
     z = encoder.predict([aFrame, Sigma ])
     lbls = [i if i != -7 else 7 for i in lbls]
-
-    #out = autoencoder.predict([aFrame, Sigma, ])
 
     # to remove Sigma layer will need re-create encoder
     encoder2 = Model([X], z_mean, name='encoder2')
@@ -293,9 +278,6 @@ for bl in list_of_branches:
     l_list = np.unique(lbls)
     #n_z = normalize(z)
     SCgrad = np.sqrt(gradients0 ** 2 + gradients1 ** 2 + gradients2 ** 2)
-    #SCgrad = np.sqrt( np.abs(gradients0 ** 2 + gradients1 ** 2 + gradients2 ** 2
-    #                  - np.transpose((n_z[:,0]* np.transpose(gradients0) + n_z[:,1]* np.transpose(gradients1) +
-    #                                   n_z[:,2]* np.transpose(gradients2)))**2  ))
 
     from scipy.stats import iqr
     SC = np.vstack(
@@ -305,25 +287,15 @@ for bl in list_of_branches:
         [np.median(SCgrad[lbls == i, :] /iqr(aFrame[lbls == i, :], axis=0),
                    axis=0) for i in l_list], axis=0)
 
-
-
-
-
-
-
     # plot a heatmap of this and peform  statistical tests, showing that data is interpreted correctly,
     # removing influence of non-informative dimensions
 
-    #SC_mean_norm = preprocessing.normalize(SC_mean, norm = 'l1')
     SC_mean_norm =SC_mean
     plt.figure(figsize=(14, 10))
     g =  sns.heatmap(SC_mean_norm, center=0.1, linewidths=.2, cmap="GnBu",  annot=True, fmt='1.2f',  annot_kws={"fontsize":8})
     plt.savefig(PLOTS+'Sensitivity/' + ID +'_'+str(bl)+ 'epochs' + str(epochs) + "Sensitivity_heatmap"+".tif", format='tif', dpi=350)
     plt.close()
-    #elasticity score per point
-    #SC = np.concatenate([SC[lbls == i, :] * aFrame[lbls == i, :] * np.expand_dims(1/lmbd[lbls == i], -1) for i in l_list], axis=0)
-    #SC = np.concatenate(
-    #    [SC[lbls == i, :] for i in l_list], axis=0)
+
 
     fig, axs = plt.subplots(nrows=8)
     yl = SC.min()
@@ -347,18 +319,6 @@ for bl in list_of_branches:
     fig.savefig(PLOTS + 'Sensitivity/' + ID +'_'+ str(bl) + "Signal_violinplot" + ".eps", format='eps', dpi=350)
     fig.savefig(PLOTS + 'Sensitivity/' + ID + '_' + str(bl) + "Signal_violinplot" + ".tif", format='tif', dpi=350)
     plt.close()
-    '''#plot the autoencoder output
-    fig, axs = plt.subplots(nrows=8)
-    yl = out.min()
-    yu = out.max()
-    for i in l_list:
-        sns.violinplot(data=out[lbls == i, :], ax=axs[int(i)])
-        axs[int(i)].set_ylim(yl, yu)
-        axs[int(i)].set_title(str(int(i)), rotation=-90, x=1.05, y=0.5)
-    fig.savefig(PLOTS + 'Sensitivity/' + ID +'_'+ str(bl) + "Autoencoder_out" + 'epochs' + str(epochs) + ".eps", format='eps', dpi=350)
-    plt.close()
-    '''
-
 
     from scipy.stats import brunnermunzel
 
@@ -372,8 +332,7 @@ for bl in list_of_branches:
     Pvals = []
     for i in l_list[0:7]:
        #iterate over all couples of informative versus non-informative
-        #U1, p = mannwhitneyu(SC[lbls == i, 26], SC[lbls == i, 17], method="asymptotic")
-
+       #U1, p = mannwhitneyu(SC[lbls == i, 26], SC[lbls == i, 17], method="asymptotic")
        inform_dim_list  = np.arange(0,5)
        noisy_dim_list  = np.arange(5,30)
        test_res =  [[ brunnermunzel(SC[lbls == i, dim_inf], SC[lbls == i, dim],
@@ -386,8 +345,6 @@ for bl in list_of_branches:
        Pvals.append(test_res)
 
     df = pd.DataFrame(Pvals, columns=col_names)
-
-    #TODO save 2 dataframes  in spartete files  times 25
 
     #8th cluster
     Pvals = []
