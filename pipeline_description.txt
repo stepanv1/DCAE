@@ -42,7 +42,5 @@ Utilities
 1. utils_evaluation.py
 2. utils_model.py
 
-Performance_measure_demo_plots_sim_data.py
-
 
 
