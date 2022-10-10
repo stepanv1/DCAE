@@ -196,7 +196,7 @@ for bl in list_of_branches:
         return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
 
 
-    def compute_mmd(x, y):  # [batch_size, z_dim] [batch_size, z_dim]
+    def compute_mmd(x, y):
         x_kernel = compute_kernel(x, x)
         y_kernel = compute_kernel(y, y)
         xy_kernel = compute_kernel(x, y)
