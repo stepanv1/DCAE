@@ -20,12 +20,13 @@ Artificial data, 25 sets
   c. Compute topological performance (Performance_topology_3D.py)
 
 Real data, 3 sets
-1. Run DCAE on real sets set (run_DCAE_on_real_sets.py)
-2. Generate 2D UMAP and SAUCIE for real sets (generate_UMAP_and_SAUCIE_for_REAL_sets.py)
-3. Performance evaluation
+1. Preprocess real sets (Preprocess_real_sets.py)
+2. Run DCAE on real sets set (run_DCAE_on_real_sets.py)
+3. Generate 2D UMAP and SAUCIE for real sets (generate_UMAP_and_SAUCIE_for_REAL_sets.py)
+4. Performance evaluation
   a. Compute 'Borealis' performance measures (discontinuity, manytoone) (Performance_Borealis_real_sets.py)
   b. Compute 'MSS' and 'LSSS' performance measures  (Performance_MSS_LSSS_real_sets.py)
-4. Generate figures for the output of all methods for paper (Paper_plots_real_sets.py)
+5. Generate figures for the output of all methods for paper (Paper_plots_real_sets.py)
 
 3D peformance measures for real sets
 1. Generate 3D UMAP and SAUCIE for real sets (generate_UMAP_and_SAUCIE_for_REAL_sets_3D.py)
