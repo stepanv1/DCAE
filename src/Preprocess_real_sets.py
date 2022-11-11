@@ -153,15 +153,13 @@ aFrame= aFrame/np.max(aFrame)
 #sns.violinplot(data= aFrame[:, :], bw = 0.1);plt.show()
 sns.violinplot(data= aFrame, bw = 0.1);plt.show()
 #aFrame= aFrame/np.max(aFrame)
-
+# find nearest neighbours
 nb=find_neighbors(aFrame, k3, metric='euclidean', cores=16)
 Idx = nb['idx']; Dist = nb['dist']
 #Dist = Dist[IDX]
 #Idx = Idx[IDX]
 nrow=Idx.shape[0]
 # find nearest neighbours
-# find nearest neighbours
-nn=30
 rk=range(k3)
 def singleInput(i):
      nei =  aFrame[Idx[i,:],:]
@@ -171,8 +169,6 @@ nrow = len(lbls)
 inputs = range(nrow)
 from joblib import Parallel, delayed
 from pathos import multiprocessing
-num_cores =16
-#pool = multiprocessing.Pool(num_cores)
 results = Parallel(n_jobs=16, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
 original_dim=37
 neibALL = np.zeros((nrow, k3, original_dim))
