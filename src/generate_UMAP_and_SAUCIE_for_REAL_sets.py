@@ -58,7 +58,7 @@ output_dir  = DATA_ROOT + 'Real_sets/UMAP_output/'
 
 
 list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
-'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
+'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz', 'Samusik_01.npz']
 
 for bl in list_of_inputs:
     infile = source_dir + bl

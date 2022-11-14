@@ -71,7 +71,7 @@ output_dir  = DATA_ROOT + 'Real_sets/UMAP_output/'
 
 
 list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
-'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
+'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz', 'Samusik_01.npz']
 
 for bl in list_of_inputs:
     infile = source_dir + bl
@@ -92,9 +92,8 @@ for bl in list_of_inputs:
 
     np.savez(output_dir + '/' + str(bl) + '_UMAP_rep_3D.npz', z=yUMAP)
 
-
 #SAUCIE
-# one need to install tf.12 and swithch python env to run this part of code
+# one needs to install tf.12 and swithch python env to run this part of code
 output_dir  = DATA_ROOT + 'Real_sets/SAUCIE_output/'
 import sys
 sys.path.append("/media/grinek/Seagate/DCAE/SAUCIE")

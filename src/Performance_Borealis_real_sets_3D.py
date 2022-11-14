@@ -27,13 +27,13 @@ DATA_ROOT = '/media/grinek/Seagate/'
 DATA_DIR = DATA_ROOT + 'CyTOFdataPreprocess/'
 source_dir = DATA_ROOT + 'Real_sets/'
 list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
-'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
+'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz', 'Samusik_01.npz']
 z_dir = DATA_ROOT + "Real_sets/DCAE_output/"
 output_dir = DATA_ROOT + "Real_sets/DCAE_output/Performance/"
 
 for epochs in epoch_list:
     #bl = list_of_branches[1]
-    for bl in list_of_inputs:
+    for bl in list_of_inputs[3]:
         print(output_dir)
         print(bl)
         #read data
@@ -57,7 +57,7 @@ for epochs in epoch_list:
     z_dir  = DATA_ROOT + "Real_sets/UMAP_output/"
     output_dir =  DATA_ROOT + "Real_sets/UMAP_output/Performance"
     #bl = list_of_branches[1]
-    for bl in list_of_inputs:
+    for bl in list_of_inputs[3]:
         print(output_dir)
         print(bl)
         #read data
@@ -80,7 +80,7 @@ for epochs in epoch_list:
     z_dir = DATA_ROOT + "Real_sets/SAUCIE_output/"
     output_dir =  DATA_ROOT + "Real_sets/SAUCIE_output/Performance"
     #bl = list_of_branches[1]
-    for bl in list_of_inputs:
+    for bl in list_of_inputs[3]:
         print(output_dir)
         print(bl)
         #read data
@@ -128,7 +128,7 @@ for epochs in epoch_list:
     #rename sets for plot
 
     di = {'Levine32euclid_scaled_no_negative_removed.npz':'Levine32',
-    'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz':'Pregnancy',  'Shenkareuclid_shifted.npz':'Shenkar'}
+    'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz':'Pregnancy',  'Shenkareuclid_shifted.npz':'Shenkar', 'Samusik_01.npz': 'Samusik_01'}
     df =  df.replace({"Set": di})
     import matplotlib
     matplotlib.use('PS')
@@ -136,13 +136,13 @@ for epochs in epoch_list:
     sns.set(rc={'figure.figsize':(14, 4)})
     g = sns.barplot(x='Set', y='discontinuity', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
     g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-    plt.savefig(PLOTS + "Discontinuity" +  ID + '_epochs' +str(epochs)+ "_3D.eps", format='eps', dpi = 350)
+    plt.savefig(PLOTS + "Discontinuity_SAMUSIK" +  ID + '_epochs' +str(epochs)+ "_3D.eps", format='eps', dpi = 350)
     plt.close()
 
     g2 = sns.barplot(x='Set', y='manytoone', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
     g2.set(ylim=(0.05, None))
     g2.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-    plt.savefig(PLOTS + "Manytoone" + ID + '_epochs' +str(epochs)+ "_3D.eps", format='eps', dpi = 350)
+    plt.savefig(PLOTS + "Manytoone_SAMUSIK" + ID + '_epochs' +str(epochs)+ "_3D.eps", format='eps', dpi = 350)
     plt.close()
 
 # as tables

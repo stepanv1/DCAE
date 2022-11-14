@@ -19,7 +19,7 @@ Artificial data, 25 sets
   b. Compute 'MSS' and 'LSSS' performance measures  (Performance_MSS_LSSS_3D.py)
   c. Compute topological performance (Performance_topology_3D.py)
 
-Real data, 3 sets
+Real data, 4 sets
 1. Preprocess real sets (Preprocess_real_sets.py)
 2. Run DCAE on real sets set (run_DCAE_on_real_sets.py)
 3. Generate 2D UMAP and SAUCIE for real sets (generate_UMAP_and_SAUCIE_for_REAL_sets.py)
