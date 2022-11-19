@@ -151,7 +151,7 @@ for epochs in epoch_list:
     for i in range(3):
         for bl in list_of_inputs:
             if i == 0:
-                outfile = output_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(
+                outfile = bor_res_dirs[i] + '/' + ID + "_" + str(bl) + 'epochs' + str(
                     epochs) + '_BOREALIS_PerformanceMeasures.npz'
             else:
                 outfile = bor_res_dirs[i] + '/' + str(bl) + '_BOREALIS_PerformanceMeasures.npz'

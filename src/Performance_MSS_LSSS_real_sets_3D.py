@@ -28,7 +28,7 @@ DATA_ROOT = '/media/grinek/Seagate/'
 DATA_DIR = DATA_ROOT + 'CyTOFdataPreprocess/'
 source_dir = DATA_ROOT + 'Real_sets/'
 list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
-'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
+'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz', 'Samusik_01.npz']
 z_dir  = DATA_ROOT + "Real_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Real_sets/DCAE_output/Performance/"
 
@@ -49,7 +49,7 @@ for epochs in epochs_list:
         MSS = neighbour_marker_similarity_score_per_cell(z, aFrame, kmax=90, num_cores=16)
         LSSS = neighbour_onetomany_score_normalized(z, Idx, kmax=90, num_cores=16)
 
-        outfile = output_dir + '/'  + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
+        outfile = output_dir + '/'  + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_MSS_LSSS_PerformanceMeasures_normalized_3D.npz'
         np.savez(outfile, MSS0=MSS[0], LSSS0= LSSS[0], MSS1=MSS[1], LSSS1= LSSS[1])
     
     # Compute performance for UMAP
@@ -105,7 +105,7 @@ for epochs in epochs_list:
     for i in range(3):
         for bl in list_of_inputs:
             if i == 0:
-                outfile = bor_res_dirs[i] + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'  # STOPPED Here
+                outfile = bor_res_dirs[i] + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_MSS_LSSS_PerformanceMeasures_normalized_3D.npz'  # STOPPED Here
             else:
                 outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized_3D.npz'
             npz_res =  np.load(outfile,  allow_pickle=True)
@@ -122,7 +122,7 @@ for epochs in epochs_list:
 
     #rename sets for plot
     di = {'Levine32euclid_scaled_no_negative_removed.npz':'Levine32',
-    'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz':'Pregnancy',  'Shenkareuclid_shifted.npz':'Shenkar'}
+    'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz':'Pregnancy',  'Shenkareuclid_shifted.npz':'Shenkar', 'Samusik_01.npz':'Samusik_01'}
     df =  df.replace({"Set": di})
     import matplotlib
     matplotlib.use('PS')
@@ -146,8 +146,8 @@ for epochs in epochs_list:
     PAPERPLOTS  = './PAPERPLOTS/'
     bor_res_dirs = [DATA_ROOT + "Real_sets/DCAE_output/Performance/", DATA_ROOT + "Real_sets/UMAP_output/Performance/",DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"]
     list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
-    'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
-    names = ['Levine32','Pregnancy', 'Shekhar']
+    'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz', 'Samusik_01.npz']
+    names = ['Levine32','Pregnancy', 'Shekhar', 'Samusik_01']
     df = pd.DataFrame()
     bl = list_of_inputs[0]
 
@@ -159,7 +159,7 @@ for epochs in epochs_list:
         measures = {key: [] for key in methods}
         for i in range(3):
             if i==0:
-                outfile = bor_res_dirs[i] + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_MSS_LSSS_PerformanceMeasures_normalized.npz'
+                outfile = bor_res_dirs[i] + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_MSS_LSSS_PerformanceMeasures_normalized_3D.npz'
             else:
                 outfile = bor_res_dirs[i] + '/' + str(bl) + '_MSS_LSSS_PerformanceMeasures_normalized_3D.npz'
             npz_res = np.load(outfile, allow_pickle=True)

@@ -47,7 +47,7 @@ for bl in list_of_branches:
 
     discontinuity, manytoone = get_wsd_scores_normalized(aFrame, z, 30, num_meandist=10000, compute_knn_x=False, x_knn=Idx, nc=16)
 
-    outfile = output_dir + '/'  + ID + "_"  + str(bl) + '_BOREALIS_PerformanceMeasures_normalized.npz'
+    outfile = output_dir + '/'  + ID + "_"  + str(bl) + '_BOREALIS_PerformanceMeasures_normalized_3D.npz'
     np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
 
 

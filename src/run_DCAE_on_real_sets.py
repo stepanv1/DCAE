@@ -12,7 +12,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import EarlyStopping
 import pickle
 pio.renderers.default = "browser"
-from utils_evaluation import plot3D_cluster_colors
+from utils_evaluation import plot3D_cluster_colors, table
 from utils_model import plotCallback, AnnealingCallback, saveEncoder
 from utils_model import frange_anneal, elu_derivative, linear_derivative
 

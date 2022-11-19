@@ -33,7 +33,7 @@ output_dir = DATA_ROOT + "Real_sets/DCAE_output/Performance/"
 
 for epochs in epoch_list:
     #bl = list_of_branches[1]
-    for bl in list_of_inputs[3]:
+    for bl in list_of_inputs:
         print(output_dir)
         print(bl)
         #read data
@@ -57,7 +57,7 @@ for epochs in epoch_list:
     z_dir  = DATA_ROOT + "Real_sets/UMAP_output/"
     output_dir =  DATA_ROOT + "Real_sets/UMAP_output/Performance"
     #bl = list_of_branches[1]
-    for bl in list_of_inputs[3]:
+    for bl in list_of_inputs:
         print(output_dir)
         print(bl)
         #read data
@@ -80,7 +80,7 @@ for epochs in epoch_list:
     z_dir = DATA_ROOT + "Real_sets/SAUCIE_output/"
     output_dir =  DATA_ROOT + "Real_sets/SAUCIE_output/Performance"
     #bl = list_of_branches[1]
-    for bl in list_of_inputs[3]:
+    for bl in list_of_inputs:
         print(output_dir)
         print(bl)
         #read data

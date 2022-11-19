@@ -12,7 +12,6 @@ from utils_evaluation import neighbour_onetomany_score_normalized, \
     neighbour_marker_similarity_score_per_cell
 
 k = 30
-epochs_list = [250,500]
 coeffCAE = 1
 coeffMSE = 1
 batch_size = 128
@@ -30,12 +29,12 @@ DATA_ROOT = '/media/grinek/Seagate/'
 DATA_DIR = DATA_ROOT + 'CyTOFdataPreprocess/'
 source_dir = DATA_ROOT + 'Real_sets/'
 list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
-'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
+'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz', 'Samusik_01.npz']
 z_dir  = DATA_ROOT + "Real_sets/DCAE_output/"
 output_dir =  DATA_ROOT + "Real_sets/DCAE_output/Performance/"
 
 for epochs in epoch_list:
-    bl = list_of_inputs[0]
+    #bl = list_of_inputs[0]
     for bl in list_of_inputs:
         #read data
         infile = DATA_DIR  + bl
@@ -58,7 +57,6 @@ for epochs in epoch_list:
     # Compute performance for UMAP
     z_dir  = DATA_ROOT + "Real_sets/UMAP_output/"
     output_dir =  DATA_ROOT + "Real_sets/UMAP_output/Performance"
-
     for bl in list_of_inputs:
         #read data
         infile = DATA_DIR  + bl
@@ -127,35 +125,41 @@ for epochs in epoch_list:
             line = pd.DataFrame([[methods[i], str(bl), MSS0, LSSS0]],   columns =['method','Set','MSS','LSSS'])
             df =  df.append(line)
 
+    df.round(3).to_csv(PLOTS + 'Samusik_01_' + ID + '_' + 'epochs' + str(
+        epochs) + 'Our_measures.csv', index=False)
     #rename sets for plot
     di = {'Levine32euclid_scaled_no_negative_removed.npz':'Levine32',
-    'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz':'Pregnancy',  'Shenkareuclid_shifted.npz':'Shenkar'}
+    'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz':'Pregnancy',  'Shenkareuclid_shifted.npz':'Shenkar', 'Samusik_01.npz': 'Samusik_01'}
     df =  df.replace({"Set": di})
     import matplotlib
     matplotlib.use('PS')
+
 
     sns.set(rc={'figure.figsize':(14, 4)})
     g = sns.barplot(x='Set', y='MSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
     g.set(ylim=(0.25, None))
     g.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-    g.figure.savefig(PLOTS + ID + "_" + 'k_'+str(k)+ '_epochs' +str(epochs) +'_'+ "MSS_normalized.eps", format='eps', dpi = 350,
+    g.figure.savefig(PLOTS + ID + "_" + 'k_'+str(k)+ '_epochs' +str(epochs) +'_'+ "MSS_normalized_Samusik_01.eps", format='eps', dpi = 350,
                       bbox_inches="tight")
+    g.figure.savefig(PLOTS + ID + "_" + 'k_' + str(k) + '_epochs' + str(epochs) + '_' + "MSS_normalized_Samusik_01.tif",
+                     format='tif', dpi=350,
+                     bbox_inches="tight")
     plt.close()
     sns.set(rc={'figure.figsize': (14, 4)})
     g2 = sns.barplot(x='Set', y='LSSS', hue='method', data=df.reset_index(), palette=['tomato','yellow','limegreen'])
     g2.set(ylim=(0, None))
     g2.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
-    g2.figure.savefig(PLOTS + ID + "_" + 'k_'+str(k)+'_epochs' +str(epochs)+'_'+ "LSSS_normalized.eps", format='eps', dpi = 350,
+    g2.figure.savefig(PLOTS + ID + "_" + 'k_'+str(k)+'_epochs' +str(epochs)+'_'+ "LSSS_normalized_Samusik_01.eps", format='eps', dpi = 350,
                       bbox_inches="tight")
-    g2.figure.savefig(PLOTS + ID + "_" + 'k_'+str(k)+'_epochs' +str(epochs)+'_'+ "LSSS_normalized.tif", format='tif', dpi = 350,
+    g2.figure.savefig(PLOTS + ID + "_" + 'k_'+str(k)+'_epochs' +str(epochs)+'_'+ "LSSS_normalized_Samusik_01.tif", format='tif', dpi = 350,
                       bbox_inches="tight")
     plt.close()
 
     # plots at each k
     bor_res_dirs = [DATA_ROOT + "Real_sets/DCAE_output/Performance/", DATA_ROOT + "Real_sets/UMAP_output/Performance/",DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"]
     list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
-    'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz']
-    names = ['Levine32','Pregnancy', 'Shekhar']
+    'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz', 'Samusik_01.npz']
+    names = ['Levine32','Pregnancy', 'Shekhar', 'Samusik_01']
 
 
     plt.rcParams["figure.figsize"] = (10,3)
@@ -184,8 +188,8 @@ for epochs in epoch_list:
         plt.plot('k', 'SAUCIE', data=df_simMSS, marker='v', color='orange', linewidth=2)
         plt.plot('k', 'UMAP', data=df_simMSS, marker='x', color='olive', linewidth=2)
         plt.legend()
-        plt.savefig(PLOTS + ID + "_" + names[n_set ] +'_epochs' +str(epochs) + '_' + 'MSS.eps', format='eps', dpi = 350)
-        plt.savefig(PLOTS + ID + "_" + names[n_set] + '_epochs' + str(epochs) + '_' + 'MSS.tif', format='tif', dpi=350)
+        plt.savefig(PLOTS + ID + "_" + names[n_set ] +'_epochs' +str(epochs) + '_' + 'MSS_Samusik_01.eps', format='eps', dpi = 350)
+        plt.savefig(PLOTS + ID + "_" + names[n_set] + '_epochs' + str(epochs) + '_' + 'MSS_Samusik_01.tif', format='tif', dpi=350)
         plt.show()
         plt.clf()
 
@@ -196,8 +200,8 @@ for epochs in epoch_list:
         plt.plot('k', 'SAUCIE', data=df_simLSSS, marker='v', color='orange', linewidth=2)
         plt.plot('k', 'UMAP', data=df_simLSSS, marker='x', color='olive', linewidth=2)
         plt.legend()
-        plt.savefig(PLOTS + ID + "_" + names[n_set ] + '_epochs' +str(epochs) + '_' + 'LSSS.eps', format='eps', dpi = 350)
-        plt.savefig(PLOTS + ID + "_" + names[n_set] + '_epochs' + str(epochs) + '_' + 'LSSS.tif', format='tif', dpi=350)
+        plt.savefig(PLOTS + ID + "_" + names[n_set ] + '_epochs' +str(epochs) + '_' + 'LSSS_Samusik_01.eps', format='eps', dpi = 350)
+        plt.savefig(PLOTS + ID + "_" + names[n_set] + '_epochs' + str(epochs) + '_' + 'LSSS_Samusik_01.tif', format='tif', dpi=350)
         plt.show()
         plt.clf()
 
