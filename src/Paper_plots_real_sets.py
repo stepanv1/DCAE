@@ -32,11 +32,12 @@ list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
 PLOTS = DATA_ROOT + "Real_sets/PLOTS/"
 z_dir = DATA_ROOT + 'Real_sets/DCAE_output/'
 output_dir = DATA_ROOT + "Real_sets/DCAE_output/Performance/"
-temp_dir  = output_dir = DATA_ROOT + "Real_sets/DCAE_output/Performance/temp/"
+temp_dir  =  DATA_ROOT + "Real_sets/DCAE_output/Performance/temp/"
 
 bl_index  = [0,1,2,3]
 #azymuth, elevaation , position
-camera_positions = [[[38,10,0], [174,79,0], [-122,9,0]], [[101,-42,0], [3,-7,0], [-51,30,0]], [[-145,-57,0], [-160,15,0], [7,5,0]]]
+camera_positions = [[[38,10,0], [174,79,0], [-122,9,0]], [[101,-42,0], [3,-7,0], [-51,30,0]], [[-145,-57,0], [-160,15,0], [7,5,0]],
+                    [[-68,13,0], [0,0,0], [0,0,0]]]
 epochs = 1000
 
 #idx = bl_index[3]
@@ -84,39 +85,38 @@ for idx in bl_index:
     groups = []
     for i in range(len(cl)):
         groups.append(ax.scatter(xs=z[:,0][lb==cl[i]], ys=z[:,1][lb==cl[i]], zs=z[:,2][lb==cl[i]], c = colors[i],  s=sz, alpha=0.03))
-        #ax.legend()
+
     # check for sub-clusters in IgD- IgMpos B-cells
-    from sklearn.decomposition import PCA
-    import plotly.io as pio
-    pio.renderers.default = "browser"
-    import plotly.express as px
-
-    infile = '/media/grinek/Seagate/CyTOFdataPreprocess/' + bl
-    npzfile = np.load(infile, allow_pickle=True)
-    aFrame =npzfile['aFrame']
-    markers = npzfile['markers']
-    npz_res = np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz', allow_pickle=True)
-    df =aFrame[lbls=='IgD- IgMpos B cells',:]
-    pca = PCA(n_components =10 )
-    components = pca.fit_transform(df)
-    fig = px.scatter_matrix(
-        components,
-        color=0
-    )
-    fig.update_traces(diagonal_visible=False, marker={'size': 0.01})
-    fig.show()
-
-
-    fig = px.scatter_matrix(
-        aFrame[:,0:10],
-        color=0
-    )
-    fig.update_traces(diagonal_visible=False, marker={'size': 1})
-    fig.show()
-    import pandas as pd
-    fig, axis = plt.subplots(19, 2, figsize=(8, 8))
-    df_in = pd.DataFrame(aFrame)
-    df_in.hist(ax=axis, bins=50)
+    # from sklearn.decomposition import PCA
+    # import plotly.io as pio
+    # pio.renderers.default = "browser"
+    # import plotly.express as px
+    #
+    # infile = '/media/grinek/Seagate/CyTOFdataPreprocess/' + bl
+    # npzfile = np.load(infile, allow_pickle=True)
+    # aFrame =npzfile['aFrame']
+    # markers = npzfile['markers']
+    # npz_res = np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz', allow_pickle=True)
+    # df =aFrame[lbls=='IgD- IgMpos B cells',:]
+    # pca = PCA(n_components =10 )
+    # components = pca.fit_transform(df)
+    # fig = px.scatter_matrix(
+    #     components,
+    #     color=0
+    # )
+    # fig.update_traces(diagonal_visible=False, marker={'size': 0.01})
+    # fig.show()
+    #
+    # fig = px.scatter_matrix(
+    #     aFrame[:,0:10],
+    #     color=0
+    # )
+    # fig.update_traces(diagonal_visible=False, marker={'size': 1})
+    # fig.show()
+    # import pandas as pd
+    # fig, axis = plt.subplots(19, 2, figsize=(8, 8))
+    # df_in = pd.DataFrame(aFrame)
+    # df_in.hist(ax=axis, bins=50)
 
     ax.view_init(azim=camera_positions[idx][0][0],  elev=camera_positions[idx][0][1])
     ax.set_rasterized(True)
@@ -233,5 +233,6 @@ for idx in bl_index:
             ax.scatter(x=z[:, 0][lb == cl[i]], y=z[:, 1][lb == cl[i]], c=colors[i], s=sz))
     plt.grid(True, linewidth=0.5)
     plt.savefig(PLOTS + list_of_inputs[idx] + 'UMAP_SAUCIE_paper_DCAE.eps', dpi=dpi, format='eps')
+    plt.savefig(PLOTS + list_of_inputs[idx] + 'UMAP_SAUCIE_paper_DCAE.tif', dpi=dpi, format='tif')
 
 

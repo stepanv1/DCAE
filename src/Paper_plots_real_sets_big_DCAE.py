@@ -27,19 +27,20 @@ DATA_ROOT = '/media/grinek/Seagate/'
 DATA_DIR = DATA_ROOT + 'CyTOFdataPreprocess/'
 source_dir = DATA_ROOT + 'Real_sets/'
 list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
-                  'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz', 'Shenkareuclid_shifted.npz']
+                  'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz', 'Shenkareuclid_shifted.npz', 'Samusik_01.npz']
 PLOTS = DATA_ROOT + "Real_sets/PLOTS/"
 z_dir = DATA_ROOT + 'Real_sets/DCAE_output/'
 output_dir = DATA_ROOT + "Real_sets/DCAE_output/Performance/"
-temp_dir  = output_dir = DATA_ROOT + "Real_sets/DCAE_output/Performance/temp/"
+temp_dir  = DATA_ROOT + "Real_sets/DCAE_output/Performance/temp/"
 
-bl_index  = [0,1,2]
+bl_index  = [0,1,2,3]
 #azymuth, elevaation , position
-camera_positions = [[[46,10,0], [0,0,0], [0,0,0]], [[-98,-6,0], [0,0,0], [0,0,0]], [[-157,-54,0], [0,0,0], [0,0,0]]]
+camera_positions = [[[46,10,0], [0,0,0], [0,0,0]], [[-98,-6,0], [0,0,0], [0,0,0]], [[-157,-54,0], [0,0,0], [0,0,0]],
+                    [[-68,13,0], [0,0,0], [0,0,0]]]
 epochs = 1000
 
-idx = bl_index[2]
-unassigned_lbls = ['"unassigned"', '"Unassgined"', '-1']
+idx = bl_index[3]
+unassigned_lbls = ['"unassigned"', '"Unassgined"', '-1', '-1']
 for idx in bl_index:
     print(output_dir)
     bl = list_of_inputs [idx]
@@ -86,7 +87,7 @@ for idx in bl_index:
     groups = []
     for i in range(len(cl)):
         groups.append(ax.scatter(xs=z[:,0][lb==cl[i]], ys=z[:,1][lb==cl[i]], zs=z[:,2][lb==cl[i]], c = colors[i],  s=sz, alpha=0.2))
-        #ax.legend()
+
     ax.view_init(azim=camera_positions[idx][0][0],  elev=camera_positions[idx][0][1])
     ax.set_rasterized(True)
     if idx==2:
