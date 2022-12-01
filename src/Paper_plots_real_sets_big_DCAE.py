@@ -9,6 +9,8 @@ import numpy as np
 import os
 import seaborn as sns
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.colors import rgb2hex
+from utils_evaluation import table
 k = 30
 epochs_list = [1000]
 coeffCAE = 1
@@ -39,7 +41,7 @@ camera_positions = [[[46,10,0], [0,0,0], [0,0,0]], [[-98,-6,0], [0,0,0], [0,0,0]
                     [[-68,13,0], [0,0,0], [0,0,0]]]
 epochs = 1000
 
-idx = bl_index[3]
+idx = bl_index[1]
 unassigned_lbls = ['"unassigned"', '"Unassgined"', '-1', '-1']
 for idx in bl_index:
     print(output_dir)
@@ -53,20 +55,18 @@ for idx in bl_index:
     # read DCAE output
     npz_res = np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz', allow_pickle=True)
     z = npz_res['z']
-    lb = lbls[lbls!=unassigned_lbls[idx]]
-    z = z[lbls!=unassigned_lbls[idx],:]
-    cl = np.unique(lb)
 
+    cl = np.unique(lbls)
 
     if idx==0:
-        n_samples = 50000
+        n_samples = 75000
         smpl = np.random.choice(range(z.shape[0]), size=n_samples, replace=False)
-        lb = lb[smpl]
+        lbls = lbls[smpl]
         z = z[smpl,:]
     if idx == 1:
-        n_samples = 150000
+        n_samples = 200000
         smpl = np.random.choice(range(z.shape[0]), size=n_samples, replace=False)
-        lb = lb[smpl]
+        lbls = lbls[smpl]
         z = z[smpl, :]
 
     dpi = 350
@@ -83,17 +83,22 @@ for idx in bl_index:
     ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
     ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
     sns.reset_orig()
-    colors = sns.color_palette("husl", n_colors=len(cl))
+
+    nM = len(np.unique(lbls))
+    palette = sns.color_palette("husl", nM)
+    colors = np.array([rgb2hex(palette[i]) for i in range(len(palette))])
+
     groups = []
     for i in range(len(cl)):
-        groups.append(ax.scatter(xs=z[:,0][lb==cl[i]], ys=z[:,1][lb==cl[i]], zs=z[:,2][lb==cl[i]], c = colors[i],  s=sz, alpha=0.2))
+        if cl[i] != unassigned_lbls[idx]:
+            groups.append(ax.scatter(xs=z[:,0][lbls==cl[i]], ys=z[:,1][lbls==cl[i]], zs=z[:,2][lbls==cl[i]], c = colors[i],  s=sz, alpha=0.2))
 
     ax.view_init(azim=camera_positions[idx][0][0],  elev=camera_positions[idx][0][1])
     ax.set_rasterized(True)
     if idx==2:
-       lgnd = ax.legend(groups, cl, loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=16, markerscale=30, ncol=2)
+       lgnd = ax.legend(groups, cl[cl != unassigned_lbls[idx]], loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=16, markerscale=30, ncol=2)
     else:
-        lgnd = ax.legend(groups, cl, loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=16, markerscale=30)
+        lgnd = ax.legend(groups, cl[cl != unassigned_lbls[idx]], loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=16, markerscale=30)
     for handle in lgnd.legendHandles:
         handle.set_sizes([30.0])
     plt.savefig( PLOTS + list_of_inputs[idx] +  '_paper__single_DCAE.eps', dpi= dpi, format='eps', bbox_inches='tight')

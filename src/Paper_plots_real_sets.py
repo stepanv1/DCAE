@@ -9,6 +9,7 @@ import numpy as np
 import os
 import seaborn as sns
 from utils_evaluation import table
+from matplotlib.colors import rgb2hex
 
 k = 30
 epochs_list = [1000]
@@ -39,9 +40,9 @@ bl_index  = [0,1,2,3]
 camera_positions = [[[38,10,0], [174,79,0], [-122,9,0]], [[101,-42,0], [3,-7,0], [-51,30,0]], [[-145,-57,0], [-160,15,0], [7,5,0]],
                     [[-68,13,0], [0,0,0], [0,0,0]]]
 epochs = 1000
-
 #idx = bl_index[3]
 unassigned_lbls = ['"unassigned"', '"Unassgined"', '-1', '-1']
+
 for idx in bl_index:
     print(output_dir)
     bl = list_of_inputs [idx]
@@ -55,13 +56,12 @@ for idx in bl_index:
     # read DCAE output
     npz_res = np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz', allow_pickle=True)
     z = npz_res['z']
-    lb = lbls[lbls!=unassigned_lbls[idx]]
-    z = z[lbls!=unassigned_lbls[idx],:]
-    cl = np.unique(lb)
+
+    cl = np.unique(lbls)
     n_samples = 50000
     if np.logical_not(np.isin(idx,[2,3])):
         smpl = np.random.choice(range(z.shape[0]), size=n_samples, replace=False)
-        lb = lb[smpl]
+        lbls = lbls[smpl]
         z = z[smpl,:]
 
     #use this to find a good angle
@@ -81,10 +81,15 @@ for idx in bl_index:
     ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
     ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
     sns.reset_orig()
-    colors = sns.color_palette("husl", n_colors=len(cl))
+
+    nM = len(np.unique(lbls))
+    palette = sns.color_palette("husl", nM)
+    colors = np.array([rgb2hex(palette[i]) for i in range(len(palette))])
+
     groups = []
     for i in range(len(cl)):
-        groups.append(ax.scatter(xs=z[:,0][lb==cl[i]], ys=z[:,1][lb==cl[i]], zs=z[:,2][lb==cl[i]], c = colors[i],  s=sz, alpha=0.03))
+        if cl[i] != unassigned_lbls[idx]:
+            groups.append(ax.scatter(xs=z[:,0][lbls==cl[i]], ys=z[:,1][lbls==cl[i]], zs=z[:,2][lbls==cl[i]], c = colors[i],  s=sz, alpha=0.03))
 
     # check for sub-clusters in IgD- IgMpos B-cells
     # from sklearn.decomposition import PCA
@@ -131,11 +136,16 @@ for idx in bl_index:
     ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
 
     sns.reset_orig()
-    colors = sns.color_palette("husl", n_colors=len(cl))
+
+    nM = len(np.unique(lbls))
+    palette = sns.color_palette("husl", nM)
+    colors = np.array([rgb2hex(palette[i]) for i in range(len(palette))])
+
     groups = []
     for i in range(len(cl)):
-        groups.append(
-            ax.scatter(xs=z[:, 0][lb == cl[i]], ys=z[:, 1][lb == cl[i]], zs=z[:, 2][lb == cl[i]], c=colors[i], s=sz, alpha=0.03))
+        if cl[i] != unassigned_lbls[idx]:
+            groups.append(
+            ax.scatter(xs=z[:, 0][lbls == cl[i]], ys=z[:, 1][lbls == cl[i]], zs=z[:, 2][lbls == cl[i]], c=colors[i], s=sz, alpha=0.03))
         # ax.legend()
     ax.view_init(azim=camera_positions[idx][1][0],  elev=camera_positions[idx][1][1])
     ax.set_rasterized(True)
@@ -150,17 +160,22 @@ for idx in bl_index:
     ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
 
     sns.reset_orig()
-    colors = sns.color_palette("husl", n_colors=len(cl))
+
+    nM = len(np.unique(lbls))
+    palette = sns.color_palette("husl", nM)
+    colors = np.array([rgb2hex(palette[i]) for i in range(len(palette))])
+
     groups = []
     for i in range(len(cl)):
-        groups.append(
-            ax.scatter(xs=z[:, 0][lb == cl[i]], ys=z[:, 1][lb == cl[i]], zs=z[:, 2][lb == cl[i]], c=colors[i], s=sz, alpha=0.03))
+        if cl[i] != unassigned_lbls[idx]:
+            groups.append(
+            ax.scatter(xs=z[:, 0][lbls == cl[i]], ys=z[:, 1][lbls == cl[i]], zs=z[:, 2][lbls == cl[i]], c=colors[i], s=sz, alpha=0.03))
     ax.view_init(azim=camera_positions[idx][2][0],  elev=camera_positions[idx][2][1])
     fig.subplots_adjust(right=0.8)
     if idx==2:
-       lgnd = ax.legend(groups, cl, loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=14, markerscale=30, ncol=2)
+       lgnd = ax.legend(groups, cl[cl != unassigned_lbls[idx]], loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=14, markerscale=30, ncol=2)
     else:
-        lgnd = ax.legend(groups, cl, loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=14, markerscale=30)
+        lgnd = ax.legend(groups, cl[cl != unassigned_lbls[idx]], loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=14, markerscale=30)
     for handle in lgnd.legendHandles:
         handle.set_sizes([30.0])
     fig.tight_layout()
@@ -190,12 +205,10 @@ for idx in bl_index:
     # plot UMAP
     npz_res = np.load(z_UMAP + str(bl) + '_UMAP_rep_2D.npz', allow_pickle=True)
     z = npz_res['z']
-    lb = lbls[lbls!=unassigned_lbls[idx]]
-    z = z[lbls!=unassigned_lbls[idx],:]
-    cl = np.unique(lb)
-    if idx!=2:
+    cl = np.unique(lbls)
+    if idx not in [2,3]:
         smpl = np.random.choice(range(z.shape[0]), size=50000, replace=False)
-        lb = lb[smpl]
+        lbls = lbls[smpl]
         z = z[smpl,:]
 
     ax = fig.add_subplot(1, 2, 1)
@@ -205,8 +218,9 @@ for idx in bl_index:
     colors = sns.color_palette("husl", n_colors=len(cl))
     groups = []
     for i in range(len(cl)):
-        groups.append(
-            ax.scatter(x=z[:, 0][lb == cl[i]], y=z[:, 1][lb == cl[i]], c=colors[i], s=sz))
+        if cl[i] != unassigned_lbls[idx]:
+            groups.append(
+            ax.scatter(x=z[:, 0][lbls == cl[i]], y=z[:, 1][lbls == cl[i]], c=colors[i], s=sz))
     plt.grid(True, linewidth=0.5)
 
     # plot SAUCIE
@@ -215,22 +229,26 @@ for idx in bl_index:
     lbls = npzfile['lbls']
     npz_res = np.load(z_SAUCIE + '/' + str(bl) + '_SAUCIE_rep_2D.npz', allow_pickle=True)
     z = npz_res['z']
-    lb = lbls[lbls != unassigned_lbls[idx]]
-    z = z[lbls != unassigned_lbls[idx], :]
-    cl = np.unique(lb)
-    if idx != 2:
+
+    cl = np.unique(lbls)
+    if idx not in [2,3]:
         smpl = np.random.choice(range(z.shape[0]), size=50000, replace=False)
-        lb = lb[smpl]
+        lbls = lbls[smpl]
         z = z[smpl, :]
     ax = fig.add_subplot(1, 2, 2)
     loc = plticker.MultipleLocator(base=1)  # this locator puts ticks at regular intervals
     ax.xaxis.set_major_locator(loc)
     ax.yaxis.set_major_locator(loc)
-    colors = sns.color_palette("husl", n_colors=len(cl))
+
+    nM = len(np.unique(lbls))
+    palette = sns.color_palette("husl", nM)
+    colors = np.array([rgb2hex(palette[i]) for i in range(len(palette))])
+
     groups = []
     for i in range(len(cl)):
-        groups.append(
-            ax.scatter(x=z[:, 0][lb == cl[i]], y=z[:, 1][lb == cl[i]], c=colors[i], s=sz))
+        if cl[i] != unassigned_lbls[idx]:
+            groups.append(
+            ax.scatter(x=z[:, 0][lbls == cl[i]], y=z[:, 1][lbls == cl[i]], c=colors[i], s=sz))
     plt.grid(True, linewidth=0.5)
     plt.savefig(PLOTS + list_of_inputs[idx] + 'UMAP_SAUCIE_paper_DCAE.eps', dpi=dpi, format='eps')
     plt.savefig(PLOTS + list_of_inputs[idx] + 'UMAP_SAUCIE_paper_DCAE.tif', dpi=dpi, format='tif')
