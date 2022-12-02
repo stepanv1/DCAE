@@ -40,7 +40,7 @@ bl_index  = [0,1,2,3]
 camera_positions = [[[38,10,0], [174,79,0], [-122,9,0]], [[101,-42,0], [3,-7,0], [-51,30,0]], [[-145,-57,0], [-160,15,0], [7,5,0]],
                     [[-68,13,0], [0,0,0], [0,0,0]]]
 epochs = 1000
-#idx = bl_index[3]
+#idx = bl_index[2]
 unassigned_lbls = ['"unassigned"', '"Unassgined"', '-1', '-1']
 
 for idx in bl_index:
@@ -122,6 +122,29 @@ for idx in bl_index:
     # fig, axis = plt.subplots(19, 2, figsize=(8, 8))
     # df_in = pd.DataFrame(aFrame)
     # df_in.hist(ax=axis, bins=50)
+
+    #################################################################################################
+    # check for sub-clusters in Rod BC
+    from sklearn.decomposition import PCA
+    import plotly.io as pio
+    pio.renderers.default = "browser"
+    import plotly.express as px
+
+    infile = '/media/grinek/Seagate/CyTOFdataPreprocess/' + bl
+    npzfile = np.load(infile, allow_pickle=True)
+    aFrame =npzfile['aFrame']
+    #markers = npzfile['markers']
+    npz_res = np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz', allow_pickle=True)
+    fig = px.scatter_matrix(
+        aFrame[lbls=='Rod BC',0:20],
+        color=0
+    )
+    fig.update_traces(diagonal_visible=False, marker={'size': 1})
+    fig.show()
+    import pandas as pd
+    fig, axis = plt.subplots(19, 2, figsize=(8, 8))
+    df_in = pd.DataFrame(aFrame)
+    df_in.hist(ax=axis, bins=50)
 
     ax.view_init(azim=camera_positions[idx][0][0],  elev=camera_positions[idx][0][1])
     ax.set_rasterized(True)
