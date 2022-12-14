@@ -50,11 +50,14 @@ print(bl)
 infile = DATA_DIR + bl
 npzfile = np.load(infile, allow_pickle=True)
 lbls = npzfile['lbls']
+markers = npzfile['markers']
+
 table(lbls)
 
 # read DCAE output
 npz_res = np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz', allow_pickle=True)
 z = npz_res['z']
+
 
 # get progenitors
 df = z[np.isin(lbls, ['HSC', 'MPP', 'CLP',  'CMP',  'MEP', 'GMP']), :]
@@ -86,10 +89,10 @@ colors = np.array([rgb2hex(palette[i]) for i in range(len(palette))])
 
 #['CLP', 'CMP', 'GMP', 'HSC', 'MEP', 'MPP']
 colors =['violet','greenyellow', 'seagreen', 'black', 'lime', 'cornflowerblue']
-sz=5
+sz=2
 groups = []
 for i in range(len(cl)):
-    groups.append(ax.scatter(xs=df[:,0][lb==cl[i]], ys=df[:,1][lb==cl[i]], zs=df[:,2][lb==cl[i]], c = colors[i],  s=sz, alpha=0.3))
+    groups.append(ax.scatter(xs=df[:,0][lb==cl[i]], ys=df[:,1][lb==cl[i]], zs=df[:,2][lb==cl[i]], c = colors[i],  s=sz, alpha=0.5))
 
 #check cluster structure near root of
 # from sklearn.decomposition import PCA
@@ -138,10 +141,11 @@ ax.view_init(azim=camera_positions[3][0][0],  elev=camera_positions[3][0][1])
 ax.set_rasterized(True)
 
 order = [3,5,0,1,2,4]
-lgnd = ax.legend([groups[idx] for idx in order],[cl[idx] for idx in order], loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=24, markerscale=6)
+lgnd = ax.legend([groups[idx] for idx in order],[cl[idx] for idx in order], loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=24)
+
 #lgnd = ax.legend(groups, cl, loc='center left', bbox_to_anchor=(1.07, 0.5), fontsize=16, markerscale=30)
 for handle in lgnd.legendHandles:
-    handle.set_sizes([30.0])
+    handle.set_sizes([200.0])
 plt.savefig( PLOTS + list_of_inputs[3] +  '_progenitors_paper_DCAE.eps', dpi= dpi, format='eps', bbox_inches='tight')
 plt.savefig( PLOTS + list_of_inputs[3] +  '_progenitors_paper_DCAE.tif', dpi= dpi, format='tif', bbox_inches='tight')
 
@@ -183,7 +187,7 @@ ax.yaxis.set_major_locator(loc)
 groups = []
 for i in range(len(cl)):
     groups.append(
-            ax.scatter(x=df[:, 0][lb == cl[i]], y=df[:, 1][lb == cl[i]], c=colors[i], s=sz))
+            ax.scatter(x=df[:, 0][lb == cl[i]], y=df[:, 1][lb == cl[i]], c=colors[i], s=sz, alpha=0.5))
 plt.grid(True, linewidth=0.5)
 
 # plot SAUCIE

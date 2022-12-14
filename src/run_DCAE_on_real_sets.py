@@ -196,3 +196,5 @@ for epochs in epochs_list:
             "w")
         Html_file.write(html_str)
         Html_file.close()
+
+# TODO create plots coloured by markers
