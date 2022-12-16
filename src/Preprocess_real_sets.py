@@ -23,9 +23,6 @@ perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
                 ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), #Sigma
                 ctypes.c_size_t]
 
-
-
-
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
 output_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
@@ -42,8 +39,6 @@ aFrame.shape
 aFrame.min(axis=0)
 aFrame.max(axis=0)
 sns.violinplot(data= aFrame, bw = 0.1);plt.show()
-# set negative values to zero and shift minima to zero
-#aFrame = aFrame  - aFrame.min(axis=0)
 
 aFrame.min(axis=0)
 aFrame.max(axis=0)
@@ -59,7 +54,7 @@ aFrame = aFrame  - aFrame.min(axis=0)
 aFrame= aFrame/np.max(aFrame)
 #sns.violinplot(data= aFrame2, bw = 0.1);plt.show()
 
-nb=find_neighbors(aFrame, k3, metric='euclidean', cores=48)
+nb=find_neighbors(aFrame, k3, metric='euclidean', cores=8)
 Idx = nb['idx']; Dist = nb['dist']
 
 # find nearest neighbours
@@ -73,9 +68,8 @@ nrow = len(lbls)
 inputs = range(nrow)
 from joblib import Parallel, delayed
 from pathos import multiprocessing
-num_cores = 48
 #pool = multiprocessing.Pool(num_cores)
-results = Parallel(n_jobs=16, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
+results = Parallel(n_jobs=4, verbose=0, backend="threading")(delayed(singleInput, check_pickle=False)(i) for i in inputs)
 original_dim=32
 neibALL = np.zeros((nrow, k3, original_dim))
 Distances = np.zeros((nrow, k3))
@@ -87,7 +81,7 @@ for i in range(nrow):
     Distances[i,] = results[i][1]
 #Compute perpelexities
 nn=30
-perp((Distances[:,0:k3]),       nrow,     original_dim,   neib_weight,          nn,          k3,   Sigma,    12)
+perp((Distances[:,0:k3]),       nrow,     original_dim,   neib_weight,          nn,          k3,   Sigma,    6)
       #(     double* dist,      int N,    int D,       double* P,     double perplexity,    int K, int num_threads)
 np.shape(neib_weight)
 plt.plot(neib_weight[1,])
@@ -99,11 +93,10 @@ neib_weight=sklearn.preprocessing.normalize(neib_weight, axis=1, norm='l1')
 neibALL=np.array([ neibALL[i, topk[i,:],:] for i in range(len(topk))])
 plt.plot(neib_weight[1,:]);plt.show()
 #outfile = source_dir + '/Nowicka2017euclid.npz'
+markers = pd.read_csv(source_dir + "/Levine32_data.csv" , nrows=1).columns.to_list()
 outfile = output_dir + '/Levine32euclid_scaled_no_negative_removed.npz'
 np.savez(outfile, aFrame = aFrame, Idx=Idx, lbls=lbls,  Dist=Dist,
-         neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma)
-
-
+         neibALL=neibALL, neib_weight= neib_weight, Sigma=Sigma, markers = markers)
 
 #Pregnancy
 '''
@@ -112,9 +105,11 @@ https://scholar.google.com/scholar?biw=1586&bih=926&um=1&ie=UTF-8&lr&cites=87506
 '''
 
 
-#data0 = np.genfromtxt(source_dir + "/Gates_PTLG008_1_Unstim.fcs.csv" , names=None, dtype=float,  delimiter=',')
 data0 = pd.read_csv(source_dir + "/Gates_PTLG008_1_Unstim.fcs.csv")
-gating_channels = ["CD57", "CD19", "CD4", "CD8", "IgD", "CD11c", "CD16", "CD3", "CD38", "CD27", "CD14", "CXCR5", "CCR7", "CD45RA", "CD20", "CD127", "CD33", "CD28", "CD161", "TCRgd", "CD123", "CD56", "HLADR", "CD25", "CD235ab_CD61", "CD66", "CD45", "Tbet", "CD7", "FoxP3", "CD11b"]
+#gating_channels = ["CD57", "CD19", "CD4", "CD8", "IgD", "CD11c", "CD16", "CD3", "CD38", "CD27",
+#                   "CD14", "CXCR5", "CCR7", "CD45RA", "CD20", "CD127", "CD33", "CD28", "CD161",
+#                   "TCRgd", "CD123", "CD56", "HLADR", "CD25", "CD235ab_CD61", "CD66", "CD45",
+#                   "Tbet", "CD7", "FoxP3", "CD11b"]
 MarkersMap = pd.read_csv(source_dir + "/MarkersInfo.csv")
 data1 = data0.rename(columns=MarkersMap.set_index('Channels')['Markers'].to_dict())
 markers = ['CD235ab_CD61',         'CD45',
@@ -132,9 +127,7 @@ data2 = data1[markers]
 data3= data2-data2.min()
 aFrame = data3.to_numpy()
 aFrame.shape
-# set negative values to zero
-#sns.violinplot(data= aFrame, bw = 0.1);plt.show()
-#aFrame[aFrame < 0] = 0
+
 lbls= np.genfromtxt(source_dir + "/Gates_PTLG008_1_Unstim.fcs_LeafPopulations.csv" , names=None, skip_header=1, delimiter=',', dtype='U100')
 #randomize order
 IDX = np.random.choice(aFrame.shape[0], aFrame.shape[0], replace=False)
@@ -152,8 +145,7 @@ aFrame= aFrame/np.max(aFrame)
 
 #sns.violinplot(data= aFrame[:, :], bw = 0.1);plt.show()
 sns.violinplot(data= aFrame, bw = 0.1);plt.show()
-#aFrame= aFrame/np.max(aFrame)
-# find nearest neighbours
+
 nb=find_neighbors(aFrame, k3, metric='euclidean', cores=16)
 Idx = nb['idx']; Dist = nb['dist']
 #Dist = Dist[IDX]
@@ -317,7 +309,7 @@ aFrame= aFrame[IDX,:]
 lbls = lbls[IDX]
 len(lbls)
 
-aFrame = aFrame  - aFrame.min(axis=0)
+aFrame = aFrame - aFrame.min(axis=0)
 aFrame= aFrame/np.max(aFrame)
 #sns.violinplot(data= aFrame2, bw = 0.1);plt.show()
 
