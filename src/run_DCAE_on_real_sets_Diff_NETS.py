@@ -37,11 +37,10 @@ network_ind = [0, 1]
 DATA_ROOT = '/media/grinek/Seagate/'
 source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
 output_dir  = DATA_ROOT + 'Real_sets/DCAE_output/'
-#list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
-#'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',   'Samusik_01.npz']
-list_of_inputs = ['Shenkareuclid_shifted.npz']
+list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
+'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Samusik_01.npz']
+#list_of_inputs = ['Shenkareuclid_shifted.npz']
 
-ID = 'DCAE' + '_network_ind_'+ str(network_ind) + '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
 tf.config.threading.set_inter_op_parallelism_threads(8)
 tf.config.threading.set_intra_op_parallelism_threads(8)
@@ -49,7 +48,7 @@ tf.compat.v1.disable_eager_execution()
 
 for ind in network_ind:
     for bl in list_of_inputs:
-        ID = 'DCAE' + '_network_ind_' + str(ind) + '_lam_' + str(lam) + '_batch_' + str(
+        ID = 'DCAE_ratio_0.9' + '_network_ind_' + str(ind) + '_lam_' + str(lam) + '_batch_' + str(
             batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
         infile = source_dir + bl
@@ -65,7 +64,7 @@ for ind in network_ind:
         normSigma = 1
 
         MSE_weight = K.variable(value=0)
-        MSE_weight_lst = K.variable(np.array(frange_anneal(int(epochs), ratio=0.2)))
+        MSE_weight_lst = K.variable(np.array(frange_anneal(int(epochs), ratio=0.9)))
 
         latent_dim = 3
         original_dim = aFrame.shape[1]
@@ -154,7 +153,7 @@ for ind in network_ind:
             def loss(y_true, y_pred):
                 msew = mean_square_error_NN(y_true, y_pred)
                 return coeffMSE * (1 - MSE_weight + 0.1) * msew + 0.5 * (MSE_weight + 1) * loss_mmd(y_true, y_pred) + (
-                        2 * MSE_weight + 0.1) * (DCAE_loss(y_true, y_pred))  # +  (MMD_weight + 0.01)* graph_diff(y_true, y_pred)
+                        2 * MSE_weight + 0.1) * (DCAE_loss(y_true, y_pred))
             return loss
 
         opt = tf.keras.optimizers.Adam(
