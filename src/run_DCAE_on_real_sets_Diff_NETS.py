@@ -45,7 +45,7 @@ list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
 tf.config.threading.set_inter_op_parallelism_threads(8)
 tf.config.threading.set_intra_op_parallelism_threads(8)
 tf.compat.v1.disable_eager_execution()
-
+#TODO: rerun SAMUSIK with ind=0
 for ind in network_ind:
     for bl in list_of_inputs:
         ID = 'DCAE_ratio_0.9' + '_network_ind_' + str(ind) + '_lam_' + str(lam) + '_batch_' + str(
