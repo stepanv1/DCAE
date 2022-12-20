@@ -38,7 +38,7 @@ source_dir = DATA_ROOT + 'CyTOFdataPreprocess/'
 output_dir  = DATA_ROOT + 'Real_sets/DCAE_output/'
 list_of_inputs = ['Levine32euclid_scaled_no_negative_removed.npz',
 'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz',  'Shenkareuclid_shifted.npz', 'Samusik_01.npz']
-ID = 'DCAE' +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
+ID = 'DCAE_ratio_0.9' +  '_lam_'  + str(lam) + '_batch_' + str(batch_size) + '_alp_' + str(alp) + '_m_' + str(m)
 
 tf.config.threading.set_inter_op_parallelism_threads(0)
 tf.config.threading.set_intra_op_parallelism_threads(0)
@@ -59,7 +59,7 @@ for bl in list_of_inputs:
     normSigma = 1
 
     MSE_weight = K.variable(value=0)
-    MSE_weight_lst = K.variable(np.array(frange_anneal(int(epochs), ratio=0.2)))
+    MSE_weight_lst = K.variable(np.array(frange_anneal(int(epochs), ratio=0.9)))
 
     latent_dim = 3
     original_dim = aFrame.shape[1]
@@ -160,7 +160,7 @@ for bl in list_of_inputs:
 
     autoencoder.summary()
 
-    save_period = 10
+    save_period = 100
     DCAEStop = EarlyStopping(monitor='DCAE_loss', min_delta=min_delta, patience=patience, mode='min',
                              restore_best_weights=False)
     start = timeit.default_timer()
