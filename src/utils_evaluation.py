@@ -1,5 +1,5 @@
 '''
-utility functions, mostly for the perfirmance evaluation
+utility functions, mostly for the performance evaluation
 '''
 import rpy2
 from rpy2.robjects.packages import SignatureTranslatedAnonymousPackage

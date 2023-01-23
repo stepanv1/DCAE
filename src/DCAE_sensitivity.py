@@ -1,6 +1,5 @@
 '''
-DCAE
-sensitivity analysis in artificial sets
+DCAE sensitivity analysis in artificial sets
 '''
 
 import matplotlib.pyplot as plt

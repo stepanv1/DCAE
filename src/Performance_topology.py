@@ -10,7 +10,7 @@ from scipy.spatial import distance
 def get_topology_list(bl):
     """ Gets a touple defining branches and creates a list of nearest neighbour clusters"""
     # basic topology shared by 5 clusters in pentagon, nearest neighbours in pentagon and its branches for clusters 0 to 6
-    # for branches, 5 and 6 closest neighbour should bethe  clustr in pentagon to they are attached to
+    # for branches, 5 and 6 closest neighbour should be the  cluster in pentagon to they are attached to
     topolist = [[1,4], [0,2], [1,3], [2,4], [0,3], bl[0], bl[1]]
     #correct by adding the negbour from bl touple
     topolist[bl[0]].append(5)
@@ -21,9 +21,6 @@ def generate_true_toplogy(aFrame, lbls):
     """ Gets a touple defining branches and creates a list of nearest neighbour clusters
     based on coordinates of central clusters with noise excluded
     """
-    #TODO: rewrite other functions here to use true_topology_list as input, this function should replace
-    # get_topology_list
-    # nullify noisy dimensions
     clus = aFrame
     original_dim = aFrame.shape[1]
     d = 5; k=2

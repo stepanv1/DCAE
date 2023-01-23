@@ -1,5 +1,5 @@
 '''
-Plots for Samusik_01 data
+Plots for Samusik_01 data, zoomed on progenitors
 '''
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker

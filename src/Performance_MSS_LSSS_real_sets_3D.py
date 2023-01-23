@@ -1,5 +1,5 @@
 '''
-Compute MSS and LSSS performance measures on DCAE, UMAP and SAUCIE
+Compute MSS and LSSS performance measures on DCAE, UMAP and SAUCIE 3D
 using normalized measures
 Real sets
 '''

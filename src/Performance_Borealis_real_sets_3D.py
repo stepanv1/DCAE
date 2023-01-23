@@ -1,7 +1,8 @@
 '''
-Compute emd-based paerformance scores performance measures for DCAE, UMAP and SAUCIE
+Compute emd-based performance measures for DCAE, UMAP and SAUCIE
 Dimensionality Reduction has Quantifiable Imperfections: Two Geometric Bounds,
 https://arxiv.org/abs/1811.00115
+Discontinuity measure was modified to allow cross-method comparisons
 
 '''
 import pandas as pd

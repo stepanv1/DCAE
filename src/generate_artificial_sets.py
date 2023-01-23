@@ -1,7 +1,6 @@
 '''
 Generates artificial clusters and computes objects required to run
 DCAE
-generate UMAP data and plots for comparison
 '''
 
 import numpy as np

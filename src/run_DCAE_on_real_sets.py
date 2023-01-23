@@ -12,7 +12,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import EarlyStopping
 import pickle
 pio.renderers.default = "browser"
-from utils_evaluation import plot3D_cluster_colors, plot3D_marker_colors, plot2D_marker_colors, table
+from utils_evaluation import plot3D_cluster_colors, plot3D_marker_colors, table
 from utils_model import plotCallback, AnnealingCallback, saveEncoder
 from utils_model import frange_anneal, elu_derivative, linear_derivative
 
@@ -196,8 +196,7 @@ for bl in list_of_inputs:
         "w")
     Html_file.write(html_str)
     Html_file.close()
-
-# TODO create plots coloured by markers
+# marker colours
 DATA_DIR = DATA_ROOT + 'CyTOFdataPreprocess/'
 z_dir = DATA_ROOT + 'Real_sets/DCAE_output/'
 bl_index  = [0,1,3]
