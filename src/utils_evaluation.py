@@ -344,13 +344,13 @@ def neighbour_marker_similarity_score_per_cell(z, data, kmax=30, num_cores=12):
         per_cell_match[i,:] = results[i][1]
     return [match, per_cell_match]
 
-def generate_clusters_pentagon(num_noisy = 5, branches_loc = [3,4], sep=3, pent_size= 3/2, k=1):
+def generate_clusters_pentagon(num_noisy = 25, branches_loc = [3,4], sep=3/2, pent_size= 2, k=2):
     """ function to generate artificial clusters with branches and different
-    number of noisy dimensions, branchong
+    number of noisy dimensions, branching
     Creates a cluster with noisy dimensions and branches at the clusters
     which number is passed as an argument
     branches can be between 0 and 4
-    :param num_noisy: number of non-imformative dimensions
+    :param num_noisy: number of non-informative dimensions
            branches_loc a number, (0 to 4) to which 'core clusters' to attach a branch
     :return: a numpy array with clusters nad labels
     """
@@ -389,9 +389,9 @@ def generate_clusters_pentagon(num_noisy = 5, branches_loc = [3,4], sep=3, pent_
     center_list = copy.deepcopy(center_list0)
 
     center_list[5,:] = center_list0[branches_loc[0],:]
-    center_list[5,1] = 1*sep
+    center_list[5,1] = sep
     center_list[6,:] = center_list0[branches_loc[1],:]
-    center_list[6,2] = 1*sep
+    center_list[6,2] = sep
 
     # cluster populatiosn
     ncl0 = ncl1 = ncl2 = ncl3  = ncl4 = ncl5 = ncl6 = int(k*6000)
@@ -402,17 +402,15 @@ def generate_clusters_pentagon(num_noisy = 5, branches_loc = [3,4], sep=3, pent_
     #introduce correlation
 
     r = datasets.make_spd_matrix(d, random_state=12346)
-    r7 = datasets.make_spd_matrix(d,  random_state=12347)
     r5 = datasets.make_spd_matrix(d,  random_state=12348)
     r6 = datasets.make_spd_matrix(d, random_state=12349)
-    u  = 1*sep
-    m = 0.6
+    r7 = datasets.make_spd_matrix(d, random_state=12347)
 
     #compute_MVpert(n, min, mode, max, r)
     minb = np.zeros(d)
     modeb =sep/2 * np.ones(d)
     maxb =sep*np.ones(d)
-    # Generate the random samples.
+    # Generate the samples.
     y0 = center_list[0,:][:d]+compute_MVpert(ncl0, minb, modeb, maxb, r)
     y1 = center_list[1,:][:d]+compute_MVpert(ncl1, minb, modeb, maxb, r)
     y2 = center_list[2,:][:d]+compute_MVpert(ncl2, minb, modeb, maxb, r)
