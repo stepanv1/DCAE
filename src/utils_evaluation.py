@@ -649,7 +649,7 @@ def plot2D_marker_colors(z, data, markers, sub_s = 50000, lbls=None, msize=1):
                             hoverinfo='text',
                             ))
     for m in range(1, nM):
-        fig.add_trace(Scatter3d(x=x, y=y,
+        fig.add_trace(Scatter(x=x, y=y,
                                 mode='markers',
                                 visible="legendonly",
                                 marker=dict(

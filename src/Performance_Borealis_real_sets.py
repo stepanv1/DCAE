@@ -8,6 +8,8 @@ import pandas as pd
 import numpy as np
 import os
 from utils_evaluation import  get_wsd_scores_normalized
+from utils_evaluation import  plot2D_marker_colors, plot3D_marker_colors
+from plotly.io import to_html
 
 k = 30
 epoch_list = [1000]
@@ -116,6 +118,35 @@ for epochs in epoch_list:
             manytoone= np.median(manytoone)
             line = pd.DataFrame([[methods[i], str(bl), discontinuity, manytoone]],   columns =['method','Set','discontinuity','manytoone'])
             df=  df.append(line)
+            #plot discontinuity and manytone
+            discontinuity = npz_res['discontinuity']
+            manytoone = npz_res['manytoone']
+
+            npz_res = np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz',
+                              allow_pickle=True)
+            z = npz_res['z']
+
+            infile = DATA_DIR + bl
+            npzfile = np.load(infile, allow_pickle=True)
+            lbls = npzfile['lbls'];
+
+            data= np.column_stack((discontinuity, manytoone))
+            if bl == list_of_inputs[2]:
+                sub_s=z.shape[0]
+            else:
+                sub_s = 50000
+            if i==0:
+                fig = plot3D_marker_colors(z, data, (list(['discontinuity', 'manytoone'])), sub_s=sub_s, lbls=lbls, msize=1)
+            else:
+                fig = plot2D_marker_colors(z, data, (list(['discontinuity', 'manytoone'])), sub_s=sub_s, lbls=lbls, msize=1)
+            html_str = to_html(fig, config=None, auto_play=True, include_plotlyjs=True,
+                               include_mathjax=False, post_script=None, full_html=True,
+                               animation_opts=None, default_width='100%', default_height='100%', validate=True)
+            html_dir = output_dir
+            Html_file = open(
+                html_dir + "/" + str(methods[i]) + "_" + 'DiscontinuityManytoone' + "_" + str(bl) + '_epochs_' + str(epochs) + ".html", "w")
+            Html_file.write(html_str)
+            Html_file.close()
 
 
     import seaborn as sns
