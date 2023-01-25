@@ -165,7 +165,7 @@ for epochs in epoch_list:
     plt.rcParams["figure.figsize"] = (10,3)
 
     k_start = 9
-    for n_set in range(3):
+    for n_set in range(4):
         bl = list_of_inputs[n_set]
         measures = {key: [] for key in methods}
         for i in range(3):
@@ -188,8 +188,8 @@ for epochs in epoch_list:
         plt.plot('k', 'SAUCIE', data=df_simMSS, marker='v', color='orange', linewidth=2)
         plt.plot('k', 'UMAP', data=df_simMSS, marker='x', color='olive', linewidth=2)
         plt.legend()
-        plt.savefig(PLOTS + ID + "_" + names[n_set ] +'_epochs' +str(epochs) + '_' + 'MSS_Samusik_01.eps', format='eps', dpi = 350)
-        plt.savefig(PLOTS + ID + "_" + names[n_set] + '_epochs' + str(epochs) + '_' + 'MSS_Samusik_01.tif', format='tif', dpi=350)
+        plt.savefig(PLOTS + ID + "_" + names[n_set ] +'_epochs' +str(epochs) + '_' + 'MSS.eps', format='eps', dpi = 350)
+        plt.savefig(PLOTS + ID + "_" + names[n_set] + '_epochs' + str(epochs) + '_' + 'MSS.tif', format='tif', dpi=350)
         plt.show()
         plt.clf()
 
@@ -200,8 +200,8 @@ for epochs in epoch_list:
         plt.plot('k', 'SAUCIE', data=df_simLSSS, marker='v', color='orange', linewidth=2)
         plt.plot('k', 'UMAP', data=df_simLSSS, marker='x', color='olive', linewidth=2)
         plt.legend()
-        plt.savefig(PLOTS + ID + "_" + names[n_set ] + '_epochs' +str(epochs) + '_' + 'LSSS_Samusik_01.eps', format='eps', dpi = 350)
-        plt.savefig(PLOTS + ID + "_" + names[n_set] + '_epochs' + str(epochs) + '_' + 'LSSS_Samusik_01.tif', format='tif', dpi=350)
+        plt.savefig(PLOTS + ID + "_" + names[n_set ] + '_epochs' +str(epochs) + '_' + 'LSSS.eps', format='eps', dpi = 350)
+        plt.savefig(PLOTS + ID + "_" + names[n_set] + '_epochs' + str(epochs) + '_' + 'LSSS.tif', format='tif', dpi=350)
         plt.show()
         plt.clf()
 

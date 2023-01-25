@@ -101,11 +101,16 @@ for epochs in epoch_list:
         np.savez(outfile, manytoone=manytoone, discontinuity= discontinuity)
 
     #create Borealis graphs
+    import seaborn as sns
+    import matplotlib.pyplot as plt
     PLOTS = DATA_ROOT + "Real_sets/PLOTS/"
     bor_res_dirs = [DATA_ROOT + "Real_sets/DCAE_output/Performance/", DATA_ROOT + "Real_sets/UMAP_output/Performance/",DATA_ROOT + "Real_sets/SAUCIE_output/Performance/"]
     methods = ['DCAE', 'UMAP', 'SAUCIE']
     df = pd.DataFrame()
+
     for i in range(3):
+        fig_disc = plt.figure()
+        ax = fig_disc.add_subplot(111)
         for bl in list_of_inputs:
             if i == 0:
                 outfile = DATA_ROOT + "Real_sets/DCAE_output/Performance/"   + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_BOREALIS_PerformanceMeasures.npz'
@@ -148,9 +153,93 @@ for epochs in epoch_list:
             Html_file.write(html_str)
             Html_file.close()
 
+    #plot overlapping histograms per data set
+    #Disconrtinuity
+    mecol = {'DCAE': 'r',
+             'UMAP': 'b', 'SAUCIE': 'y'}
+    di = {'Levine32euclid_scaled_no_negative_removed.npz':'Levine32',
+    'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz':'Pregnancy',  'Shenkareuclid_shifted.npz':'Shenkar', 'Samusik_01.npz': 'Samusik_01'}
+    for bl in list_of_inputs:
+        fig_disc = plt.figure()
+        ax = fig_disc.add_subplot(111)
+        for i in range(3):
+            if i == 0:
+                outfile = DATA_ROOT + "Real_sets/DCAE_output/Performance/" + ID + "_" + str(bl) + 'epochs' + str(
+                    epochs) + '_BOREALIS_PerformanceMeasures.npz'
+            else:
+                outfile = bor_res_dirs[i] + '/' + str(bl) + '_BOREALIS_PerformanceMeasures.npz'
+            npz_res = np.load(outfile, allow_pickle=True)
+            discontinuity = npz_res['discontinuity']
+            manytoone = npz_res['manytoone']
+            discontinuity = np.median(discontinuity)
+            manytoone = np.median(manytoone)
+            line = pd.DataFrame([[methods[i], str(bl), discontinuity, manytoone]],
+                                columns=['method', 'Set', 'discontinuity', 'manytoone'])
+            df = df.append(line)
+            # plot discontinuity and manytone
+            discontinuity = npz_res['discontinuity']
+            manytoone = npz_res['manytoone']
 
-    import seaborn as sns
-    import matplotlib.pyplot as plt
+            npz_res = np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz',
+                              allow_pickle=True)
+            z = npz_res['z']
+
+            infile = DATA_DIR + bl
+            npzfile = np.load(infile, allow_pickle=True)
+            lbls = npzfile['lbls'];
+
+            data = np.column_stack((discontinuity, manytoone))
+
+            # plot overlapping histograms per data set
+
+            ax.hist(np.log(data[:, 0]), ls='dashed', bins=50, alpha=0.3, lw=3, color=mecol[methods[i]])
+        fig_disc.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
+        plt.title(di[bl])
+        plt.show()
+
+    # Manytoone
+    mecol = {'DCAE': 'r',
+             'UMAP': 'b', 'SAUCIE': 'y'}
+    di = {'Levine32euclid_scaled_no_negative_removed.npz': 'Levine32',
+          'Pr_008_1_Unstim_euclid_scaled_asinh_div5.npz': 'Pregnancy', 'Shenkareuclid_shifted.npz': 'Shenkar',
+          'Samusik_01.npz': 'Samusik_01'}
+    for bl in list_of_inputs:
+        fig_disc = plt.figure()
+        ax = fig_disc.add_subplot(111)
+        for i in range(3):
+            if i == 0:
+                outfile = DATA_ROOT + "Real_sets/DCAE_output/Performance/" + ID + "_" + str(bl) + 'epochs' + str(
+                    epochs) + '_BOREALIS_PerformanceMeasures.npz'
+            else:
+                outfile = bor_res_dirs[i] + '/' + str(bl) + '_BOREALIS_PerformanceMeasures.npz'
+            npz_res = np.load(outfile, allow_pickle=True)
+            discontinuity = npz_res['discontinuity']
+            manytoone = npz_res['manytoone']
+            discontinuity = np.median(discontinuity)
+            manytoone = np.median(manytoone)
+            line = pd.DataFrame([[methods[i], str(bl), discontinuity, manytoone]],
+                                columns=['method', 'Set', 'discontinuity', 'manytoone'])
+            df = df.append(line)
+            # plot discontinuity and manytone
+            discontinuity = npz_res['discontinuity']
+            manytoone = npz_res['manytoone']
+
+            npz_res = np.load(z_dir + '/' + ID + "_" + str(bl) + 'epochs' + str(epochs) + '_latent_rep_3D.npz',
+                              allow_pickle=True)
+            z = npz_res['z']
+
+            infile = DATA_DIR + bl
+            npzfile = np.load(infile, allow_pickle=True)
+            lbls = npzfile['lbls'];
+
+            data = np.column_stack((discontinuity, manytoone))
+
+            # plot overlapping histograms per data set
+
+            ax.hist((data[:, 1]), ls='dashed', bins=100, alpha=0.3, lw=3, color=mecol[methods[i]])
+        fig_disc.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.)
+        plt.title(di[bl])
+        plt.show()
 
     #rename sets for plot
 
