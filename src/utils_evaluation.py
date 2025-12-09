@@ -4,35 +4,64 @@ utility functions, mostly for the performance evaluation
 import rpy2
 from rpy2.robjects.packages import SignatureTranslatedAnonymousPackage
 from sklearn.neighbors import NearestNeighbors
-from skhubness.neighbors import FalconnLSH #comment out then running SAUCIE and UMAP scripts
 from sklearn import metrics, datasets
 from plotly.graph_objs import Scatter3d, Scatter
 import plotly.graph_objects as go
 from matplotlib.colors import rgb2hex
 import seaborn as sns
 from joblib import Parallel, delayed
-import ot
+import os
 import faiss
 import math
-
 import random
-
 import numpy as np
 from scipy.spatial.distance import pdist
 from scipy.spatial.distance import squareform
-
-
 import ctypes
 from numpy.ctypeslib import ndpointer
-lib = ctypes.cdll.LoadLibrary("/media/grinek/Seagate/DCAE/Clibs/perp.so")
+
+# ---------------------------------------------------------------------
+# OPTIONAL: FalconnLSH (hubness / LSH). Not needed for plotting.
+# ---------------------------------------------------------------------
+try:
+    from skhubness.neighbors import FalconnLSH
+except Exception:
+    FalconnLSH = None
+
+# ---------------------------------------------------------------------
+# OPTIONAL: 'ot' (Python Optimal Transport) – can pull in TensorFlow.
+# We wrap it so failures do NOT kill the import.
+# ---------------------------------------------------------------------
+os.environ.setdefault("POT_BACKEND", "numpy")  # prefer numpy backend if available
+try:
+    import ot
+except Exception as e:
+    ot = None
+    print(
+        "[utils_evaluation] Warning: 'ot' (Python Optimal Transport) could not be imported.\n"
+        "  → OT-based evaluation metrics (Wasserstein / WSD) will be DISABLED.\n"
+        f"  Reason: {e}"
+    )
+
+# --- C library for perplexity (unchanged) ---
+lib = ctypes.cdll.LoadLibrary("/home/sgrinek/PycharmProjects/DCAE/Clibs/perp.so")
 perp = lib.Perplexity
 perp.restype = None
 perp.argtypes = [ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
-                ctypes.c_size_t, ctypes.c_size_t,
-                ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
-                ctypes.c_double,  ctypes.c_size_t,
-                ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), #Sigma
-                ctypes.c_size_t]
+                 ctypes.c_size_t, ctypes.c_size_t,
+                 ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
+                 ctypes.c_double, ctypes.c_size_t,
+                 ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),  # Sigma
+                 ctypes.c_size_t]
+def _require_ot():
+    """Raise a clear error if OT-based functionality is used but 'ot' is unavailable."""
+    if ot is None:
+        raise RuntimeError(
+            "This function requires the 'ot' (Python Optimal Transport) package, "
+            "but it could not be imported (its backend tried to load TensorFlow and failed). "
+            "Install a working 'ot' or avoid OT-based metrics in this environment."
+        )
+
 
 def table(labels):
     unique, counts = np.unique(labels, return_counts=True)
@@ -249,11 +278,25 @@ def compute_cluster_performance(lblsT, lblsP):
     return {'Adjusted_Rand_Score': Adjusted_Rand_Score, 'adjusted_MI_Score': adjusted_MI_Score, 'F1_score': F1_score}
 
 # comment out then running SAUCIE and UMAP scripts
+# comment out then running SAUCIE and UMAP scripts
 def find_neighborsLSH(data, k_, cores=16):
-    lshf = FalconnLSH(n_candidates = k_+1, radius= 1.0, metric = 'euclidean', num_probes = 50, n_jobs = cores, verbose = 0)
+    if FalconnLSH is None:
+        raise RuntimeError(
+            "FalconnLSH is not available (skhubness.neighbors could not be imported). "
+            "Install 'skhubness' or use 'find_neighbors' instead."
+        )
+    lshf = FalconnLSH(
+        n_candidates=k_ + 1,
+        radius=1.0,
+        metric='euclidean',
+        num_probes=50,
+        n_jobs=cores,
+        verbose=0,
+    )
     lshf.fit(data)
-    dist, ind = lshf.kneighbors(data, n_candidates=k_+1, return_distance =True)
-    return {'dist': np.array(dist[:, 1:]), 'idx': np.array(ind[:, 1: ])}
+    dist, ind = lshf.kneighbors(data, n_candidates=k_ + 1, return_distance=True)
+    return {'dist': np.array(dist[:, 1:]), 'idx': np.array(ind[:, 1:])}
+
 
 def find_neighbors(data, k_, metric='euclidean', cores=16, algorithm = "ball_tree"):
     tree = NearestNeighbors(n_neighbors=k_, algorithm=algorithm, leaf_size=30, metric=metric, metric_params=None,
@@ -818,12 +861,15 @@ def normalize_data_by_mean_pdist(x, num=None):
     return x / get_mean_pdist(x, num)
 
 def get_emd2(pts1, pts2):
+    _require_ot()
     distmat = ot.dist(pts1, pts2)
     a = ot.unif(len(pts1))
     b = ot.unif(len(pts2))
     return ot.emd2(a, b, distmat)
 
+
 def get_wsd_scores(x, y, k, num_meandist=None, compute_knn_x=False, x_knn=None):
+    _require_ot()
     if compute_knn_x:
         kidx_x = get_self_knn_idx(x, k)
     else:
@@ -845,12 +891,14 @@ def get_wsd_scores(x, y, k, num_meandist=None, compute_knn_x=False, x_knn=None):
 
 
 def get_emd2_normalized(pts1, pts2):
-    distmat = ot.dist(pts1, pts2, metric = 'euclidean') #by deafault squared euclidean
+    _require_ot()
+    distmat = ot.dist(pts1, pts2, metric='euclidean')  # by default squared euclidean
     a = ot.unif(len(pts1))
     b = ot.unif(len(pts2))
     return ot.emd2(a, b, distmat)
 
 def get_wsd_scores_normalized(x, y, k, num_meandist=None, compute_knn_x=False, x_knn=None, nc=12):
+    _require_ot()
     if compute_knn_x:
         kidx_x = get_self_knn_idx(x, k)
     else:

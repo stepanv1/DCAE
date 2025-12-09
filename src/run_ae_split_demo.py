@@ -1,12 +1,16 @@
 import os
 from ae_split_demo import main, plot_latent
+
+#TODO: create crak indusing example of hemathopoatic contimum
+# (loci create bend limiting reach of the manifold)
+# split fatagneration function and model-training one
 os.chdir('/home/sgrinek/PycharmProjects/DCAE')
 art = main([
-    '--m','10','--ell', '7', '--N','6000','--epochs-mse','10000','--epochs-dcae',
-      '10000','--lambda-dcae','1e-4',
+    '--m','50','--ell', '20', '--N','60000','--epochs-mse','10000','--epochs-dcae',
+      '10000','--lambda-dcae','1e-6',
       '--batch-size','4096','--threads','56','--interop-threads','8',
       '--num-workers','8','--prefetch-factor','4','--compile', '--early-stop',
-      "--patience", "100", "--min-delta", '1e-7'])
+      "--patience", "100", "--min-delta", '1e-20'])
 
 X_np      = art['X_input']              # (N, m)
 Z_mse     = art['mse']['Z']             # (N, k)
@@ -27,15 +31,15 @@ Z_ns    = enc_mse_fn(X_np[:1000])
 Xrec    = ae_final_fn(X_np[:1000])
 Xrec_m  = dec_mse_fn(Z_new)  # decoder-only, etc.
 
-m=15
+m=50
 color = X_np[:, 1]           # already numpy
 plot_latent(
-    Z_mse, color, s=0.01,           # both already numpy
+    Z_mse, color, s=0.001,           # both already numpy
     title=f"Latent representation before DCAE",
     out_path=os.path.join("/home/sgrinek/PycharmProjects/DCAE/PAPERPLOTS",
                           f"latent_mse_only_m{m}.png"))
 plot_latent(
-    Z_final, color, s=0.01,           # both already numpy
+    Z_final, color, s=0.001,           # both already numpy
     title=f"Latent representation after DCAE",
     out_path=os.path.join("/home/sgrinek/PycharmProjects/DCAE/PAPERPLOTS",
                           f"latent_DCAE_m{m}.png"))
